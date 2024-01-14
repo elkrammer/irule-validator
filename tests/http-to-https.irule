@@ -1,0 +1,6 @@
+when HTTP_REQUEST {
+  if {[HTTP::uri] starts_with "/login/"} { 
+    HTTP::redirect "https://[HTTP::host][HTTP::uri]"
+    return
+  }
+}
