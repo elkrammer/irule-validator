@@ -1,0 +1,8 @@
+when CLIENTSSL_HANDSHAKE {
+  if { [SSL::cipher name] eq "AES-GCM" } {
+    # Perform SSL offloading for AES-GCM cipher
+    pool my_ssl_pool
+  } else {
+    reject
+  }
+}

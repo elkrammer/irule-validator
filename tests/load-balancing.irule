@@ -1,0 +1,7 @@
+when LB_SELECTED {
+  if { [LB::server addr] eq "10.0.0.1" } {
+    # Perform custom logic for server selection
+    set server_priority 10
+    LB::priority $server_priority
+  }
+}
