@@ -1,0 +1,8 @@
+when HTTP_REQUEST {
+  HTTP::header remove x-forwarded-host
+  HTTP::header remove x-forwarded-for
+  HTTP::header remove x-forwarded-proto
+  HTTP::header remove x-forwarded
+  HTTP::header insert X-Forwarded-Host [HTTP::host]
+  HTTP::header insert X-Forwarded-For [HTTP::header value "True-Client-IP"]
+}
