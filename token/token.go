@@ -8,12 +8,30 @@ type Token struct {
 }
 
 const (
+	// SPECIAL TOKENS
 	ILLEGAL = "ILLEGAL"
 	EOF     = "EOF"
+	IDENT   = "IDENT"
 
-	// identifiers + literals
-	IDENT = "IDENT" // add, foobar, x, y
-	INT   = "INT"   // 12345
+	// Identifiers / Literals
+	HTTP_URI    = "HTTP::uri"
+	HTTP_METHOD = "HTTP::method"
+	HTTP_HOST   = "HTTP::host"
+	HTTP_PATH   = "HTTP::path"
+	HTTP_QUERY  = "HTTP::query"
+	HTTP_HEADER = "HTTP::header"
+
+	SSL_CIPHER      = "SSL::cipher"
+	SSL_CIPHER_BITS = "SSL::cipher_bits"
+
+	IP_CLIENT_ADDR = "IP::client_addr"
+	IP_SERVER_ADDR = "IP::server_addr"
+
+	LB_SERVER = "LB::server"
+	LB_METHOD = "LB::method"
+
+	SESSION_DATA    = "SESSION::data"
+	SESSION_PERSIST = "SESSION::persist"
 
 	// F5 Event Contexts
 	// when <EVENT_CONTEXT> {}
@@ -25,6 +43,9 @@ const (
 	LB_FAILED           = "LB_FAILED"
 	TCP_REQUEST         = "TCP_REQUEST"
 
+	// F5 COMMANDS
+	STARTS_WITH = "starts_with"
+
 	//operators
 	ASSIGN   = "="
 	PLUS     = "+"
@@ -34,37 +55,31 @@ const (
 	SLASH    = "/"
 	LT       = "<"
 	GT       = ">"
-
-	EQ     = "=="
-	NOT_EQ = "!="
+	EQ       = "=="
+	NOT_EQ   = "!="
 
 	// delimiters
 	COMMA     = ","
 	SEMICOLON = ";"
-
-	LPAREN = "("
-	RPAREN = ")"
-	LBRACE = "{"
-	RBRACE = "}"
+	LPAREN    = "("
+	RPAREN    = ")"
+	LBRACE    = "{"
+	RBRACE    = "}"
+	LBRACKET  = "["
+	RBRACKET  = "]"
 
 	// keywords
-	FUNCTION = "FUNCTION"
-	LET      = "LET"
-	TRUE     = "TRUE"
-	FALSE    = "FALSE"
-	IF       = "IF"
-	ELSE     = "ELSE"
-	RETURN   = "RETURN"
+	IF     = "IF"
+	ELSE   = "ELSE"
+	RETURN = "RETURN"
+	WHEN   = "WHEN"
 )
 
 var keywords = map[string]TokenType{
-	"fn":     FUNCTION,
-	"let":    LET,
-	"true":   TRUE,
-	"false":  FALSE,
 	"if":     IF,
 	"else":   ELSE,
 	"return": RETURN,
+	"WHEN":   WHEN,
 }
 
 func LookupIdent(ident string) TokenType {
