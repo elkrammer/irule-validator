@@ -12,8 +12,38 @@ const (
 	ILLEGAL = "ILLEGAL"
 	EOF     = "EOF"
 	IDENT   = "IDENT"
+	STRING  = "STRING"
+	INT     = "INT" // 12345
 
-	// Identifiers / Literals
+	//operators
+	ASSIGN   = "="
+	PLUS     = "+"
+	MINUS    = "-"
+	BANG     = "!"
+	ASTERISK = "*"
+	SLASH    = "/"
+	LT       = "<"
+	GT       = ">"
+	EQ       = "=="
+	NOT_EQ   = "!="
+
+	// delimiters
+	COMMA        = ","
+	SEMICOLON    = ";"
+	LPAREN       = "("
+	RPAREN       = ")"
+	LBRACE       = "{"
+	RBRACE       = "}"
+	LBRACKET     = "["
+	RBRACKET     = "]"
+	DOUBLE_COLON = "::"
+
+	// KEYWORDS
+	// --------
+	IF     = "IF"
+	ELSE   = "ELSE"
+	RETURN = "RETURN"
+
 	HTTP_URI    = "HTTP::uri"
 	HTTP_METHOD = "HTTP::method"
 	HTTP_HOST   = "HTTP::host"
@@ -33,7 +63,7 @@ const (
 	SESSION_DATA    = "SESSION::data"
 	SESSION_PERSIST = "SESSION::persist"
 
-	// F5 Event Contexts
+	// F5 Event Contexts KEYWORDS
 	// when <EVENT_CONTEXT> {}
 	HTTP_REQUEST        = "HTTP_REQUEST"
 	HTTP_RESPONSE       = "HTTP_RESPONSE"
@@ -45,41 +75,48 @@ const (
 
 	// F5 COMMANDS
 	STARTS_WITH = "starts_with"
-
-	//operators
-	ASSIGN   = "="
-	PLUS     = "+"
-	MINUS    = "-"
-	BANG     = "!"
-	ASTERISK = "*"
-	SLASH    = "/"
-	LT       = "<"
-	GT       = ">"
-	EQ       = "=="
-	NOT_EQ   = "!="
-
-	// delimiters
-	COMMA     = ","
-	SEMICOLON = ";"
-	LPAREN    = "("
-	RPAREN    = ")"
-	LBRACE    = "{"
-	RBRACE    = "}"
-	LBRACKET  = "["
-	RBRACKET  = "]"
-
-	// keywords
-	IF     = "IF"
-	ELSE   = "ELSE"
-	RETURN = "RETURN"
-	WHEN   = "WHEN"
+	REDIRECT    = "redirect"
+	WHEN        = "WHEN"
 )
 
 var keywords = map[string]TokenType{
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
-	"WHEN":   WHEN,
+	"if":            IF,
+	"else":          ELSE,
+	"return":        RETURN,
+	"when":          WHEN,
+	"HTTP_REQUEST":  HTTP_REQUEST,
+	"HTTP_RESPONSE": HTTP_RESPONSE,
+	"HTTP::uri":     HTTP_URI,
+	"HTTP::method":  HTTP_METHOD,
+	"HTTP::host":    HTTP_HOST,
+	"HTTP::path":    HTTP_PATH,
+	"HTTP::query":   HTTP_QUERY,
+	"HTTP::header":  HTTP_HEADER,
+
+	"SSL::cipher":      SSL_CIPHER,
+	"SSL::cipher_bits": SSL_CIPHER_BITS,
+
+	"IP::client_addr": IP_CLIENT_ADDR,
+	"IP::server_addr": IP_SERVER_ADDR,
+
+	"LB::server": LB_SERVER,
+	"LB::method": LB_METHOD,
+
+	"SESSION::data":    SESSION_DATA,
+	"SESSION::persist": SESSION_PERSIST,
+
+	// F5 Event Contexts KEYWORDS
+	// when <EVENT_CONTEXT> {}
+	"CLIENTSSL_HANDSHAKE": CLIENTSSL_HANDSHAKE,
+	"SERVERSSL_HANDSHAKE": SERVERSSL_HANDSHAKE,
+	"LB_SELECTED":         LB_SELECTED,
+	"LB_FAILED":           LB_FAILED,
+	"TCP_REQUEST":         TCP_REQUEST,
+
+	// F5 COMMANDS
+	"starts_with": STARTS_WITH,
+	"redirect":    REDIRECT,
+	"WHEN":        WHEN,
 }
 
 func LookupIdent(ident string) TokenType {
