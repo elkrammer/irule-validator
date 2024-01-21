@@ -66,6 +66,14 @@ func (l *Lexer) NextToken() token.Token {
 		} else {
 			tok = newToken(token.BANG, l.ch)
 		}
+	// case ':':
+	// 	if l.peekChar() == ':' {
+	// 		ch := l.ch
+	// 		l.readChar()
+	// 		literal := string(ch) + string(l.ch)
+	// 		println("literal is :", literal)
+	// 		tok = token.Token{Type: token.DOUBLE_COLON, Literal: literal}
+	// 	}
 	case '/':
 		tok = newToken(token.SLASH, l.ch)
 	case '*':
@@ -78,6 +86,10 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.LBRACE, l.ch)
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
+	case '[':
+		tok = newToken(token.LBRACKET, l.ch)
+	case ']':
+		tok = newToken(token.RBRACKET, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
@@ -101,7 +113,7 @@ func (l *Lexer) NextToken() token.Token {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) {
+	for isLetter(l.ch) || l.ch == ':' {
 		l.readChar()
 	}
 	return l.input[position:l.position]
