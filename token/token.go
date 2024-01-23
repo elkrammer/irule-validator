@@ -44,12 +44,13 @@ const (
 	ELSE   = "ELSE"
 	RETURN = "RETURN"
 
-	HTTP_URI    = "HTTP::uri"
-	HTTP_METHOD = "HTTP::method"
-	HTTP_HOST   = "HTTP::host"
-	HTTP_PATH   = "HTTP::path"
-	HTTP_QUERY  = "HTTP::query"
-	HTTP_HEADER = "HTTP::header"
+	HTTP_URI      = "HTTP::uri"
+	HTTP_METHOD   = "HTTP::method"
+	HTTP_HOST     = "HTTP::host"
+	HTTP_PATH     = "HTTP::path"
+	HTTP_QUERY    = "HTTP::query"
+	HTTP_HEADER   = "HTTP::header"
+	HTTP_REDIRECT = "HTTP::redirect"
 
 	SSL_CIPHER      = "SSL::cipher"
 	SSL_CIPHER_BITS = "SSL::cipher_bits"
@@ -75,23 +76,23 @@ const (
 
 	// F5 COMMANDS
 	STARTS_WITH = "starts_with"
-	REDIRECT    = "redirect"
 	WHEN        = "WHEN"
 )
 
 var keywords = map[string]TokenType{
-	"if":            IF,
-	"else":          ELSE,
-	"return":        RETURN,
-	"when":          WHEN,
-	"HTTP_REQUEST":  HTTP_REQUEST,
-	"HTTP_RESPONSE": HTTP_RESPONSE,
-	"HTTP::uri":     HTTP_URI,
-	"HTTP::method":  HTTP_METHOD,
-	"HTTP::host":    HTTP_HOST,
-	"HTTP::path":    HTTP_PATH,
-	"HTTP::query":   HTTP_QUERY,
-	"HTTP::header":  HTTP_HEADER,
+	"if":             IF,
+	"else":           ELSE,
+	"return":         RETURN,
+	"when":           WHEN,
+	"HTTP_REQUEST":   HTTP_REQUEST,
+	"HTTP_RESPONSE":  HTTP_RESPONSE,
+	"HTTP::uri":      HTTP_URI,
+	"HTTP::method":   HTTP_METHOD,
+	"HTTP::host":     HTTP_HOST,
+	"HTTP::path":     HTTP_PATH,
+	"HTTP::query":    HTTP_QUERY,
+	"HTTP::header":   HTTP_HEADER,
+	"HTTP::redirect": HTTP_REDIRECT,
 
 	"SSL::cipher":      SSL_CIPHER,
 	"SSL::cipher_bits": SSL_CIPHER_BITS,
@@ -115,7 +116,6 @@ var keywords = map[string]TokenType{
 
 	// F5 COMMANDS
 	"starts_with": STARTS_WITH,
-	"redirect":    REDIRECT,
 	"WHEN":        WHEN,
 }
 

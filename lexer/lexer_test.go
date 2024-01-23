@@ -8,7 +8,7 @@ import (
 func TestNextToken(t *testing.T) {
 	input := `when HTTP_REQUEST {
 	   if { [HTTP::uri] starts_with "/oldpath" } {
-	       HTTP::redirect "/newpath[HTTP::uri]"
+	       HTTP::redirect "/newpath"
 	   }
 	 }`
 
@@ -26,23 +26,15 @@ func TestNextToken(t *testing.T) {
 		{token.HTTP_URI, "HTTP::uri"},
 		{token.RBRACKET, "]"},
 		{token.STARTS_WITH, "starts_with"},
-		// {token.STRING, "/oldpath"},
+		{token.STRING, "/oldpath"},
+		{token.RBRACE, "}"},
+		{token.LBRACE, "{"},
 
-		// {token.RPAREN, ")"},
-		// {token.LBRACE, "{"},
-		// {token.HTTP_RESPONSE, "HTTP_RESPONSE"},
-		// {token.DOUBLE_COLON, "::"},
-		// {token.REDIRECT, "redirect"},
-		// {token.STRING, `"/newpath`},
-		// {token.LBRACKET, "["},
-		// {token.HTTP_URI, "HTTP::uri"},
-		// {token.RBRACKET, "]"},
-		// {token.STRING, `"`},
-		// {token.RPAREN, ")"},
-		// {token.SEMICOLON, ";"},
-		// {token.RBRACE, "}"},
-		// {token.RBRACE, "}"},
-		// {token.EOF, ""},
+		{token.HTTP_REDIRECT, "HTTP::redirect"},
+		{token.STRING, "/newpath"},
+		{token.RBRACE, "}"},
+		{token.RBRACE, "}"},
+		{token.EOF, ""},
 	}
 
 	l := New(input)
