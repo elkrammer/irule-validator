@@ -6,21 +6,25 @@ import (
 	"github.com/elkrammer/irule-validator/token"
 )
 
+// interface that all AST nodes must implement
 type Node interface {
 	TokenLiteral() string
 	String() string
 }
 
+// interface for statement nodes
 type Statement interface {
 	Node
 	statementNode()
 }
 
+// interface for expression nodes
 type Expression interface {
 	Node
 	expressionNode()
 }
 
+// represents the entire program
 type Program struct {
 	Statements []Statement
 }
@@ -42,7 +46,7 @@ func (p *Program) String() string {
 	return out.String()
 }
 
-// IDENTIFIER
+// represents an identifier expression
 type Identifier struct {
 	Token token.Token
 	Value string
