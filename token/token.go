@@ -43,6 +43,8 @@ const (
 	IF     = "IF"
 	ELSE   = "ELSE"
 	RETURN = "RETURN"
+	TRUE   = "TRUE"
+	FALSE  = "FALSE"
 
 	HTTP_URI      = "HTTP::uri"
 	HTTP_METHOD   = "HTTP::method"
@@ -84,6 +86,8 @@ var keywords = map[string]TokenType{
 	"else":           ELSE,
 	"return":         RETURN,
 	"when":           WHEN,
+	"true":           TRUE,
+	"false":          FALSE,
 	"HTTP_REQUEST":   HTTP_REQUEST,
 	"HTTP_RESPONSE":  HTTP_RESPONSE,
 	"HTTP::uri":      HTTP_URI,

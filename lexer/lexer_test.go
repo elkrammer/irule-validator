@@ -10,6 +10,7 @@ func TestNextToken(t *testing.T) {
 	   if { [HTTP::uri] starts_with "/oldpath" } {
 	       HTTP::redirect "/newpath"
 	   }
+     return true;
 	 }`
 
 	tests := []struct {
@@ -33,6 +34,9 @@ func TestNextToken(t *testing.T) {
 		{token.HTTP_REDIRECT, "HTTP::redirect"},
 		{token.STRING, "/newpath"},
 		{token.RBRACE, "}"},
+		{token.RETURN, "return"},
+		{token.TRUE, "true"},
+		{token.SEMICOLON, ";"},
 		{token.RBRACE, "}"},
 		{token.EOF, ""},
 	}

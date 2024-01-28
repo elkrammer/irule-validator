@@ -200,8 +200,8 @@ func TestParsingPrefixExpressions(t *testing.T) {
 	}{
 		{"!5;", "!", 5},
 		{"-15;", "-", 15},
-		// {"!true;", "!", true},
-		// {"!false", "!", false},
+		{"!true;", "!", true},
+		{"!false", "!", false},
 	}
 
 	for _, tt := range prefixTests {
@@ -309,15 +309,15 @@ func TestParsingInfixExpressions(t *testing.T) {
 			t.Fatalf("program.Statements[0] is not an ast.ExpressionStatement. Got=%T", program.Statements[0])
 		}
 
-		exp, ok := stmt.Expression.(*ast.InfixExpression)
-		if !ok {
-			t.Fatalf("exp is not ast.InfixExpression. Got=%T", stmt.Expression)
-		}
-
-		if exp.Operator != tt.operator {
-			t.Fatalf("exp.operator is not '%s'. Got=%s", tt.operator, exp.Operator)
-		}
-
+		// exp, ok := stmt.Expression.(*ast.InfixExpression)
+		// if !ok {
+		// 	t.Fatalf("exp is not ast.InfixExpression. Got=%T", stmt.Expression)
+		// }
+		//
+		// if exp.Operator != tt.operator {
+		// 	t.Fatalf("exp.operator is not '%s'. Got=%s", tt.operator, exp.Operator)
+		// }
+		//
 		if !testInfixExpression(t, stmt.Expression, tt.leftValue, tt.operator, tt.rightValue) {
 			return
 		}
@@ -352,50 +352,50 @@ func testLiteralExpression(t *testing.T, exp ast.Expression, expected interface{
 		return testIntegerLiteral(t, exp, v)
 	case string:
 		return testIdentifier(t, exp, v)
-		// case bool:
-		// 	return testBooleanLiteral(t, exp, v)
+	case bool:
+		return testBooleanLiteral(t, exp, v)
 	}
 
 	t.Errorf("type of exp not handled. Got=%T", exp)
 	return false
 }
 
-// func TestBooleanExpression(t *testing.T) {
-// 	tests := []struct {
-// 		input           string
-// 		expectedBoolean bool
-// 	}{
-// 		{"true;", true},
-// 		{"false;", false},
-// 	}
-//
-// 	for _, tt := range tests {
-// 		l := lexer.New(tt.input)
-// 		p := New(l)
-// 		program := p.ParseProgram()
-// 		checkParserErrors(t, p)
-//
-// 		if len(program.Statements) != 1 {
-// 			t.Fatalf("program has not enough statements. got=%d",
-// 				len(program.Statements))
-// 		}
-//
-// 		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
-// 		if !ok {
-// 			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-// 				program.Statements[0])
-// 		}
-//
-// 		boolean, ok := stmt.Expression.(*ast.Boolean)
-// 		if !ok {
-// 			t.Fatalf("exp not *ast.Boolean. got=%T", stmt.Expression)
-// 		}
-// 		if boolean.Value != tt.expectedBoolean {
-// 			t.Errorf("boolean.Value not %t. got=%t", tt.expectedBoolean,
-// 				boolean.Value)
-// 		}
-// 	}
-// }
+func TestBooleanExpression(t *testing.T) {
+	tests := []struct {
+		input           string
+		expectedBoolean bool
+	}{
+		{"true;", true},
+		{"false;", false},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program has not enough statements. got=%d",
+				len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+				program.Statements[0])
+		}
+
+		boolean, ok := stmt.Expression.(*ast.Boolean)
+		if !ok {
+			t.Fatalf("exp not *ast.Boolean. got=%T", stmt.Expression)
+		}
+		if boolean.Value != tt.expectedBoolean {
+			t.Errorf("boolean.Value not %t. got=%t", tt.expectedBoolean,
+				boolean.Value)
+		}
+	}
+}
 
 func testInfixExpression(t *testing.T, exp ast.Expression, left interface{}, operator string, right interface{}) bool {
 	opExp, ok := exp.(*ast.InfixExpression)
@@ -404,18 +404,18 @@ func testInfixExpression(t *testing.T, exp ast.Expression, left interface{}, ope
 		return false
 	}
 
-	// if !testLiteralExpression(t, opExp.Left, left) {
-	// 	return false
-	// }
+	if !testLiteralExpression(t, opExp.Left, left) {
+		return false
+	}
 
 	if opExp.Operator != operator {
 		t.Errorf("exp.Operator is not '%s'. Got=%q", operator, opExp.Operator)
 		return false
 	}
 
-	// if !testLiteralExpression(t, opExp.Right, right) {
-	// 	return false
-	// }
+	if !testLiteralExpression(t, opExp.Right, right) {
+		return false
+	}
 
 	return true
 }
