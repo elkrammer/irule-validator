@@ -79,6 +79,7 @@ const (
 	// F5 COMMANDS
 	STARTS_WITH = "starts_with"
 	WHEN        = "WHEN"
+	THEN        = "THEN"
 )
 
 var keywords = map[string]TokenType{
@@ -121,6 +122,7 @@ var keywords = map[string]TokenType{
 	// F5 COMMANDS
 	"starts_with": STARTS_WITH,
 	"WHEN":        WHEN,
+	"then":        THEN,
 }
 
 func LookupIdent(ident string) TokenType {

@@ -132,17 +132,32 @@ type InfixExpression struct {
 
 func (ie *InfixExpression) expressionNode()      {}
 func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+
 func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("(")
+	out.WriteString("when ")
 	out.WriteString(ie.Left.String())
-	out.WriteString(" " + ie.Operator + " ")
-	out.WriteString(ie.Right.String())
-	out.WriteString(")")
+	out.WriteString(" + ")
+	if ie.Right != nil {
+		out.WriteString(ie.Right.String())
+	}
 
 	return out.String()
 }
+
+// func (ie *InfixExpression) String() string {
+// 	var out bytes.Buffer
+//
+// 	out.WriteString(ie.Left.String())
+// 	out.WriteString(" " + ie.Operator + " ")
+//
+// 	if ie.Right != nil {
+// 		out.WriteString(ie.Right.String())
+// 	}
+//
+// 	return out.String()
+// }
 
 // BOOLEAN LTERALS
 type Boolean struct {
