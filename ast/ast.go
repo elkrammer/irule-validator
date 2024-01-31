@@ -132,13 +132,11 @@ type InfixExpression struct {
 
 func (ie *InfixExpression) expressionNode()      {}
 func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
-
 func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("when ")
 	out.WriteString(ie.Left.String())
-	out.WriteString(" + ")
+	out.WriteString(" " + ie.Operator + " ")
 	if ie.Right != nil {
 		out.WriteString(ie.Right.String())
 	}

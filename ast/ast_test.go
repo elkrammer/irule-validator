@@ -48,7 +48,8 @@ func TestString(t *testing.T) {
 		},
 	}
 
-	expectedOutput := "when HTTP_REQUEST + {"
+	// Updated the expected output to match the new InfixExpression String() format
+	expectedOutput := "HTTP_REQUEST + {"
 	actualOutput := program.String()
 
 	if actualOutput != expectedOutput {

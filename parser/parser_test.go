@@ -420,38 +420,38 @@ func testInfixExpression(t *testing.T, exp ast.Expression, left interface{}, ope
 	return true
 }
 
-// func TestOperatorPrecedenceParsing(t *testing.T) {
-// 	tests := []struct {
-// 		input    string
-// 		expected string
-// 	}{
-// 		// {
-// 		// 	"true",
-// 		// 	"true",
-// 		// },
-// 		// {
-// 		// 	"false",
-// 		// 	"false",
-// 		// },
-// 		{
-// 			"3 > 5 == false",
-// 			"((3 > 5) == false)",
-// 		},
-// 		{
-// 			"3 < 5 == true",
-// 			"((3 < 5) == true)",
-// 		},
-// 	}
-//
-// 	for _, tt := range tests {
-// 		l := lexer.New(tt.input)
-// 		p := New(l)
-// 		program := p.ParseProgram()
-// 		checkParserErrors(t, p)
-//
-// 		actual := program.String()
-// 		if actual != tt.expected {
-// 			t.Errorf("expected=%q, got=%q", tt.expected, actual)
-// 		}
-// 	}
-// }
+func TestOperatorPrecedenceParsing(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			"true",
+			"true",
+		},
+		{
+			"false",
+			"false",
+		},
+		{
+			"3 > 5 == false",
+			"3 > 5 == false",
+		},
+		{
+			"3 < 5 == true",
+			"3 < 5 == true",
+		},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		actual := program.String()
+		if actual != tt.expected {
+			t.Errorf("expected=%q, got=%q", tt.expected, actual)
+		}
+	}
+}

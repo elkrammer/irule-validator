@@ -21,7 +21,6 @@ const (
 )
 
 var precedences = map[token.TokenType]int{
-
 	token.EQ:       EQUALS,
 	token.NOT_EQ:   EQUALS,
 	token.LT:       LESSGREATER,
