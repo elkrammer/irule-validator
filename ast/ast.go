@@ -144,19 +144,6 @@ func (ie *InfixExpression) String() string {
 	return out.String()
 }
 
-// func (ie *InfixExpression) String() string {
-// 	var out bytes.Buffer
-//
-// 	out.WriteString(ie.Left.String())
-// 	out.WriteString(" " + ie.Operator + " ")
-//
-// 	if ie.Right != nil {
-// 		out.WriteString(ie.Right.String())
-// 	}
-//
-// 	return out.String()
-// }
-
 // BOOLEAN LTERALS
 type Boolean struct {
 	Token token.Token
@@ -176,3 +163,47 @@ type StringLiteral struct {
 func (sl *StringLiteral) expressionNode()      {}
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
+
+// BLOCKS
+type BlockStatement struct {
+Token token.Token // the { token
+Statements []Statement
+}
+
+func (bs *BlockStatement) statementNode() {}
+func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
+func (bs *BlockStatement) String() string {
+  var out bytes.Buffer
+
+  for _, s := range bs.Statements {
+      out.WriteString(s.String())
+  }
+
+  return out.String()
+}
+
+// IF EXPRESSION
+type IfExpression struct {
+  Token token.Token // the `if` token
+  Condition Expression
+  Consequence *BlockStatement
+  Alternative *BlockStatement
+}
+
+func (ie *IfExpression) expressionNode() {}
+func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IfExpression) String() string {
+  var out bytes.Buffer
+
+  out.WriteString("if")
+  out.WriteString(ie.Condition.String())
+  out.WriteString(" ")
+  out.WriteString(ie.Consequence.String())
+
+  if ie.Alternative != nil {
+    out.WriteString("else ")
+    out.WriteString(ie.Alternative.String())
+  }
+
+  return out.String()
+}
