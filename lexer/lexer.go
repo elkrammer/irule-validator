@@ -1,6 +1,8 @@
 package lexer
 
 import (
+	"strings"
+
 	"github.com/elkrammer/irule-validator/token"
 )
 
@@ -17,6 +19,7 @@ func New(input string) *Lexer {
 	return l
 }
 
+// read one forward character
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0
@@ -27,6 +30,14 @@ func (l *Lexer) readChar() {
 	l.readPosition += 1
 }
 
+func (l *Lexer) rewind() {
+	if l.readPosition > 0 {
+		l.position--
+		l.readPosition--
+		l.ch = l.input[l.readPosition-1]
+	}
+}
+
 func newToken(tokenType token.TokenType, ch byte) token.Token {
 	return token.Token{Type: tokenType, Literal: string(ch)}
 }
@@ -35,79 +46,72 @@ func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 	l.skipWhitespace()
 
+	// skip single line comments
+	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
+		l.skipComment()
+		return l.NextToken()
+	}
+
+	// Was this a simple token-type?
+	// if val, ok := l.lookup[l.ch]; ok {
+	// 	// Skip the character itself and return the found value
+	// 	l.readChar()
+	// 	return val
+	// }
+
 	switch l.ch {
-	case '=':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.EQ, Literal: literal}
-		} else {
-			tok = newToken(token.ASSIGN, l.ch)
-		}
-	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
-	case '(':
-		tok = newToken(token.LPAREN, l.ch)
-	case ')':
-		tok = newToken(token.RPAREN, l.ch)
-	case ',':
-		tok = newToken(token.COMMA, l.ch)
-	case '+':
-		tok = newToken(token.PLUS, l.ch)
-	case '-':
-		tok = newToken(token.MINUS, l.ch)
-	case '!':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.NOT_EQ, Literal: literal}
-		} else {
-			tok = newToken(token.BANG, l.ch)
-		}
-	// case ':':
-	// 	if l.peekChar() == ':' {
-	// 		ch := l.ch
-	// 		l.readChar()
-	// 		literal := string(ch) + string(l.ch)
-	// 		println("literal is :", literal)
-	// 		tok = token.Token{Type: token.DOUBLE_COLON, Literal: literal}
-	// 	}
-	case '/':
-		tok = newToken(token.SLASH, l.ch)
-	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
-	case '<':
-		tok = newToken(token.LT, l.ch)
-	case '>':
-		tok = newToken(token.GT, l.ch)
-	case '{':
-		tok = newToken(token.LBRACE, l.ch)
-	case '}':
-		tok = newToken(token.RBRACE, l.ch)
-	case '[':
-		tok = newToken(token.LBRACKET, l.ch)
 	case ']':
-		tok = newToken(token.RBRACKET, l.ch)
+		tok.Type = token.ILLEGAL
+		tok.Literal = "Closing ']' without opening one"
+	case '}':
+		tok.Type = token.ILLEGAL
+		tok.Literal = "Closing '}' without opening one"
+	case '$':
+		val := l.readVariable()
+		tok.Type = token.VARIABLE
+		tok.Literal = val
 	case '"':
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
+	case '+':
+		// tok = newToken(token.PLUS, l.ch)
+		tok = newToken(token.IDENT, l.ch)
 	case 0:
-		tok.Literal = ""
 		tok.Type = token.EOF
+		tok.Literal = ""
+	// case '[':
+	// 	str, err := l.readEval()
+	// 	if err == nil {
+	// 		tok.Type = token.EVAL
+	// 		tok.Literal = "[" + str + "]"
+	// 	} else {
+	// 		tok.Type = token.ILLEGAL
+	// 		tok.Literal = err.Error()
+	// 	}
+	// case '{':
+	// 	str, err := l.readBlock()
+	// 	if err == nil {
+	// 		tok.Type = token.BLOCK
+	// 		tok.Literal = str
+	// 	} else {
+	// 		tok.Type = token.ILLEGAL
+	// 		tok.Literal = err.Error()
+	// 	}
 	default:
+		// Check for number
+		if (l.ch == '-' && isDigit(l.peekChar())) || isDigit(l.ch) {
+			tok.Type = token.NUMBER
+			tok.Literal = l.readNumber()
+			return tok
+		}
+		// Check for identifier
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
 			tok.Type = token.LookupIdent(tok.Literal)
 			return tok
-		} else if isDigit(l.ch) {
-			tok.Type = token.INT
-			tok.Literal = l.readNumber()
-			return tok
-		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
 		}
+		// Everything else is an illegal token
+		tok = newToken(token.ILLEGAL, l.ch)
 	}
 
 	l.readChar()
@@ -136,6 +140,22 @@ func (l *Lexer) skipWhitespace() {
 	}
 }
 
+// skip comment (until the end of the line).
+func (l *Lexer) skipComment() {
+	// Read until the end of the line or the end of the input
+	for l.ch != '\x00' && l.ch != '\n' {
+		l.readChar()
+	}
+
+	// if it's a newline
+	if l.ch == '\n' {
+		return
+	}
+
+	// Skip any whitespace after the comment
+	l.skipWhitespace()
+}
+
 func (l *Lexer) readNumber() string {
 	position := l.position
 	for isDigit(l.ch) {
@@ -161,4 +181,36 @@ func (l *Lexer) readString() string {
 		}
 	}
 	return l.input[position:l.position]
+}
+
+func (l *Lexer) readVariable() string {
+	var str strings.Builder
+	str.WriteRune('$') // Include the '$' character in the string builder
+	// str := string(l.ch)
+
+	for {
+		l.readChar()
+
+		// // Check for the end of input
+		// if l.readPosition >= len(l.input) {
+		// 	// return str
+		// 	break
+		// }
+		//
+		// if l.ch == '$' || isLetter(l.ch) {
+		if isLetter(l.ch) || isDigit(l.ch) {
+			// str += string(l.ch)
+			str.WriteByte(l.ch) // Append the character to the string builder
+		} else {
+			l.rewind()
+			break
+			// return str
+		}
+
+		// Check for the end of input
+		if l.readPosition >= len(l.input) {
+			break
+		}
+	}
+	return str.String()
 }

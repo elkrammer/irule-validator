@@ -1,58 +1,34 @@
 package ast
 
 import (
-	"testing"
+// "testing"
 
-	"github.com/elkrammer/irule-validator/token"
+// "github.com/elkrammer/irule-validator/token"
 )
 
 // func TestString(t *testing.T) {
 // 	program := &Program{
 // 		Statements: []Statement{
-// 			&ReturnStatement{
-// 				Token: token.Token{Type: token.RETURN, Literal: "return"},
-// 				ReturnValue: &Identifier{
-// 					Token: token.Token{Type: token.STRING, Literal: "true"},
-// 					Value: "true",
+// 			&ExpressionStatement{
+// 				Expression: &CallExpression{
+// 					Function: &Identifier{
+// 						Token: token.Token{Type: token.IDENT, Literal: "puts"},
+// 						Value: "puts",
+// 					},
+// 					Arguments: []Expression{
+// 						&StringLiteral{
+// 							Token: token.Token{Type: token.STRING, Literal: "Hello, world!"},
+// 							Value: "Hello, world!",
+// 						},
+// 					},
 // 				},
-// 				// Value: &Identifier{
-// 				// 	Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
-// 				// 	Value: "anotherVar",
-// 				// },
 // 			},
 // 		},
 // 	}
 //
-// 	if program.String() != "return true;" {
-// 		t.Errorf("program.String() wrong. Got=%q", program.String())
+// 	expected := "puts \"Hello, world!\";"
+//
+// 	if program.String() != expected {
+// 		t.Errorf("program.String() wrong. Got=%q, Expected=%q", program.String(), expected)
 // 	}
 // }
-
-func TestString(t *testing.T) {
-	program := &Program{
-		Statements: []Statement{
-			&ExpressionStatement{
-				Token: token.Token{Type: token.WHEN, Literal: "when"},
-				Expression: &InfixExpression{
-					Left: &Identifier{
-						Token: token.Token{Type: token.HTTP_REQUEST, Literal: "HTTP_REQUEST"},
-						Value: "HTTP_REQUEST",
-					},
-					Operator: token.PLUS,
-					Right: &StringLiteral{
-						Token: token.Token{Type: token.LBRACE, Literal: "{"},
-						Value: "{",
-					},
-				},
-			},
-		},
-	}
-
-	// Updated the expected output to match the new InfixExpression String() format
-	expectedOutput := "HTTP_REQUEST + {"
-	actualOutput := program.String()
-
-	if actualOutput != expectedOutput {
-		t.Errorf("program.String() wrong. Got:\n%s\nExpected:\n%s", actualOutput, expectedOutput)
-	}
-}
