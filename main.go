@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/elkrammer/irule-validator/repl"
 	"os"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: ./irule-validator <filename>")
-		os.Exit(1)
+		repl.Start(os.Stdin, os.Stdout)
 	}
 
 	filename := os.Args[1]
