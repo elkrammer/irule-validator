@@ -52,54 +52,47 @@ func (l *Lexer) NextToken() token.Token {
 		return l.NextToken()
 	}
 
-	// Was this a simple token-type?
-	// if val, ok := l.lookup[l.ch]; ok {
-	// 	// Skip the character itself and return the found value
-	// 	l.readChar()
-	// 	return val
-	// }
-
 	switch l.ch {
-	case ']':
-		tok.Type = token.ILLEGAL
-		tok.Literal = "Closing ']' without opening one"
+	case '=':
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = token.Token{Type: token.EQ, Literal: literal}
+		} else {
+			tok = newToken(token.ASSIGN, l.ch)
+		}
+	case '{':
+		tok = newToken(token.LBRACE, l.ch)
 	case '}':
-		tok.Type = token.ILLEGAL
-		tok.Literal = "Closing '}' without opening one"
+		tok = newToken(token.RBRACE, l.ch)
+	case '(':
+		tok = newToken(token.LPAREN, l.ch)
+	case ')':
+		tok = newToken(token.RPAREN, l.ch)
+	case ',':
+		tok = newToken(token.COMMA, l.ch)
 	case '$':
 		val := l.readVariable()
-		tok.Type = token.VARIABLE
+		tok.Type = token.IDENT
 		tok.Literal = val
 	case '"':
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
 	case '+':
-		// tok = newToken(token.PLUS, l.ch)
-		tok = newToken(token.IDENT, l.ch)
+		tok = newToken(token.PLUS, l.ch)
+	case ';':
+		tok = newToken(token.SEMICOLON, l.ch)
+	case '<':
+		tok = newToken(token.LT, l.ch)
+	case '>':
+		tok = newToken(token.GT, l.ch)
 	case 0:
 		tok.Type = token.EOF
 		tok.Literal = ""
-	// case '[':
-	// 	str, err := l.readEval()
-	// 	if err == nil {
-	// 		tok.Type = token.EVAL
-	// 		tok.Literal = "[" + str + "]"
-	// 	} else {
-	// 		tok.Type = token.ILLEGAL
-	// 		tok.Literal = err.Error()
-	// 	}
-	// case '{':
-	// 	str, err := l.readBlock()
-	// 	if err == nil {
-	// 		tok.Type = token.BLOCK
-	// 		tok.Literal = str
-	// 	} else {
-	// 		tok.Type = token.ILLEGAL
-	// 		tok.Literal = err.Error()
-	// 	}
 	default:
 		// Check for number
-		if (l.ch == '-' && isDigit(l.peekChar())) || isDigit(l.ch) {
+		if isDigit(l.ch) || (l.ch == '-' && isDigit(l.peekChar())) {
 			tok.Type = token.NUMBER
 			tok.Literal = l.readNumber()
 			return tok
@@ -186,25 +179,16 @@ func (l *Lexer) readString() string {
 func (l *Lexer) readVariable() string {
 	var str strings.Builder
 	str.WriteRune('$') // Include the '$' character in the string builder
-	// str := string(l.ch)
 
 	for {
 		l.readChar()
 
-		// // Check for the end of input
-		// if l.readPosition >= len(l.input) {
-		// 	// return str
-		// 	break
-		// }
-		//
-		// if l.ch == '$' || isLetter(l.ch) {
 		if isLetter(l.ch) || isDigit(l.ch) {
-			// str += string(l.ch)
 			str.WriteByte(l.ch) // Append the character to the string builder
 		} else {
-			l.rewind()
+			// l.rewind()
+			l.readPosition-- // Move the position back to the non-letter/digit character
 			break
-			// return str
 		}
 
 		// Check for the end of input

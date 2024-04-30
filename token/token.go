@@ -15,22 +15,14 @@ const (
 	NEWLINE   = "\n"
 
 	// types
-	BLOCK    = "BLOCK"
-	EVAL     = "EVAL"
-	IDENT    = "IDENT"
-	ILLEGAL  = "ILLEGAL"
-	NUMBER   = "NUMBER"
-	STRING   = "STRING"
-	VARIABLE = "VARIABLE"
+	BLOCK   = "BLOCK"
+	EVAL    = "EVAL"
+	IDENT   = "IDENT"
+	ILLEGAL = "ILLEGAL"
+	NUMBER  = "NUMBER"
+	STRING  = "STRING"
 
-	// // SPECIAL TOKENS
-	// ILLEGAL  = "ILLEGAL"
-	// EOF      = "EOF"
-	// IDENT    = "IDENT"
-	// STRING   = "STRING"
-	// VARIABLE = "VARIABLE"
-	//
-	// //operators
+	//operators
 	ASSIGN   = "="
 	PLUS     = "+"
 	MINUS    = "-"
@@ -41,20 +33,17 @@ const (
 	GT       = ">"
 	EQ       = "=="
 	NOT_EQ   = "!="
-	//
-	// // delimiters
-	// COMMA        = ","
-	// SEMICOLON    = ";"
+
+	// delimiters
+	COMMA    = ","
 	LPAREN   = "("
 	RPAREN   = ")"
 	LBRACE   = "{"
 	RBRACE   = "}"
 	LBRACKET = "["
 	RBRACKET = "]"
-	// DOUBLE_COLON = "::"
-	//
-	// // KEYWORDS
-	// // --------
+
+	// KEYWORDS
 	IF     = "IF"
 	ELSE   = "ELSE"
 	RETURN = "RETURN"

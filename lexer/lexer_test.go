@@ -13,9 +13,9 @@ func TestVariable(t *testing.T) {
 		expectedType    token.TokenType
 		expectedLiteral string
 	}{
-		{token.VARIABLE, "$a"},
-		{token.IDENT, "+"},
-		{token.VARIABLE, "$b"},
+		{token.IDENT, "$a"},
+		{token.PLUS, "+"},
+		{token.IDENT, "$b"},
 		{token.EOF, ""},
 	}
 

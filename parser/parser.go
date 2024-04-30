@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/elkrammer/irule-validator/ast"
 	"github.com/elkrammer/irule-validator/lexer"
@@ -60,27 +61,23 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.NUMBER, p.parseNumberLiteral)
-	// p.registerPrefix(token.BANG, p.parsePrefixExpression)
-	// p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.FALSE, p.parseBoolean)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.IF, p.parseIfExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
-	// p.registerInfix(token.PLUS, p.parseInfixExpression)
-	// p.registerInfix(token.MINUS, p.parseInfixExpression)
-	// p.registerInfix(token.SLASH, p.parseInfixExpression)
-	// p.registerInfix(token.ASTERISK, p.parseInfixExpression)
 	p.registerInfix(token.EQ, p.parseInfixExpression)
 	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
 	p.registerInfix(token.LT, p.parseInfixExpression)
 	p.registerInfix(token.GT, p.parseInfixExpression)
-
-	// Read two tokens, so curToken and peekToken are both set
-	// p.nextToken()
-	// p.nextToken()
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
+	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
 
 	return p
 }
@@ -115,14 +112,10 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
-	// case token.LET:
-	// 	return p.parseLetStatement()
-	// case token.IF:
-	//       return p.parseIfExpression()
 	case token.RETURN:
 		return p.parseReturnStatement()
-		// case token.SET: // Assuming SET is used for variable assignments in iRules
-		//     return p.parseVariableAssignmentStatement()
+	// case token.SET: // Assuming SET is used for variable assignments in iRules
+	// 	return p.parseVariableAssignmentStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -192,8 +185,14 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	return leftExp
 }
 
+//	func (p *Parser) parseIdentifier() ast.Expression {
+//		return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+//	}
+
 func (p *Parser) parseIdentifier() ast.Expression {
-	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	// Remove the '$' symbol if it's present in the token literal
+	value := strings.TrimPrefix(p.curToken.Literal, "$")
+	return &ast.Identifier{Token: p.curToken, Value: value}
 }
 
 func (p *Parser) parseNumberLiteral() ast.Expression {
@@ -244,33 +243,41 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 
 func (p *Parser) parseIfExpression() ast.Expression {
 	// TCL IF Statement
-	// set y [if {$x} {list a} {list b}]
+	// if {$vbl == 1} { puts "vbl is one" }
 	expression := &ast.IfExpression{Token: p.curToken}
 
-	if !p.expectPeek(token.LPAREN) {
-		return nil
-	}
-
-	p.nextToken()
-	expression.Condition = p.parseExpression(LOWEST)
-
-	if !p.expectPeek(token.RPAREN) {
-		return nil
-	}
-
+	// Expect an opening brace after 'if'
 	if !p.expectPeek(token.LBRACE) {
 		return nil
 	}
 
+	// Parse the condition inside the curly braces
+	p.nextToken()
+	expression.Condition = p.parseExpression(LOWEST)
+
+	// Expect a closing brace after the condition
+	if !p.expectPeek(token.RBRACE) {
+		return nil
+	}
+
+	// Expect an opening brace for the consequence block
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+
+	// Parse the consequence block
 	expression.Consequence = p.parseBlockStatement()
 
+	// Check if there is an 'else' clause
 	if p.peekTokenIs(token.ELSE) {
 		p.nextToken()
 
+		// Expect an opening brace for the alternative block
 		if !p.expectPeek(token.LBRACE) {
 			return nil
 		}
 
+		// Parse the alternative block
 		expression.Alternative = p.parseBlockStatement()
 	}
 
