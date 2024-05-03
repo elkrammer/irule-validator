@@ -82,7 +82,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
 
-	// p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 
 	return p
@@ -123,33 +123,10 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.SEMICOLON:
 		p.nextToken()
 		return nil
-	// case token.SET: // Assuming SET is used for variable assignments in iRules
-	// 	return p.parseVariableAssignmentStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
 }
-
-// func (p *Parser) parseLetStatement() *ast.LetStatement {
-// 	stmt := &ast.LetStatement{Token: p.curToken}
-//
-// 	if !p.expectPeek(token.IDENT) {
-// 		return nil
-// 	}
-//
-// 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-//
-// 	if !p.expectPeek(token.ASSIGN) {
-// 		return nil
-// 	}
-//
-// 	// TODO: skipping expressions until we find a semicolon
-// 	for !p.curTokenIs(token.SEMICOLON) {
-// 		p.nextToken()
-// 	}
-//
-// 	return stmt
-// }
 
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	stmt := &ast.ReturnStatement{Token: p.curToken}
@@ -248,12 +225,19 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
-	lit.Parameters = p.parseFunctionParameters()
+	// Expect an identifier after the 'FUNCTION' token.
+	if !p.expectPeek(token.IDENT) {
+		// fmt.Println("Error: Expected function name.")
+		return nil
+	}
 
-	// if !p.expectPeek(token.LBRACE) {
-	// 	return nil
-	// }
-	//
+	// Expect an opening brace '{' after the function name.
+	if !p.expectPeek(token.LBRACE) {
+		// fmt.Println("Error: Expected opening brace afte function name.")
+		return nil
+	}
+
+	lit.Parameters = p.parseFunctionParameters()
 	lit.Body = p.parseBlockStatement()
 
 	return lit
@@ -262,28 +246,33 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	identifiers := []*ast.Identifier{}
 
-	if p.peekTokenIs(token.RPAREN) {
-		p.nextToken()
+	// If the next token is '}', then there are no parameters.
+	if p.peekTokenIs(token.RBRACE) {
+		p.nextToken() // Consume the '}' token.
 		return identifiers
 	}
 
-	p.nextToken()
-
-	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	identifiers = append(identifiers, ident)
-
-	for p.peekTokenIs(token.COMMA) {
+	// Read the parameters until encountering '}'.
+	for !p.peekTokenIs(token.RBRACE) {
+		// Consume the current token
 		p.nextToken()
-
-		if !p.expectPeek(token.IDENT) {
-			return nil
-		}
 
 		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 		identifiers = append(identifiers, ident)
+
+		// If the next token is '}', stop parsing parameters.
+		if p.peekTokenIs(token.RBRACE) {
+			break
+		}
+
+		// Consume the comma token if present
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+		}
 	}
 
-	if !p.peekTokenIs(token.RPAREN) {
+	// Expect the closing '}' after the parameters.
+	if !p.expectPeek(token.RBRACE) {
 		return nil
 	}
 
@@ -291,8 +280,6 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 }
 
 func (p *Parser) parseIfExpression() ast.Expression {
-	// TCL IF Statement
-	// if {$vbl == 1} { puts "vbl is one" }
 	expression := &ast.IfExpression{Token: p.curToken}
 
 	// Expect an opening brace after 'if'
@@ -486,4 +473,10 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
 	array.Elements = p.parseExpressionList(token.RBRACKET)
 	return array
+}
+
+func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	exp := &ast.CallExpression{Token: p.curToken, Function: function}
+	exp.Arguments = p.parseExpressionList(token.RPAREN)
+	return exp
 }

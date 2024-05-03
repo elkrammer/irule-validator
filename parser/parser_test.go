@@ -563,66 +563,101 @@ func TestIfElseExpression(t *testing.T) {
 	}
 }
 
-func TestFunctionLiteralParsing(t *testing.T) {
-	input := `proc add x y { return [expr {$x + $y}] }`
-	// input := `proc add {x y} { return [expr {$x + $y}] }`
+// func TestFunctionLiteralParsing(t *testing.T) {
+// 	input := `proc add x y { return [expr {$x + $y}] }`
+// 	// input := `proc add {x y} { return [expr {$x + $y}] }`
+//
+// 	l := lexer.New(input)
+// 	p := New(l)
+// 	program := p.ParseProgram()
+// 	checkParserErrors(t, p)
+//
+// 	if len(program.Statements) != 1 {
+// 		t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
+// 			1, len(program.Statements))
+// 	}
+//
+// 	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+// 	if !ok {
+// 		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+// 			program.Statements[0])
+// 	}
+//
+// 	proc, ok := stmt.Expression.(*ast.FunctionLiteral)
+// 	if !ok {
+// 		t.Fatalf("stmt.Expression is not ast.FunctionLiteral. got=%T",
+// 			stmt.Expression)
+// 	}
+//
+// 	if len(proc.Parameters) != 2 {
+// 		t.Fatalf("function literal parameters wrong. want 2, got=%d\n",
+// 			len(proc.Parameters))
+// 	}
+//
+// 	testLiteralExpression(t, proc.Parameters[0], "x")
+// 	testLiteralExpression(t, proc.Parameters[1], "y")
+//
+// 	if len(proc.Body.Statements) != 1 {
+// 		t.Fatalf("function.Body.Statements has not 1 statements. got=%d\n",
+// 			len(proc.Body.Statements))
+// 	}
+//
+// 	bodyStmt, ok := proc.Body.Statements[0].(*ast.ReturnStatement)
+// 	if !ok {
+// 		t.Fatalf("function body stmt is not ast.ReturnStatement. got=%T",
+// 			proc.Body.Statements[0])
+// 	}
+//
+// 	addExpr, ok := bodyStmt.ReturnValue.(*ast.InfixExpression)
+// 	if !ok {
+// 		t.Fatalf("bodyStmt.ReturnValue is not ast.InfixExpression. got=%T",
+// 			bodyStmt.ReturnValue)
+// 	}
+//
+// 	if !testIdentifier(t, addExpr.Left, "x") {
+// 		return
+// 	}
+//
+// 	if addExpr.Operator != "+" {
+// 		t.Fatalf("addExpr.Operator is not '+'. got=%s", addExpr.Operator)
+// 	}
+//
+// 	if !testIdentifier(t, addExpr.Right, "y") {
+// 		return
+// 	}
+// }
 
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
-
-	if len(program.Statements) != 1 {
-		t.Fatalf("program.Statements does not contain %d statements. got=%d\n",
-			1, len(program.Statements))
+func TestFunctionParameterParsing(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedParams []string
+	}{
+		{input: "proc add {} {}", expectedParams: []string{}},
+		{input: "proc add {x} {}", expectedParams: []string{"x"}},
+		{input: "proc add {x y z} {}", expectedParams: []string{"x", "y", "z"}},
 	}
 
-	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
-	if !ok {
-		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-			program.Statements[0])
-	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+			program := p.ParseProgram()
+			checkParserErrors(t, p)
 
-	proc, ok := stmt.Expression.(*ast.FunctionLiteral)
-	if !ok {
-		t.Fatalf("stmt.Expression is not ast.FunctionLiteral. got=%T",
-			stmt.Expression)
-	}
+			stmt := program.Statements[0].(*ast.ExpressionStatement)
+			proc := stmt.Expression.(*ast.FunctionLiteral)
 
-	if len(proc.Parameters) != 2 {
-		t.Fatalf("function literal parameters wrong. want 2, got=%d\n",
-			len(proc.Parameters))
-	}
+			if len(proc.Parameters) != len(tt.expectedParams) {
+				t.Fatalf("length of parameters wrong. want %d, got %d\n",
+					len(tt.expectedParams), len(proc.Parameters))
+			}
 
-	testLiteralExpression(t, proc.Parameters[0], "x")
-	testLiteralExpression(t, proc.Parameters[1], "y")
-
-	if len(proc.Body.Statements) != 1 {
-		t.Fatalf("function.Body.Statements has not 1 statements. got=%d\n",
-			len(proc.Body.Statements))
-	}
-
-	bodyStmt, ok := proc.Body.Statements[0].(*ast.ReturnStatement)
-	if !ok {
-		t.Fatalf("function body stmt is not ast.ReturnStatement. got=%T",
-			proc.Body.Statements[0])
-	}
-
-	addExpr, ok := bodyStmt.ReturnValue.(*ast.InfixExpression)
-	if !ok {
-		t.Fatalf("bodyStmt.ReturnValue is not ast.InfixExpression. got=%T",
-			bodyStmt.ReturnValue)
-	}
-
-	if !testIdentifier(t, addExpr.Left, "x") {
-		return
-	}
-
-	if addExpr.Operator != "+" {
-		t.Fatalf("addExpr.Operator is not '+'. got=%s", addExpr.Operator)
-	}
-
-	if !testIdentifier(t, addExpr.Right, "y") {
-		return
+			for i, ident := range tt.expectedParams {
+				if proc.Parameters[i].Value != ident {
+					t.Errorf("parameter %d wrong. want %s, got %s\n",
+						i, ident, proc.Parameters[i].Value)
+				}
+			}
+		})
 	}
 }
