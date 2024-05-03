@@ -68,6 +68,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
+	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
+	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.EQ, p.parseInfixExpression)
@@ -78,6 +81,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+
+	// p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 
 	return p
 }
@@ -114,6 +120,9 @@ func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.RETURN:
 		return p.parseReturnStatement()
+	case token.SEMICOLON:
+		p.nextToken()
+		return nil
 	// case token.SET: // Assuming SET is used for variable assignments in iRules
 	// 	return p.parseVariableAssignmentStatement()
 	default:
@@ -146,8 +155,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 	p.nextToken()
 
-	// TODO: skipping expressions until we find a semicolon
-	for !p.curTokenIs(token.SEMICOLON) {
+	for !p.curTokenIs(token.SEMICOLON) && !p.curTokenIs(token.NEWLINE) && !p.curTokenIs(token.EOF) {
 		p.nextToken()
 	}
 	return stmt
@@ -157,7 +165,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
 
-	if p.peekTokenIs(token.SEMICOLON) {
+	if p.peekTokenIs(token.NEWLINE) {
 		p.nextToken()
 	}
 
@@ -184,10 +192,6 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 	return leftExp
 }
-
-//	func (p *Parser) parseIdentifier() ast.Expression {
-//		return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-//	}
 
 func (p *Parser) parseIdentifier() ast.Expression {
 	// Remove the '$' symbol if it's present in the token literal
@@ -239,6 +243,51 @@ func (p *Parser) parseBoolean() ast.Expression {
 
 func (p *Parser) parseStringLiteral() ast.Expression {
 	return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseFunctionLiteral() ast.Expression {
+	lit := &ast.FunctionLiteral{Token: p.curToken}
+
+	lit.Parameters = p.parseFunctionParameters()
+
+	// if !p.expectPeek(token.LBRACE) {
+	// 	return nil
+	// }
+	//
+	lit.Body = p.parseBlockStatement()
+
+	return lit
+}
+
+func (p *Parser) parseFunctionParameters() []*ast.Identifier {
+	identifiers := []*ast.Identifier{}
+
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return identifiers
+	}
+
+	p.nextToken()
+
+	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	identifiers = append(identifiers, ident)
+
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+
+		if !p.expectPeek(token.IDENT) {
+			return nil
+		}
+
+		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		identifiers = append(identifiers, ident)
+	}
+
+	if !p.peekTokenIs(token.RPAREN) {
+		return nil
+	}
+
+	return identifiers
 }
 
 func (p *Parser) parseIfExpression() ast.Expression {
@@ -358,4 +407,83 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 
 	return block
+}
+
+func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
+	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
+
+	p.nextToken() // consume '[' token
+	exp.Index = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(token.RBRACKET) {
+		return nil
+	}
+
+	return exp
+}
+
+func (p *Parser) parseHashLiteral() ast.Expression {
+	hash := &ast.HashLiteral{Token: p.curToken}
+	hash.Pairs = make(map[ast.StringLiteral]ast.Expression)
+
+	for !p.peekTokenIs(token.RBRACE) {
+		p.nextToken()
+
+		// Parse key
+		if !p.expectPeek(token.STRING) {
+			return nil
+		}
+		key := &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+
+		// Parse value
+		if !p.expectPeek(token.STRING) {
+			return nil
+		}
+		value := &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+
+		hash.Pairs[*key] = value
+
+		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+			return nil
+		}
+	}
+
+	if !p.expectPeek(token.RBRACE) {
+		return nil
+	}
+
+	return hash
+}
+
+func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
+	var list []ast.Expression
+
+	// If the next token is the end token, return an empty list
+	if p.peekTokenIs(end) {
+		p.nextToken() // Consume the end token
+		return list
+	}
+
+	p.nextToken() // Move past the opening bracket
+
+	// Parse expressions until encountering the end token
+	list = append(list, p.parseExpression(LOWEST))
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken() // Consume the comma
+		p.nextToken() // Move to the next expression
+		list = append(list, p.parseExpression(LOWEST))
+	}
+
+	// Ensure that the list is terminated with the end token
+	if !p.expectPeek(end) {
+		return nil
+	}
+
+	return list
+}
+
+func (p *Parser) parseArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{Token: p.curToken}
+	array.Elements = p.parseExpressionList(token.RBRACKET)
+	return array
 }

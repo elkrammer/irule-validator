@@ -44,11 +44,12 @@ const (
 	RBRACKET = "]"
 
 	// KEYWORDS
-	IF     = "IF"
-	ELSE   = "ELSE"
-	RETURN = "RETURN"
-	TRUE   = "TRUE"
-	FALSE  = "FALSE"
+	IF       = "IF"
+	ELSE     = "ELSE"
+	RETURN   = "RETURN"
+	TRUE     = "TRUE"
+	FALSE    = "FALSE"
+	FUNCTION = "FUNCTION"
 
 	// HTTP_URI      = "HTTP::uri"
 	// HTTP_METHOD   = "HTTP::method"
@@ -92,6 +93,7 @@ var keywords = map[string]TokenType{
 	"return": RETURN,
 	"true":   TRUE,
 	"false":  FALSE,
+	"proc":   FUNCTION,
 	// "HTTP_REQUEST":   HTTP_REQUEST,
 	// "HTTP_RESPONSE":  HTTP_RESPONSE,
 	// "HTTP::uri":      HTTP_URI,
