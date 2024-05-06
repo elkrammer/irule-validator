@@ -49,7 +49,7 @@ const (
 	RETURN   = "RETURN"
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
-	FUNCTION = "FUNCTION"
+	FUNCTION = "proc"
 
 	// HTTP_URI      = "HTTP::uri"
 	// HTTP_METHOD   = "HTTP::method"

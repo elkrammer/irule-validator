@@ -213,7 +213,7 @@ func (ie *IfExpression) String() string {
 
 // FUNCTION LITERALS
 type FunctionLiteral struct {
-	Token      token.Token // the 'fn' token
+	Token      token.Token // the 'proc' token
 	Parameters []*Identifier
 	Body       *BlockStatement
 }

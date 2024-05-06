@@ -44,7 +44,14 @@ func newToken(tokenType token.TokenType, ch byte) token.Token {
 
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
+
+	// Debugging: Print current input
+	// fmt.Printf("Current input: %s\n", l.input)
+
 	l.skipWhitespace()
+
+	// Debugging: Print remaining input
+	// fmt.Printf("Remaining input: %s\n", l.input)
 
 	// skip single line comments
 	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {

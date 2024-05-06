@@ -225,20 +225,24 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit := &ast.FunctionLiteral{Token: p.curToken}
 
+	// fmt.Printf("Current token: %s\n", p.curToken.Literal)
+
 	// Expect an identifier after the 'FUNCTION' token.
 	if !p.expectPeek(token.IDENT) {
-		// fmt.Println("Error: Expected function name.")
+		fmt.Println("Error: Expected function name.")
 		return nil
 	}
 
 	// Expect an opening brace '{' after the function name.
 	if !p.expectPeek(token.LBRACE) {
-		// fmt.Println("Error: Expected opening brace afte function name.")
+		fmt.Println("Error: Expected opening brace after function name.")
 		return nil
 	}
 
 	lit.Parameters = p.parseFunctionParameters()
+	// fmt.Printf("Current token: %s\n", p.curToken.Literal)
 	lit.Body = p.parseBlockStatement()
+	// fmt.Printf("Peeked token: %s\n", p.peekToken.Literal)
 
 	return lit
 }
@@ -252,28 +256,29 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 		return identifiers
 	}
 
-	// Read the parameters until encountering '}'.
-	for !p.peekTokenIs(token.RBRACE) {
-		// Consume the current token
-		p.nextToken()
+	// Consume the opening curly brace.
+	p.nextToken()
 
-		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-		identifiers = append(identifiers, ident)
+	for {
+		if p.curTokenIs(token.IDENT) || p.curTokenIs(token.STRING) {
+			identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+			identifiers = append(identifiers, identifier)
+			p.nextToken()
+		}
 
-		// If the next token is '}', stop parsing parameters.
-		if p.peekTokenIs(token.RBRACE) {
+		if p.curTokenIs(token.COMMA) {
+			p.nextToken()
+			continue
+		}
+
+		if p.curTokenIs(token.RBRACE) {
+			p.nextToken()
 			break
 		}
 
-		// Consume the comma token if present
-		if p.peekTokenIs(token.COMMA) {
-			p.nextToken()
+		if p.curTokenIs(token.EOF) {
+			break
 		}
-	}
-
-	// Expect the closing '}' after the parameters.
-	if !p.expectPeek(token.RBRACE) {
-		return nil
 	}
 
 	return identifiers
