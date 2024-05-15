@@ -71,6 +71,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
+	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.EQ, p.parseInfixExpression)
@@ -155,15 +156,32 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
+
 	leftExp := prefix()
 
-	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+	for !p.peekTokenIs(token.SEMICOLON) {
+
+		if p.peekTokenIs(token.LPAREN) {
+			p.nextToken()                    // Consume opening parenthesis
+			exp := p.parseExpression(LOWEST) // Parse inner expression with lowest precedence
+			if !p.curTokenIs(token.RPAREN) {
+				fmt.Printf("Expected closing parenthesis after expression")
+			}
+			leftExp = exp // Assign the parsed inner expression
+			continue
+		}
+
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
 		}
 
-		p.nextToken()
+		// Check precedence and associativity before consuming infix token
+		if precedence > p.peekPrecedence() {
+			break
+		}
+
+		p.nextToken() // Consume infix token
 		leftExp = infix(leftExp)
 	}
 
@@ -210,7 +228,15 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
 	precedence := p.curPrecedence()
 	p.nextToken()
-	expression.Right = p.parseExpression(precedence)
+
+	// Recursively parse the right-hand side expression with higher precedence
+	expression.Right = p.parseExpression(precedence + 1)
+
+	// Return expression with parentheses if necessary
+	if p.peekPrecedence() > precedence {
+		expression.Right = p.parseGroupedExpression()
+	}
+
 	return expression
 }
 
