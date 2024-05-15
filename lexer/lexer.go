@@ -100,6 +100,10 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.GT, l.ch)
 	case '*':
 		tok = newToken(token.ASTERISK, l.ch)
+	case '/':
+		tok = newToken(token.SLASH, l.ch)
+	case '-':
+		tok = newToken(token.MINUS, l.ch)
 	case 0:
 		tok.Type = token.EOF
 		tok.Literal = ""
