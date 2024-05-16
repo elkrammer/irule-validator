@@ -148,25 +148,26 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 		return nil
 	}
 
-	fmt.Printf("Parsed IDENT: %s\n", p.curToken.Literal)
-
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	p.nextToken()
 
-	fmt.Printf("Next token: %s\n", p.curToken.Type)
-
-	// Check if the next token is a NUMBER
-	if p.curToken.Type != token.NUMBER {
+	// Check if the next token is a NUMBER, TRUE, or FALSE
+	switch p.curToken.Type {
+	case token.NUMBER:
+		value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+		if err != nil {
+			return nil
+		}
+		stmt.Value = &ast.NumberLiteral{Token: p.curToken, Value: value}
+	case token.TRUE:
+		stmt.Value = &ast.Boolean{Token: p.curToken, Value: true}
+	case token.FALSE:
+		stmt.Value = &ast.Boolean{Token: p.curToken, Value: false}
+	case token.IDENT:
+		stmt.Value = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	default:
 		return nil
 	}
-
-	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
-	if err != nil {
-		return nil
-	}
-
-	fmt.Printf("Parsed NUMBER: %s\n", p.curToken.Literal)
-	stmt.Value = &ast.NumberLiteral{Token: p.curToken, Value: value}
 
 	p.nextToken()
 

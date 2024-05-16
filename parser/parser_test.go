@@ -49,7 +49,7 @@ func TestSetStatements(t *testing.T) {
 	}{
 		{"set x 5;", "x", 5},
 		{"set y true;", "y", true},
-		// {"set foobar y;", "foobar", "y"},
+		{"set foobar y;", "foobar", "y"},
 	}
 
 	for _, tt := range tests {
@@ -95,6 +95,26 @@ func testSetStatement(t *testing.T, s ast.Statement, name string) bool {
 	if letStmt.Name.TokenLiteral() != name {
 		t.Errorf("letStmt.Name.TokenLiteral() not '%s'. got=%s",
 			name, letStmt.Name.TokenLiteral())
+		return false
+	}
+
+	return true
+}
+
+func testBooleanLiteral(t *testing.T, exp ast.Expression, value bool) bool {
+	bo, ok := exp.(*ast.Boolean)
+	if !ok {
+		t.Errorf("exp not *ast.BooleanLiteral. got=%T", exp)
+		return false
+	}
+
+	if bo.Value != value {
+		t.Errorf("bo.Value not %t. got=%t", value, bo.Value)
+		return false
+	}
+
+	if bo.TokenLiteral() != fmt.Sprintf("%t", value) {
+		t.Errorf("bo.TokenLiteral not %t. got=%s", value, bo.TokenLiteral())
 		return false
 	}
 
@@ -235,26 +255,6 @@ func testSetStatement(t *testing.T, s ast.Statement, name string) bool {
 // 	}
 // }
 
-// func testBooleanLiteral(t *testing.T, exp ast.Expression, value bool) bool {
-// 	bo, ok := exp.(*ast.Boolean)
-// 	if !ok {
-// 		t.Errorf("exp not *ast.Boolean. got=%T", exp)
-// 		return false
-// 	}
-//
-// 	if bo.Value != value {
-// 		t.Errorf("bo.Value not %t. Got=%t", value, bo.Value)
-// 		return false
-// 	}
-//
-// 	if bo.TokenLiteral() != fmt.Sprintf("%t", value) {
-// 		t.Errorf("bo.TokenLiteral not %t. Got=%s", value, bo.TokenLiteral())
-// 		return false
-// 	}
-//
-// 	return true
-// }
-
 // func TestParsingInfixExpressions(t *testing.T) {
 //
 // 	infixTests := []struct {
@@ -328,8 +328,8 @@ func testLiteralExpression(t *testing.T, exp ast.Expression, expected interface{
 		return testNumberLiteral(t, exp, v)
 	case string:
 		return testIdentifier(t, exp, v)
-		// case bool:
-		// 	return testBooleanLiteral(t, exp, v)
+	case bool:
+		return testBooleanLiteral(t, exp, v)
 	}
 
 	t.Errorf("type of exp not handled. Got=%T", exp)
