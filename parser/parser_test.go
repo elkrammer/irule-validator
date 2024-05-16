@@ -48,7 +48,7 @@ func TestSetStatements(t *testing.T) {
 		expectedValue      interface{}
 	}{
 		{"set x 5;", "x", 5},
-		// {"set y true;", "y", true},
+		{"set y true;", "y", true},
 		// {"set foobar y;", "foobar", "y"},
 	}
 
