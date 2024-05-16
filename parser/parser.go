@@ -119,6 +119,8 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
+	case token.SET:
+		return p.parseSetStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
 	case token.SEMICOLON:
@@ -136,6 +138,43 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	for !p.curTokenIs(token.SEMICOLON) && !p.curTokenIs(token.NEWLINE) && !p.curTokenIs(token.EOF) {
 		p.nextToken()
 	}
+	return stmt
+}
+
+func (p *Parser) parseSetStatement() *ast.SetStatement {
+	stmt := &ast.SetStatement{Token: p.curToken}
+
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+
+	fmt.Printf("Parsed IDENT: %s\n", p.curToken.Literal)
+
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	p.nextToken()
+
+	fmt.Printf("Next token: %s\n", p.curToken.Type)
+
+	// Check if the next token is a NUMBER
+	if p.curToken.Type != token.NUMBER {
+		return nil
+	}
+
+	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+	if err != nil {
+		return nil
+	}
+
+	fmt.Printf("Parsed NUMBER: %s\n", p.curToken.Literal)
+	stmt.Value = &ast.NumberLiteral{Token: p.curToken, Value: value}
+
+	p.nextToken()
+
+	// Check if the next token is a semicolon and consume it if present
+	if p.peekTokenIs(token.SEMICOLON) {
+		p.nextToken()
+	}
+
 	return stmt
 }
 

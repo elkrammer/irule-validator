@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/elkrammer/irule-validator/token"
@@ -56,10 +57,36 @@ type Identifier struct {
 func (i *Identifier) expressionNode() {}
 func (i *Identifier) String() string  { return i.Value }
 func (i *Identifier) TokenLiteral() string {
-	return "$" + i.Value
+	return i.Value
 }
 
-// RETURN
+// Statements
+
+// SET Statement
+type SetStatement struct {
+	Token token.Token // the token.LET token
+	Name  *Identifier
+	Value Expression
+}
+
+func (ls *SetStatement) statementNode()       {}
+func (ls *SetStatement) TokenLiteral() string { return ls.Token.Literal }
+func (ls *SetStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(ls.TokenLiteral() + " ")
+	out.WriteString(ls.Name.String())
+
+	if ls.Value != nil {
+		out.WriteString(ls.Value.String())
+	}
+
+	out.WriteString(";")
+
+	return out.String()
+}
+
+// RETURN Statement
 type ReturnStatement struct {
 	Token       token.Token
 	ReturnValue Expression
@@ -102,7 +129,7 @@ type NumberLiteral struct {
 }
 
 func (il *NumberLiteral) expressionNode()      {}
-func (il *NumberLiteral) TokenLiteral() string { return il.Token.Literal }
+func (nl *NumberLiteral) TokenLiteral() string { return fmt.Sprintf("%f", nl.Value) }
 func (il *NumberLiteral) String() string       { return il.Token.Literal }
 
 // PREFIXES
