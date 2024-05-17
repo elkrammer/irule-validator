@@ -249,41 +249,62 @@ func (p *Parser) parseNumberLiteral() ast.Expression {
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
-	// Check if the current token is ILLEGAL and the next token is the prefix operator
-	if p.curToken.Type == token.ILLEGAL && p.peekToken.Type == token.BANG {
-		// Consume the ILLEGAL token
-		p.nextToken()
-	}
-
 	expression := &ast.PrefixExpression{
-		Token:    p.curToken,
-		Operator: p.curToken.Literal,
+		Token: p.curToken,
 	}
 
-	p.nextToken()
-	expression.Right = p.parseExpression(PREFIX)
-	return expression
-}
-
-func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
-	expression := &ast.InfixExpression{
-		Token:    p.curToken,
-		Operator: p.curToken.Literal,
-		Left:     left,
+	// Handle the BANG operator
+	if p.curToken.Type == token.BANG {
+		expression.Operator = p.curToken.Literal
+		p.nextToken()
+		expression.Right = p.parseExpression(PREFIX)
+		return expression
 	}
 
-	precedence := p.curPrecedence()
-	p.nextToken()
+	// Check if the current token is a MINUS
+	if p.curToken.Type == token.MINUS {
+		// Check if the next token is a NUMBER starting with 0
+		if p.peekToken.Type == token.NUMBER && strings.HasPrefix(p.peekToken.Literal, "0") {
+			expression.Operator = "!"
+			p.nextToken() // Consume the MINUS token
 
-	// Recursively parse the right-hand side expression with higher precedence
-	expression.Right = p.parseExpression(precedence + 1)
+			// Parse the number literal
+			value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+			if err != nil {
+				// Handle error
+				return nil
+			}
 
-	// Return expression with parentheses if necessary
-	if p.peekPrecedence() > precedence {
-		expression.Right = p.parseGroupedExpression()
+			expression.Right = &ast.NumberLiteral{
+				Token: p.curToken,
+				Value: value,
+			}
+
+			p.nextToken() // Consume the NUMBER token
+			return expression
+		} else {
+			// Handle the case where the next token is a NUMBER not starting with 0
+			// (e.g., "-5" is treated as a prefix expression with operator "-" and value 5)
+			expression.Operator = p.curToken.Literal
+			p.nextToken() // Consume the MINUS token
+
+			// Parse the number literal
+			value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+			if err != nil {
+				return nil
+			}
+
+			expression.Right = &ast.NumberLiteral{
+				Token: p.curToken,
+				Value: value,
+			}
+
+			p.nextToken() // Consume the NUMBER token
+			return expression
+		}
 	}
 
-	return expression
+	return nil
 }
 
 func (p *Parser) parseBoolean() ast.Expression {
@@ -296,8 +317,6 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	lit := &ast.FunctionLiteral{Token: p.curToken}
-
-	// fmt.Printf("Current token: %s\n", p.curToken.Literal)
 
 	// Expect an identifier after the 'FUNCTION' token.
 	if !p.expectPeek(token.IDENT) {
@@ -312,9 +331,7 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	}
 
 	lit.Parameters = p.parseFunctionParameters()
-	// fmt.Printf("Current token: %s\n", p.curToken.Literal)
 	lit.Body = p.parseBlockStatement()
-	// fmt.Printf("Peeked token: %s\n", p.peekToken.Literal)
 
 	return lit
 }
@@ -556,4 +573,18 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	exp.Arguments = p.parseExpressionList(token.RPAREN)
 	return exp
+}
+
+func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+	expression := &ast.InfixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expression.Right = p.parseExpression(precedence)
+
+	return expression
 }

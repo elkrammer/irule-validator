@@ -186,12 +186,10 @@ func TestParsingPrefixExpressions(t *testing.T) {
 		operator string
 		value    interface{}
 	}{
-		{"! 5", "!", 5}, // Boolean negation with whitespace
-		// {"-0", "!", 0},  // Boolean negation with 0 (false)
-		// {"!1", "!", 1},    // Boolean negation with 1 (true)
-		// {"- 15", "-", 15}, // Arithmetic negation with whitespace
-		// {"!", "!", nil},   // Edge case: Only operator
-		// {"", "", nil},     // Edge case: Empty input
+		{"! 5", "!", 5},   // Boolean negation with whitespace
+		{"-0", "!", 0},    // Boolean negation with 0 (false)
+		{"!1", "!", 1},    // Boolean negation with 1 (true)
+		{"- 15", "-", 15}, // Arithmetic negation with whitespace
 	}
 
 	for _, tt := range prefixTests {
