@@ -249,6 +249,12 @@ func (p *Parser) parseNumberLiteral() ast.Expression {
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
+	// Check if the current token is ILLEGAL and the next token is the prefix operator
+	if p.curToken.Type == token.ILLEGAL && p.peekToken.Type == token.BANG {
+		// Consume the ILLEGAL token
+		p.nextToken()
+	}
+
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
