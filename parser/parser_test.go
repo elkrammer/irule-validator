@@ -221,47 +221,48 @@ func TestParsingPrefixExpressions(t *testing.T) {
 	}
 }
 
-// func TestParsingInfixExpressions(t *testing.T) {
-//
-// 	infixTests := []struct {
-// 		input      string
-// 		leftValue  interface{}
-// 		operator   string
-// 		rightValue interface{}
-// 	}{
-// 		{"5 + 5;", 5, "+", 5},
-// 		{"5 - 5;", 5, "-", 5},
-// 		{"5 * 5;", 5, "*", 5},
-// 		{"5 / 5;", 5, "/", 5},
-// 		{"5 > 5;", 5, ">", 5},
-// 		{"5 < 5;", 5, "<", 5},
-// 		{"5 == 5;", 5, "==", 5},
-// 		{"5 != 5;", 5, "!=", 5},
-// 		{"true == true", true, "==", true},
-// 		{"true != false", true, "!=", false},
-// 		{"false == false", false, "==", false},
-// 	}
-//
-// 	for _, tt := range infixTests {
-// 		l := lexer.New(tt.input)
-// 		p := New(l)
-// 		program := p.ParseProgram()
-// 		checkParserErrors(t, p)
-//
-// 		if len(program.Statements) != 1 {
-// 			t.Fatalf("program.Statements does not contain %d statements. Got=%d", 1, len(program.Statements))
-// 		}
-//
-// 		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
-// 		if !ok {
-// 			t.Fatalf("program.Statements[0] is not an ast.ExpressionStatement. Got=%T", program.Statements[0])
-// 		}
-//
-// 		if !testInfixExpression(t, stmt.Expression, tt.leftValue, tt.operator, tt.rightValue) {
-// 			return
-// 		}
-// 	}
-// }
+func TestParsingInfixExpressions(t *testing.T) {
+
+	infixTests := []struct {
+		input      string
+		leftValue  interface{}
+		operator   string
+		rightValue interface{}
+	}{
+		{"5 + 5", 5, "+", 5},
+		{"expr {5 + 5}", 5, "+", 5},
+		{"expr {5 - 5}", 5, "-", 5},
+		{"expr {5 * 5}", 5, "*", 5},
+		{"expr {5 / 5}", 5, "/", 5},
+		{"expr {5 > 5}", 5, ">", 5},
+		{"expr {5 < 5}", 5, "<", 5},
+		{"expr {5 == 5}", 5, "==", 5},
+		// {"expr {5 != 5}", 5, "!=", 5},
+		// {"expr {1 == 1}", 1, "==", 1}, // true == true
+		// {"expr {1 != 0}", 1, "!=", 0}, // true != false
+		// {"expr {0 == 0}", 0, "==", 0}, // false == false
+	}
+
+	for _, tt := range infixTests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("program.Statements does not contain %d statements. Got=%d", 1, len(program.Statements))
+		}
+
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[0] is not an ast.ExpressionStatement. Got=%T", program.Statements[0])
+		}
+
+		if !testInfixExpression(t, stmt.Expression, tt.leftValue, tt.operator, tt.rightValue) {
+			return
+		}
+	}
+}
 
 func testIdentifier(t *testing.T, exp ast.Expression, value string) bool {
 	ident, ok := exp.(*ast.Identifier)
@@ -342,8 +343,21 @@ func testBooleanExpression(t *testing.T) {
 func testInfixExpression(t *testing.T, exp ast.Expression, left interface{}, operator string, right interface{}) bool {
 	opExp, ok := exp.(*ast.InfixExpression)
 	if !ok {
-		t.Errorf("exp is not ast.InfixExpression. Got=%T(%s)", exp, exp)
-		return false
+		// Check if it's an ExprExpression
+		exprExp, ok := exp.(*ast.ExprExpression)
+		if !ok {
+			t.Errorf("exp is not ast.InfixExpression or ast.ExprExpression. Got=%T", exp)
+			return false
+		}
+
+		// Check if the expression inside ExprExpression is an InfixExpression
+		infix, ok := exprExp.Expression.(*ast.InfixExpression)
+		if !ok {
+			t.Errorf("exprExp.Expression is not ast.InfixExpression. Got=%T", exprExp.Expression)
+			return false
+		}
+
+		opExp = infix
 	}
 
 	if !testLiteralExpression(t, opExp.Left, left) {

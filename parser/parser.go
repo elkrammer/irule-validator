@@ -72,6 +72,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
 	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
+	p.registerPrefix(token.EXPR, p.parseExpr)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.EQ, p.parseInfixExpression)
@@ -198,6 +199,11 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	}
 
 	leftExp := prefix()
+
+	// Check if the current expression is an 'expr' expression
+	if p.curToken.Type == token.EXPR {
+		return p.parseExprExpression(leftExp)
+	}
 
 	for !p.peekTokenIs(token.SEMICOLON) {
 
@@ -587,4 +593,44 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	expression.Right = p.parseExpression(precedence)
 
 	return expression
+}
+
+func (p *Parser) parseExprExpression(left ast.Expression) ast.Expression {
+	exprExpr := &ast.ExprExpression{
+		Token:      p.curToken,
+		Expression: left,
+	}
+
+	p.nextToken() // Consume the 'expr' token
+
+	// Parse the expression inside the 'expr' command
+	exprExpr.Expression = p.parseExpression(LOWEST)
+
+	return exprExpr
+}
+
+func (p *Parser) parseExpr() ast.Expression {
+	exprExpr := &ast.ExprExpression{
+		Token: p.curToken,
+	}
+
+	p.nextToken() // Consume the 'expr' token
+
+	exprExpr.Expression = p.parseExprBody()
+
+	return exprExpr
+}
+
+func (p *Parser) parseExprBody() ast.Expression {
+	p.nextToken() // Consume the '{'
+
+	expr := p.parseExpression(LOWEST)
+
+	if !p.expectPeek(token.RBRACE) {
+		return nil
+	}
+
+	p.nextToken() // Consume the '}'
+
+	return expr
 }

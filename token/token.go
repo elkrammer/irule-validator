@@ -51,6 +51,7 @@ const (
 	FALSE    = "FALSE"
 	FUNCTION = "proc"
 	SET      = "set"
+	EXPR     = "expr"
 
 	// HTTP_URI      = "HTTP::uri"
 	// HTTP_METHOD   = "HTTP::method"
@@ -96,6 +97,7 @@ var keywords = map[string]TokenType{
 	"false":  FALSE,
 	"proc":   FUNCTION,
 	"set":    SET,
+	"expr":   EXPR,
 	// "HTTP_REQUEST":   HTTP_REQUEST,
 	// "HTTP_RESPONSE":  HTTP_RESPONSE,
 	// "HTTP::uri":      HTTP_URI,

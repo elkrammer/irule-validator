@@ -352,3 +352,21 @@ func (ce *CallExpression) String() string {
 
 	return out.String()
 }
+
+// 'expr'
+type ExprExpression struct {
+	Token      token.Token // The 'expr' token
+	Expression Expression  // The expression after 'expr'
+}
+
+func (ee *ExprExpression) expressionNode()      {}
+func (ee *ExprExpression) TokenLiteral() string { return ee.Token.Literal }
+func (ee *ExprExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(ee.TokenLiteral())
+	out.WriteString(" ")
+	if ee.Expression != nil {
+		out.WriteString(ee.Expression.String())
+	}
+	return out.String()
+}
