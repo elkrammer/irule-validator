@@ -83,7 +83,6 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
-
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 
@@ -197,34 +196,18 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
-
 	leftExp := prefix()
 
-	// Check if the current expression is an 'expr' expression
-	if p.curToken.Type == token.EXPR {
-		return p.parseExprExpression(leftExp)
-	}
-
-	for !p.peekTokenIs(token.SEMICOLON) {
-
+	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
 		if p.peekTokenIs(token.LPAREN) {
-			p.nextToken()                    // Consume opening parenthesis
-			exp := p.parseExpression(LOWEST) // Parse inner expression with lowest precedence
-			if !p.curTokenIs(token.RPAREN) {
-				fmt.Printf("Expected closing parenthesis after expression")
-			}
-			leftExp = exp // Assign the parsed inner expression
+			p.nextToken() // Consume opening parenthesis
+			leftExp = p.parseCallExpression(leftExp)
 			continue
 		}
 
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
-		}
-
-		// Check precedence and associativity before consuming infix token
-		if precedence > p.peekPrecedence() {
-			break
 		}
 
 		p.nextToken() // Consume infix token
@@ -575,9 +558,40 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	return array
 }
 
+//	func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+//		exp := &ast.CallExpression{Token: p.curToken, Function: function}
+//		exp.Arguments = p.parseExpressionList(token.RPAREN)
+//		return exp
+//	}
+
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
-	exp.Arguments = p.parseExpressionList(token.RPAREN)
+	p.nextToken() // Consume the '('
+
+	args := []ast.Expression{}
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken() // Consume the ')'
+	} else {
+		for {
+			arg := p.parseExpression(LOWEST)
+			if arg == nil {
+				return nil
+			}
+			args = append(args, arg)
+
+			if !p.peekTokenIs(token.COMMA) {
+				break
+			}
+			p.nextToken() // Consume the ','
+		}
+
+		if !p.expectPeek(token.RPAREN) {
+			return nil
+		}
+		p.nextToken() // Consume the ')'
+	}
+
+	exp.Arguments = args
 	return exp
 }
 
@@ -590,8 +604,18 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
 	precedence := p.curPrecedence()
 	p.nextToken()
-	expression.Right = p.parseExpression(precedence)
 
+	if p.peekTokenIs(token.LPAREN) {
+		p.nextToken() // Consume the opening parenthesis '('
+		expression.Right = &ast.ParenthesizedExpression{Expression: p.parseExpression(LOWEST)}
+		if !p.expectPeek(token.RPAREN) {
+			return nil
+		}
+		p.nextToken() // Consume the closing parenthesis ')'
+		return expression
+	}
+
+	expression.Right = p.parseExpression(precedence)
 	return expression
 }
 
@@ -633,4 +657,40 @@ func (p *Parser) parseExprBody() ast.Expression {
 	p.nextToken() // Consume the '}'
 
 	return expr
+}
+
+func (p *Parser) parseParenthesizedExpression() ast.Expression {
+	p.nextToken() // Consume the opening parenthesis '('
+
+	expr := p.parseExpression(LOWEST)
+	if expr == nil {
+		return nil
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	p.nextToken() // Consume the closing parenthesis ')'
+	return &ast.ParenthesizedExpression{Expression: expr}
+}
+
+func (p *Parser) parseBinaryExpression(precedence int, left ast.Expression) ast.Expression {
+	op := p.curToken
+
+	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+		p.nextToken()
+		right := p.parseExpression(p.peekPrecedence())
+		if right == nil {
+			return nil
+		}
+		left = &ast.InfixExpression{
+			Token:    op,
+			Left:     left,
+			Operator: op.Literal,
+			Right:    right,
+		}
+	}
+
+	return left
 }

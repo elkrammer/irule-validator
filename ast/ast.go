@@ -8,6 +8,19 @@ import (
 	"github.com/elkrammer/irule-validator/token"
 )
 
+func precedence(op string) int {
+	precedences := map[string]int{
+		"*": 3,
+		"/": 3,
+		"+": 2,
+		"-": 2,
+	}
+	if p, ok := precedences[op]; ok {
+		return p
+	}
+	return 0
+}
+
 // interface that all AST nodes must implement
 type Node interface {
 	TokenLiteral() string
@@ -167,7 +180,19 @@ func (ie *InfixExpression) String() string {
 
 	out.WriteString(ie.Left.String())
 	out.WriteString(" " + ie.Operator + " ")
-	if ie.Right != nil {
+
+	switch right := ie.Right.(type) {
+	case *ParenthesizedExpression:
+		out.WriteString(right.String())
+	case *InfixExpression:
+		if precedence(right.Operator) < precedence(ie.Operator) {
+			out.WriteString("(")
+			out.WriteString(right.String())
+			out.WriteString(")")
+		} else {
+			out.WriteString(right.String())
+		}
+	default:
 		out.WriteString(ie.Right.String())
 	}
 
@@ -369,4 +394,14 @@ func (ee *ExprExpression) String() string {
 		out.WriteString(ee.Expression.String())
 	}
 	return out.String()
+}
+
+type ParenthesizedExpression struct {
+	Expression Expression
+}
+
+func (pe *ParenthesizedExpression) expressionNode()      {}
+func (pe *ParenthesizedExpression) TokenLiteral() string { return "(" }
+func (pe *ParenthesizedExpression) String() string {
+	return "(" + pe.Expression.String() + ")"
 }
