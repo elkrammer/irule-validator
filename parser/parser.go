@@ -149,6 +149,11 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	}
 
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(token.ASSIGN) {
+		return nil
+	}
+
 	p.nextToken()
 
 	// Check if the next token is a NUMBER, TRUE, or FALSE
@@ -604,16 +609,6 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
 	precedence := p.curPrecedence()
 	p.nextToken()
-
-	if p.peekTokenIs(token.LPAREN) {
-		p.nextToken() // Consume the opening parenthesis '('
-		expression.Right = &ast.ParenthesizedExpression{Expression: p.parseExpression(LOWEST)}
-		if !p.expectPeek(token.RPAREN) {
-			return nil
-		}
-		p.nextToken() // Consume the closing parenthesis ')'
-		return expression
-	}
 
 	expression.Right = p.parseExpression(precedence)
 	return expression

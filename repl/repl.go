@@ -1,57 +1,61 @@
 package repl
 
 import (
+	"bufio"
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
-
-	"github.com/peterh/liner"
-
 	"github.com/elkrammer/irule-validator/lexer"
-	"github.com/elkrammer/irule-validator/token"
+	"github.com/elkrammer/irule-validator/parser"
+	"io"
 )
 
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
-	history := filepath.Join(os.TempDir(), ".irule-validator")
-	l := liner.NewLiner()
-	defer l.Close()
-
-	l.SetCtrlCAborts(true)
-
-	if f, err := os.Open(history); err == nil {
-		l.ReadHistory(f)
-		f.Close()
-	}
+	scanner := bufio.NewScanner(in)
 
 	for {
-		if line, err := l.Prompt(PROMPT); err == nil {
-			if line == "exit" {
-				if f, err := os.Create(history); err == nil {
-					l.WriteHistory(f)
-					f.Close()
-				}
-				os.Exit(0)
-				break
-			}
-
-			l.AppendHistory(line)
-			line := lexer.New(line)
-
-			for tok := line.NextToken(); tok.Type != token.EOF; tok = line.NextToken() {
-				fmt.Fprintf(out, "%v\n", tok)
-			}
-		} else if err == liner.ErrPromptAborted {
-			fmt.Fprintln(out, "Aborted")
-			os.Exit(0)
-			break
+		fmt.Fprintf(out, PROMPT)
+		scanned := scanner.Scan()
+		if !scanned {
+			return
 		}
+
+		line := scanner.Text()
+		l := lexer.New(line)
+		p := parser.New(l)
+
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			printParserErrors(out, p.Errors())
+			continue
+		}
+		io.WriteString(out, program.String())
+		io.WriteString(out, "\n")
 	}
 }
 
+const ROUTER = `
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡾⠃⠀⠀⠀⠀⠀⠀⠰⣶⡀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡿⠁⣴⠇⠀⠀⠀⠀⠸⣦⠈⢿⡄⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⡇⢸⡏⢰⡇⠀⠀⢸⡆⢸⡆⢸⡇⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⡇⠘⣧⡈⠃⢰⡆⠘⢁⣼⠁⣸⡇⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢿⣄⠘⠃⠀⢸⡇⠀⠘⠁⣰⡟⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠃⠀⠀⢸⡇⠀⠀⠘⠋⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⠃⠀⠀⠀⠀⠀⠀⠀
+⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀
+⠀⢸⣿⣟⠉⢻⡟⠉⢻⡟⠉⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀
+⠀⢸⣿⣿⣷⣿⣿⣶⣿⣿⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀
+⠀⠈⠉⠉⢉⣉⣉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⣉⣉⡉⠉⠉⠁⠀
+⠀⠀⠀⠀⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠀⠀⠀⠀
+`
+
 func printParserErrors(out io.Writer, errors []string) {
+	io.WriteString(out, ROUTER)
+	io.WriteString(out, "Woops! We ran into some funky business here!\n")
+	io.WriteString(out, " parser errors:\n")
 	for _, msg := range errors {
 		io.WriteString(out, "\t"+msg+"\n")
 	}
