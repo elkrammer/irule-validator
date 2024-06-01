@@ -22,14 +22,14 @@ type Number struct {
 }
 
 func (i *Number) Type() ObjectType { return NUMBER_OBJ }
-func (i *Number) Inspect() string  { return fmt.Sprintf("%f", i.Value) }
+func (i *Number) Inspect() string  { return fmt.Sprintf("%v", i.Value) }
 
 type Boolean struct {
 	Value bool
 }
 
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
-func (b *Boolean) Inspect() string  { return fmt.Sprintf("%t", b.Value) }
+func (b *Boolean) Inspect() string  { return fmt.Sprintf("%v", b.Value) }
 
 type Null struct{}
 
