@@ -150,10 +150,7 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	if !p.expectPeek(token.ASSIGN) {
-		return nil
-	}
-
+	// Instead of expecting an ASSIGN token, directly proceed to the value
 	p.nextToken()
 
 	// Check if the next token is a NUMBER, TRUE, or FALSE
@@ -173,8 +170,6 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	default:
 		return nil
 	}
-
-	p.nextToken()
 
 	// Check if the next token is a semicolon and consume it if present
 	if p.peekTokenIs(token.SEMICOLON) {
