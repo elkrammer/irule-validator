@@ -250,46 +250,27 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 		return expression
 	}
 
-	// Check if the current token is a MINUS
+	// Handle the MINUS operator
 	if p.curToken.Type == token.MINUS {
-		// Check if the next token is a NUMBER starting with 0
-		if p.peekToken.Type == token.NUMBER && strings.HasPrefix(p.peekToken.Literal, "0") {
+		expression.Operator = p.curToken.Literal
+		p.nextToken() // Consume the MINUS token
+
+		// Parse the number literal
+		right := p.parseExpression(PREFIX)
+
+		// Special case: If the number literal is 0, treat it as a boolean negation
+		if numberLiteral, ok := right.(*ast.NumberLiteral); ok && numberLiteral.Value == 0 {
 			expression.Operator = "!"
-			p.nextToken() // Consume the MINUS token
+			expression.Right = numberLiteral
+			return expression
+		}
 
-			// Parse the number literal
-			value, err := strconv.ParseFloat(p.curToken.Literal, 64)
-			if err != nil {
-				// Handle error
-				return nil
-			}
-
-			expression.Right = &ast.NumberLiteral{
-				Token: p.curToken,
-				Value: value,
-			}
-
-			p.nextToken() // Consume the NUMBER token
+		if numberLiteral, ok := right.(*ast.NumberLiteral); ok {
+			expression.Right = numberLiteral
 			return expression
 		} else {
-			// Handle the case where the next token is a NUMBER not starting with 0
-			// (e.g., "-5" is treated as a prefix expression with operator "-" and value 5)
-			expression.Operator = p.curToken.Literal
-			p.nextToken() // Consume the MINUS token
-
-			// Parse the number literal
-			value, err := strconv.ParseFloat(p.curToken.Literal, 64)
-			if err != nil {
-				return nil
-			}
-
-			expression.Right = &ast.NumberLiteral{
-				Token: p.curToken,
-				Value: value,
-			}
-
-			p.nextToken() // Consume the NUMBER token
-			return expression
+			// Handle error case if the expression after the '-' operator is not a number literal
+			return nil
 		}
 	}
 
