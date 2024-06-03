@@ -66,13 +66,16 @@ func evalPrefixExpression(operator string, right object.Object) object.Object {
 }
 
 func evalBangOperatorExpression(right object.Object) object.Object {
-	switch right {
-	case TRUE:
+	switch obj := right.(type) {
+	case *object.Boolean:
+		return nativeBoolToBooleanObject(!obj.Value)
+	case *object.Null:
+		return TRUE
+	case *object.Number:
+		if obj.Value == 0 {
+			return TRUE
+		}
 		return FALSE
-	case FALSE:
-		return TRUE
-	case NULL:
-		return TRUE
 	default:
 		return FALSE
 	}
@@ -91,6 +94,10 @@ func evalInfixExpression(operator string, left, right object.Object) object.Obje
 	switch {
 	case left.Type() == object.NUMBER_OBJ && right.Type() == object.NUMBER_OBJ:
 		return evalNumberInfixExpression(operator, left, right)
+	case operator == "!=":
+		return nativeBoolToBooleanObject(left != right)
+	case left.Type() == object.BOOLEAN_OBJ && right.Type() == object.BOOLEAN_OBJ:
+		return nativeBoolToBooleanObject(left != right)
 	default:
 		return NULL
 	}
@@ -109,6 +116,14 @@ func evalNumberInfixExpression(operator string, left, right object.Object) objec
 		return &object.Number{Value: leftVal * rightVal}
 	case "/":
 		return &object.Number{Value: leftVal / rightVal}
+	case "<":
+		return nativeBoolToBooleanObject(leftVal < rightVal)
+	case ">":
+		return nativeBoolToBooleanObject(leftVal > rightVal)
+	case "==":
+		return nativeBoolToBooleanObject(leftVal == rightVal)
+	case "!=":
+		return nativeBoolToBooleanObject(leftVal != rightVal)
 	default:
 		return NULL
 	}
