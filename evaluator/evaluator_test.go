@@ -1,11 +1,11 @@
 package evaluator
 
 import (
+	"testing"
+
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
-
-	"testing"
 )
 
 func TestEvalNumberExpression(t *testing.T) {
@@ -47,12 +47,12 @@ func testEval(input string) object.Object {
 func testNumberObject(t *testing.T, obj object.Object, expected float64) bool {
 	result, ok := obj.(*object.Number)
 	if !ok {
-		t.Errorf("object is not a number. got=%T (+%v))", obj, obj)
+		t.Errorf("object is not a number. got=%T (%+v)", obj, obj)
 		return false
 	}
-
 	if result.Value != expected {
-		t.Errorf("object has wrong value. got %f, want=%f", result.Value, expected)
+		t.Errorf("object has wrong value. got=%f, want=%f",
+			result.Value, expected)
 		return false
 	}
 
@@ -121,7 +121,6 @@ func TestIfElseExpressions(t *testing.T) {
 		input    string
 		expected interface{}
 	}{
-
 		{"if {1} { 10 }", 10},
 		{"if {0} { 10 }", nil},
 		{"if {1} { 10 }", 10},
@@ -148,4 +147,19 @@ func testNullObject(t *testing.T, obj object.Object) bool {
 		return false
 	}
 	return true
+}
+
+func TestReturnStatements(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected float64
+	}{
+		{"return 10", 10},
+		{"return 10; 9", 10},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEval(tt.input)
+		testNumberObject(t, evaluated, tt.expected)
+	}
 }

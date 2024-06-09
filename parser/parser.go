@@ -133,11 +133,15 @@ func (p *Parser) parseStatement() ast.Statement {
 
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	stmt := &ast.ReturnStatement{Token: p.curToken}
+
 	p.nextToken()
 
-	for !p.curTokenIs(token.SEMICOLON) && !p.curTokenIs(token.NEWLINE) && !p.curTokenIs(token.EOF) {
+	stmt.ReturnValue = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
+
 	return stmt
 }
 
