@@ -258,26 +258,8 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 	if p.curToken.Type == token.MINUS {
 		expression.Operator = p.curToken.Literal
 		p.nextToken() // Consume the MINUS token
-
-		// Parse the number literal
-		right := p.parseExpression(PREFIX)
-
-		// Handle boolean negation
-		// Special case: If the number literal is 0, treat it as a boolean negation
-		if numberLiteral, ok := right.(*ast.NumberLiteral); ok && numberLiteral.Value == 0 {
-			expression.Operator = "!"
-			expression.Right = numberLiteral
-			return expression
-		}
-
-		// Handle numeric negation
-		if numberLiteral, ok := right.(*ast.NumberLiteral); ok {
-			expression.Right = numberLiteral
-			return expression
-		} else {
-			// Handle error case if the expression after the '-' operator is not a number literal
-			return nil
-		}
+		expression.Right = p.parseExpression(PREFIX)
+		return expression
 	}
 
 	return nil

@@ -187,7 +187,7 @@ func TestParsingPrefixExpressions(t *testing.T) {
 		value    interface{}
 	}{
 		{"! 5", "!", 5},   // Boolean negation with whitespace
-		{"-0", "!", 0},    // Boolean negation with 0 (false)
+		{"-0", "-", 0},    // Boolean negation with 0 (false)
 		{"!1", "!", 1},    // Boolean negation with 1 (true)
 		{"- 15", "-", 15}, // Arithmetic negation with whitespace
 	}

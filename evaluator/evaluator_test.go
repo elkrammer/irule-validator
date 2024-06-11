@@ -181,14 +181,10 @@ func TestErrorHandling(t *testing.T) {
 			"-true",
 			"invalid command name '-true'",
 		},
-		// 		{
-		// 			"true + false;",
-		// 			"unknown operator: BOOLEAN + BOOLEAN",
-		// 		},
-		// 		{
-		// 			"true + false + true + false;",
-		// 			"unknown operator: BOOLEAN + BOOLEAN",
-		// 		},
+		{
+			"true + false + true + false;",
+			"unknown operator: BOOLEAN + BOOLEAN",
+		},
 		// 		{
 		// 			"5; true + false; 5",
 		// 			"unknown operator: BOOLEAN + BOOLEAN",

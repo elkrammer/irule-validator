@@ -97,6 +97,9 @@ func evalPrefixExpression(operator string, right object.Object) object.Object {
 	case "!":
 		return evalBangOperatorExpression(right)
 	case "-":
+		if boolean, ok := right.(*object.Boolean); ok {
+			return newError("invalid command name '-%s'", boolean.Inspect())
+		}
 		return evalMinusPrefixOperatorExpression(right)
 	default:
 		return newError("unknown operator: %s%s", operator, right.Type())
