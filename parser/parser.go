@@ -262,6 +262,7 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 		// Parse the number literal
 		right := p.parseExpression(PREFIX)
 
+		// Handle boolean negation
 		// Special case: If the number literal is 0, treat it as a boolean negation
 		if numberLiteral, ok := right.(*ast.NumberLiteral); ok && numberLiteral.Value == 0 {
 			expression.Operator = "!"
@@ -269,6 +270,7 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 			return expression
 		}
 
+		// Handle numeric negation
 		if numberLiteral, ok := right.(*ast.NumberLiteral); ok {
 			expression.Right = numberLiteral
 			return expression
