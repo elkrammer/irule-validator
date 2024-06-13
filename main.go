@@ -1,9 +1,17 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"github.com/elkrammer/irule-validator/repl"
+	"io"
 	"os"
+	"strings"
+
+	"github.com/elkrammer/irule-validator/evaluator"
+	"github.com/elkrammer/irule-validator/lexer"
+	"github.com/elkrammer/irule-validator/parser"
+	"github.com/elkrammer/irule-validator/repl"
 )
 
 func main() {
@@ -19,15 +27,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	isValid := validateF5iRule(string(content))
+	scanner := bufio.NewScanner(bufio.NewReader(bytes.NewReader(content)))
+	var out io.Writer = os.Stdout
 
-	if isValid {
-		fmt.Println("The F5 iRule is valid.")
-	} else {
-		fmt.Println("The F5 iRule is not valid.")
+	for scanner.Scan() {
+		line := scanner.Text()
+		l := lexer.New(line)
+		p := parser.New(l)
+
+		program := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			printParserErrors(out, p.Errors())
+			os.Exit(1)
+		}
+
+		evaluated := evaluator.Eval(program)
+		if evaluated != nil {
+			io.WriteString(out, evaluated.Inspect())
+			io.WriteString(out, "\n")
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("Error scanning file: %v\n", err)
+		os.Exit(1)
 	}
 }
 
-func validateF5iRule(rule string) bool {
-	return true
+func printParserErrors(out io.Writer, errors []string) {
+	for _, msg := range errors {
+		io.WriteString(out, strings.TrimSpace(msg))
+		io.WriteString(out, "\n")
+	}
 }
