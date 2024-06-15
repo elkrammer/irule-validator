@@ -182,33 +182,13 @@ func TestErrorHandling(t *testing.T) {
 			"invalid command name '-true'",
 		},
 		{
-			"true + false + true + false;",
-			"unknown operator: BOOLEAN + BOOLEAN",
+			"if {1 + 1 == 2} {",
+			"missing closing brace",
 		},
-		// 		{
-		// 			"5; true + false; 5",
-		// 			"unknown operator: BOOLEAN + BOOLEAN",
-		// 		},
-		// 		{
-		// 			"if (10 > 1) { true + false; }",
-		// 			"unknown operator: BOOLEAN + BOOLEAN",
-		// 		},
-		// 		{
-		// 			`
-		// if (10 > 1) {
-		//   if (10 > 1) {
-		//     return true + false;
-		//   }
-		//
-		//   return 1;
-		// }
-		// `,
-		// 			"unknown operator: BOOLEAN + BOOLEAN",
-		// 		},
-		// 		{
-		// 			"foobar",
-		// 			"identifier not found: foobar",
-		// 		},
+		// {
+		// 	"proc myProc {arg1 arg2} {",
+		// 	"missing closing brace in proc definition",
+		// },
 	}
 
 	for _, tt := range tests {
