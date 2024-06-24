@@ -1,11 +1,11 @@
 package evaluator
 
 import (
-	"testing"
-
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
+	"strings"
+	"testing"
 )
 
 func TestEvalNumberExpression(t *testing.T) {
@@ -168,42 +168,65 @@ func TestErrorHandling(t *testing.T) {
 	tests := []struct {
 		input           string
 		expectedMessage string
+		isParserError   bool
 	}{
 		{
 			"5 + true;",
 			"type mismatch: NUMBER + BOOLEAN",
+			false,
 		},
 		{
 			"5 + true; 5;",
 			"type mismatch: NUMBER + BOOLEAN",
+			false,
 		},
 		{
 			"-true",
 			"invalid command name '-true'",
+			false,
 		},
 		{
 			"if {1 + 1 == 2} {",
 			"missing closing brace",
+			true,
 		},
-		// {
-		// 	"proc myProc {arg1 arg2} {",
-		// 	"missing closing brace in proc definition",
-		// },
 	}
 
 	for _, tt := range tests {
-		evaluated := testEval(tt.input)
+		l := lexer.New(tt.input)
+		p := parser.New(l)
+		program := p.ParseProgram()
 
-		errObj, ok := evaluated.(*object.Error)
-		if !ok {
-			t.Errorf("no error object returned. got=%T(%+v)",
-				evaluated, evaluated)
-			continue
-		}
+		if tt.isParserError {
+			errors := p.Errors()
+			if len(errors) == 0 {
+				t.Errorf("parser.ParseProgram() returned no errors, expected: %q", tt.expectedMessage)
+				continue
+			}
+			if !strings.Contains(errors[0], tt.expectedMessage) {
+				t.Errorf("wrong error message. expected=%q, got=%q", tt.expectedMessage, errors[0])
+			}
+		} else {
+			// Check for unexpected parsing errors
+			if len(p.Errors()) != 0 {
+				t.Errorf("parser had %d errors", len(p.Errors()))
+				for _, msg := range p.Errors() {
+					t.Errorf("parser error: %q", msg)
+				}
+				continue
+			}
 
-		if errObj.Message != tt.expectedMessage {
-			t.Errorf("wrong error message. expected=%q, got=%q",
-				tt.expectedMessage, errObj.Message)
+			// Evaluate the program
+			evaluated := Eval(program)
+
+			// Check if the result is an error
+			if errObj, ok := evaluated.(*object.Error); ok {
+				if errObj.Message != tt.expectedMessage {
+					t.Errorf("wrong error message. expected=%q, got=%q", tt.expectedMessage, errObj.Message)
+				}
+			} else {
+				t.Errorf("no error object returned. got=%T(%+v)", evaluated, evaluated)
+			}
 		}
 	}
 }

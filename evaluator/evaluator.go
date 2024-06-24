@@ -140,11 +140,9 @@ func evalInfixExpression(operator string, left, right object.Object) object.Obje
 	case left.Type() == object.BOOLEAN_OBJ && right.Type() == object.BOOLEAN_OBJ:
 		return nativeBoolToBooleanObject(left != right)
 	case left.Type() != right.Type():
-		return newError("type mismatch: %s %s %s",
-			left.Type(), operator, right.Type())
+		return newError("type mismatch: %s %s %s", left.Type(), operator, right.Type())
 	default:
-		return newError("unknown operator: %s %s %s",
-			left.Type(), operator, right.Type())
+		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
 	}
 }
 

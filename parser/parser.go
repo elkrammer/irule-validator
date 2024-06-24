@@ -336,11 +336,11 @@ func (p *Parser) parseIfExpression() ast.Expression {
 
 	// Expect an opening brace after 'if'
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("expected '{' after 'if', but got %s", p.peekToken.Type))
 		return nil
 	}
 
-	// Parse the condition inside the curly braces
-	p.nextToken()
+	p.nextToken() // Consume the '{'
 	expression.Condition = p.parseExpression(LOWEST)
 
 	// Expect a closing brace after the condition
@@ -354,19 +354,27 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	}
 
 	// Parse the consequence block
-	expression.Consequence = p.parseBlockStatement()
+	consequence := p.parseBlockStatement()
+	if consequence == nil {
+		p.errors = append(p.errors, "missing closing brace")
+		return nil
+	}
+	expression.Consequence = consequence
 
-	// Check if there is an 'else' clause
+	// Handle the 'else' part
 	if p.peekTokenIs(token.ELSE) {
 		p.nextToken()
 
-		// Expect an opening brace for the alternative block
 		if !p.expectPeek(token.LBRACE) {
 			return nil
 		}
 
-		// Parse the alternative block
-		expression.Alternative = p.parseBlockStatement()
+		alternative := p.parseBlockStatement()
+		if alternative == nil {
+			p.errors = append(p.errors, "missing closing brace")
+			return nil
+		}
+		expression.Alternative = alternative
 	}
 
 	return expression
@@ -443,6 +451,11 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.nextToken()
+	}
+
+	if p.curTokenIs(token.EOF) {
+		p.errors = append(p.errors, "missing closing brace")
+		return nil
 	}
 
 	return block

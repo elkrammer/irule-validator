@@ -540,27 +540,32 @@ func TestFunctionParameterParsing(t *testing.T) {
 	tests := []struct {
 		input          string
 		expectedParams []string
+		expectError    bool
 	}{
-		{input: "proc add {} {}", expectedParams: []string{}},
-		{input: "proc add {x} {}", expectedParams: []string{"x"}},
-		{input: "proc add {x y z} {}", expectedParams: []string{"x", "y", "z"}},
+		{input: "proc add {} {}", expectedParams: []string{}, expectError: true},
+		{input: "proc add {x} {}", expectedParams: []string{"x"}, expectError: false},
+		{input: "proc add {x y z} {}", expectedParams: []string{"x", "y", "z"}, expectError: false},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			l := lexer.New(tt.input)
 			p := New(l)
 			program := p.ParseProgram()
-			checkParserErrors(t, p)
 
+			if tt.expectError {
+				if len(p.Errors()) == 0 {
+					t.Fatalf("expected parser error, but got none")
+				}
+				return
+			}
+
+			checkParserErrors(t, p)
 			stmt := program.Statements[0].(*ast.ExpressionStatement)
 			proc := stmt.Expression.(*ast.FunctionLiteral)
-
 			if len(proc.Parameters) != len(tt.expectedParams) {
 				t.Fatalf("length of parameters wrong. want %d, got %d\n",
 					len(tt.expectedParams), len(proc.Parameters))
 			}
-
 			for i, ident := range tt.expectedParams {
 				if proc.Parameters[i].Value != ident {
 					t.Errorf("parameter %d wrong. want %s, got %s\n",
