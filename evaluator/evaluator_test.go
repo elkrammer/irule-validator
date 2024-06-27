@@ -249,15 +249,15 @@ func TestSetStatements(t *testing.T) {
 		input    string
 		expected float64
 	}{
-		// {"set a 5; set result $a", 5},
-		// {"set a 5; set b $a; set result $b", 5},
+		{"set a 5; set result $a", 5},
+		{"set a 5; set b $a; set result $b", 5},
 		{"set a [expr 5 * 5]; set result $a", 25},
-		// {"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15},
+		{"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15},
 	}
 
 	for _, tt := range tests {
 		evaluated := testEval(tt.input)
-		t.Logf("Evaluated result: %+v", evaluated) // Add this line
+		t.Logf("Evaluated result: %+v", evaluated)
 		testNumberObject(t, testEval(tt.input), tt.expected)
 	}
 }
