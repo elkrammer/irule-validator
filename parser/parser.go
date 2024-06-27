@@ -152,7 +152,11 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = &ast.Identifier{
+		Token:      p.curToken,
+		Value:      strings.TrimPrefix(p.curToken.Literal, "$"),
+		IsVariable: false,
+	}
 
 	// Instead of expecting an ASSIGN token, directly proceed to the value
 	p.nextToken()
@@ -170,7 +174,11 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	case token.FALSE:
 		stmt.Value = &ast.Boolean{Token: p.curToken, Value: false}
 	case token.IDENT:
-		stmt.Value = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		stmt.Value = &ast.Identifier{
+			Token:      p.curToken,
+			Value:      strings.TrimPrefix(p.curToken.Literal, "$"),
+			IsVariable: strings.HasPrefix(p.curToken.Literal, "$"),
+		}
 	default:
 		return nil
 	}
@@ -222,9 +230,13 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
-	// Remove the '$' symbol if it's present in the token literal
+	isVariable := strings.HasPrefix(p.curToken.Literal, "$")
 	value := strings.TrimPrefix(p.curToken.Literal, "$")
-	return &ast.Identifier{Token: p.curToken, Value: value}
+	return &ast.Identifier{
+		Token:      p.curToken,
+		Value:      value,
+		IsVariable: isVariable,
+	}
 }
 
 func (p *Parser) parseNumberLiteral() ast.Expression {

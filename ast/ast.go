@@ -63,8 +63,9 @@ func (p *Program) String() string {
 
 // represents an identifier expression
 type Identifier struct {
-	Token token.Token
-	Value string
+	Token      token.Token
+	Value      string
+	IsVariable bool
 }
 
 func (i *Identifier) expressionNode() {}

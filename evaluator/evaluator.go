@@ -56,11 +56,14 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return &object.ReturnValue{Value: val}
 	case *ast.SetStatement:
+		fmt.Printf("Evaluating SetStatement: %s\n", node.String()) // Add this line
 		val := Eval(node.Value, env)
 		if isError(val) {
 			return val
 		}
 		env.Set(node.Name.Value, val)
+		fmt.Printf("Set %s to %v\n", node.Name.Value, val) // Add this line
+		return val                                         // Return the value that was set
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
 	}
@@ -234,6 +237,7 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	var result object.Object
 
 	for _, statement := range program.Statements {
+		fmt.Printf("Evaluating statement: %T\n", statement) // Add this line
 		result = Eval(statement, env)
 
 		switch result := result.(type) {
@@ -244,17 +248,20 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 		}
 	}
 
+	fmt.Printf("Final result: %+v\n", result) // Add this line
 	return result
 }
 
-func evalIdentifier(
-	node *ast.Identifier,
-	env *object.Environment,
-) object.Object {
-	val, ok := env.Get(node.Value)
-	if !ok {
+func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	if node.IsVariable {
+		if val, ok := env.Get(node.Value); ok {
+			return val
+		}
+		return newError("identifier not found: $" + node.Value)
+	} else {
+		if val, ok := env.Get(node.Value); ok {
+			return val
+		}
 		return newError("identifier not found: " + node.Value)
 	}
-
-	return val
 }

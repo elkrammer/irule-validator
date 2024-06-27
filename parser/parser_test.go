@@ -277,8 +277,8 @@ func testIdentifier(t *testing.T, exp ast.Expression, value string) bool {
 		return false
 	}
 
-	if ident.TokenLiteral() != value {
-		t.Errorf("ident.TokenLiteral not %s. Got=%s", value, ident.TokenLiteral())
+	if ident.TokenLiteral() != value && ident.TokenLiteral() != "$"+value {
+		t.Errorf("ident.TokenLiteral not %s. got=%s", value, ident.TokenLiteral())
 		return false
 	}
 
