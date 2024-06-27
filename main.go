@@ -10,6 +10,7 @@ import (
 
 	"github.com/elkrammer/irule-validator/evaluator"
 	"github.com/elkrammer/irule-validator/lexer"
+	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
 	"github.com/elkrammer/irule-validator/repl"
 )
@@ -41,7 +42,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		evaluated := evaluator.Eval(program)
+		env := object.NewEnvironment()
+		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
 			io.WriteString(out, evaluated.Inspect())
 			io.WriteString(out, "\n")

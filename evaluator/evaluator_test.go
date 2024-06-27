@@ -40,8 +40,9 @@ func testEval(input string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.ParseProgram()
+	env := object.NewEnvironment()
 
-	return Eval(program)
+	return Eval(program, env)
 }
 
 func testNumberObject(t *testing.T, obj object.Object, expected float64) bool {
@@ -190,6 +191,11 @@ func TestErrorHandling(t *testing.T) {
 			"missing closing brace",
 			true,
 		},
+		{
+			"foobar",
+			"identifier not found: foobar",
+			false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -217,7 +223,8 @@ func TestErrorHandling(t *testing.T) {
 			}
 
 			// Evaluate the program
-			evaluated := Eval(program)
+			env := object.NewEnvironment()
+			evaluated := Eval(program, env)
 
 			// Check if the result is an error
 			if errObj, ok := evaluated.(*object.Error); ok {
@@ -228,5 +235,21 @@ func TestErrorHandling(t *testing.T) {
 				t.Errorf("no error object returned. got=%T(%+v)", evaluated, evaluated)
 			}
 		}
+	}
+}
+
+func TestSetStatements(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected float64
+	}{
+		{"set a 5; set result $a", 5},
+		// {"set a [expr 5 * 5]; set result $a", 25},
+		// {"set a 5; set b $a; set result $b", 5},
+		// {"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15},
+	}
+
+	for _, tt := range tests {
+		testNumberObject(t, testEval(tt.input), tt.expected)
 	}
 }

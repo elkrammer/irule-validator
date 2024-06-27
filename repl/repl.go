@@ -3,16 +3,19 @@ package repl
 import (
 	"bufio"
 	"fmt"
+	"io"
+
 	"github.com/elkrammer/irule-validator/evaluator"
 	"github.com/elkrammer/irule-validator/lexer"
+	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
-	"io"
 )
 
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
+	env := object.NewEnvironment()
 
 	for {
 		fmt.Fprintf(out, PROMPT)
@@ -31,7 +34,7 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		evaluated := evaluator.Eval(program)
+		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
 			// fmt.Println(evaluated.Inspect())
 			io.WriteString(out, evaluated.Inspect())
