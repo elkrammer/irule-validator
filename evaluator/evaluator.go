@@ -57,18 +57,13 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return &object.ReturnValue{Value: val}
 	case *ast.SetStatement:
-		// if node == nil {
-		// 	fmt.Printf("SetStatement is nil\n") // Debug print
-		// 	return nil
-		// }
-		// fmt.Printf("Evaluating SetStatement: %s\n", node.String()) // Add this line
 		val := Eval(node.Value, env)
-		if isError(val) {
-			return val
+		// Unwrap single-element arrays resulting from expr evaluations
+		if arr, ok := val.(*object.Array); ok && len(arr.Elements) == 1 {
+			val = arr.Elements[0]
 		}
 		env.Set(node.Name.Value, val)
-		fmt.Printf("Set %s to %v\n", node.Name.Value, val) // Add this line
-		return val                                         // Return the value that was set
+		return val
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
 	case *ast.ArrayLiteral:
