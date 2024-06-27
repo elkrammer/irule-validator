@@ -108,9 +108,12 @@ func (p *Parser) ParseProgram() *ast.Program {
 	program.Statements = []ast.Statement{}
 
 	for !p.curTokenIs(token.EOF) {
+		fmt.Printf("Current token: %+v\n", p.curToken) // Debug print
 		stmt := p.parseStatement()
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
+		} else {
+			fmt.Printf("Failed to parse statement at token: %+v\n", p.curToken) // Debug print
 		}
 		p.nextToken()
 	}
@@ -145,45 +148,129 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	return stmt
 }
 
+// func (p *Parser) parseSetStatement() *ast.SetStatement {
+// 	stmt := &ast.SetStatement{Token: p.curToken}
+// 	fmt.Printf("Parsing set statement, current token: %+v\n", p.curToken) // Debug print
+//
+// 	if !p.expectPeek(token.IDENT) {
+// 		fmt.Printf("Expected IDENT, got: %+v\n", p.curToken) // Debug print
+// 		return nil
+// 	}
+//
+// 	stmt.Name = &ast.Identifier{
+// 		Token:      p.curToken,
+// 		Value:      strings.TrimPrefix(p.curToken.Literal, "$"),
+// 		IsVariable: false,
+// 	}
+// 	fmt.Printf("Set statement name: %s\n", stmt.Name.Value) // Debug print
+//
+// 	// Instead of expecting an ASSIGN token, directly proceed to the value
+// 	p.nextToken()
+//
+// 	// Check if the next token is a NUMBER, TRUE, or FALSE
+// 	fmt.Printf("Parsing set statement value, current token: %+v\n", p.curToken) // Debug print
+// 	switch p.curToken.Type {
+// 	case token.NUMBER:
+// 		value, err := strconv.ParseFloat(p.curToken.Literal, 64)
+// 		if err != nil {
+// 			return nil
+// 		}
+// 		stmt.Value = &ast.NumberLiteral{Token: p.curToken, Value: value}
+// 	case token.TRUE:
+// 		stmt.Value = &ast.Boolean{Token: p.curToken, Value: true}
+// 	case token.FALSE:
+// 		stmt.Value = &ast.Boolean{Token: p.curToken, Value: false}
+// 	case token.IDENT:
+// 		stmt.Value = &ast.Identifier{
+// 			Token:      p.curToken,
+// 			Value:      strings.TrimPrefix(p.curToken.Literal, "$"),
+// 			IsVariable: strings.HasPrefix(p.curToken.Literal, "$"),
+// 		}
+// 	default:
+// 		return nil
+// 	}
+//
+// 	// Check if the next token is a semicolon and consume it if present
+// 	if p.peekTokenIs(token.SEMICOLON) {
+// 		p.nextToken()
+// 	}
+//
+// 	return stmt
+// }
+
+// func (p *Parser) parseSetStatement() *ast.SetStatement {
+// 	stmt := &ast.SetStatement{Token: p.curToken}
+// 	fmt.Printf("Parsing set statement, current token: %+v\n", p.curToken)
+//
+// 	if !p.expectPeek(token.IDENT) {
+// 		fmt.Printf("Expected IDENT, got: %+v\n", p.curToken)
+// 		return nil
+// 	}
+//
+// 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+// 	fmt.Printf("Set statement name: %s\n", stmt.Name.Value)
+//
+// 	p.nextToken() // Move past the variable name
+//
+// 	// Check if the next token is a '['
+// 	if p.curTokenIs(token.LBRACKET) {
+// 		arrayLiteral := p.parseArrayLiteral()
+// 		if arrayLiteral == nil {
+// 			fmt.Printf("Failed to parse array literal\n")
+// 			return nil
+// 		}
+// 		stmt.Value = arrayLiteral
+// 	} else {
+// 		// Parse the value as an expression
+// 		stmt.Value = p.parseExpression(LOWEST)
+// 	}
+//
+// 	if stmt.Value == nil {
+// 		fmt.Printf("Failed to parse set statement value\n")
+// 		return nil
+// 	}
+//
+// 	// Consume the semicolon if it's there
+// 	if p.peekTokenIs(token.SEMICOLON) {
+// 		p.nextToken()
+// 	}
+//
+// 	return stmt
+// }
+
 func (p *Parser) parseSetStatement() *ast.SetStatement {
 	stmt := &ast.SetStatement{Token: p.curToken}
+	fmt.Printf("Parsing set statement, current token: %+v\n", p.curToken)
 
 	if !p.expectPeek(token.IDENT) {
+		fmt.Printf("Expected IDENT, got: %+v\n", p.curToken)
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{
-		Token:      p.curToken,
-		Value:      strings.TrimPrefix(p.curToken.Literal, "$"),
-		IsVariable: false,
-	}
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	fmt.Printf("Set statement name: %s\n", stmt.Name.Value)
 
-	// Instead of expecting an ASSIGN token, directly proceed to the value
-	p.nextToken()
+	p.nextToken() // Move past the variable name
 
-	// Check if the next token is a NUMBER, TRUE, or FALSE
-	switch p.curToken.Type {
-	case token.NUMBER:
-		value, err := strconv.ParseFloat(p.curToken.Literal, 64)
-		if err != nil {
+	// Check if the next token is a '['
+	if p.curTokenIs(token.LBRACKET) {
+		arrayLiteral := p.parseArrayLiteral()
+		if arrayLiteral == nil {
+			fmt.Printf("Failed to parse array literal: %s\n", strings.Join(p.errors, ", "))
 			return nil
 		}
-		stmt.Value = &ast.NumberLiteral{Token: p.curToken, Value: value}
-	case token.TRUE:
-		stmt.Value = &ast.Boolean{Token: p.curToken, Value: true}
-	case token.FALSE:
-		stmt.Value = &ast.Boolean{Token: p.curToken, Value: false}
-	case token.IDENT:
-		stmt.Value = &ast.Identifier{
-			Token:      p.curToken,
-			Value:      strings.TrimPrefix(p.curToken.Literal, "$"),
-			IsVariable: strings.HasPrefix(p.curToken.Literal, "$"),
-		}
-	default:
+		stmt.Value = arrayLiteral
+	} else {
+		// Parse the value as an expression
+		stmt.Value = p.parseExpression(LOWEST)
+	}
+
+	if stmt.Value == nil {
+		fmt.Printf("Failed to parse set statement value: %s\n", strings.Join(p.errors, ", "))
 		return nil
 	}
 
-	// Check if the next token is a semicolon and consume it if present
+	// Consume the semicolon if it's there
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -546,9 +633,77 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 	return list
 }
 
+// func (p *Parser) parseArrayLiteral() ast.Expression {
+// 	array := &ast.ArrayLiteral{Token: p.curToken}
+// 	array.Elements = p.parseExpressionList(token.RBRACKET)
+// 	return array
+// }
+
+// func (p *Parser) parseArrayLiteral() ast.Expression {
+// 	array := &ast.ArrayLiteral{Token: p.curToken}
+//
+// 	p.nextToken() // consume the '['
+//
+// 	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
+// 		// Handle expr specially
+// 		p.nextToken() // consume 'expr'
+// 		array.Elements = []ast.Expression{p.parseExpression(LOWEST)}
+// 	} else {
+// 		array.Elements = p.parseExpressionList(token.RBRACKET)
+// 	}
+//
+// 	if !p.expectPeek(token.RBRACKET) {
+// 		return nil
+// 	}
+//
+// 	return array
+// }
+
+// func (p *Parser) parseArrayLiteral() ast.Expression {
+// 	array := &ast.ArrayLiteral{Token: p.curToken}
+// 	p.nextToken() // consume the '['
+//
+// 	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
+// 		p.nextToken() // consume 'expr'
+// 		expr := p.parseExpression(LOWEST)
+// 		array.Elements = []ast.Expression{expr}
+// 	} else {
+// 		array.Elements = p.parseExpressionList(token.RBRACKET)
+// 	}
+//
+// 	if !p.expectPeek(token.RBRACKET) {
+// 		return nil
+// 	}
+//
+// 	return array
+// }
+
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
-	array.Elements = p.parseExpressionList(token.RBRACKET)
+	p.nextToken() // consume the '['
+
+	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
+		p.nextToken() // consume 'expr'
+		expr := p.parseExpression(LOWEST)
+		if expr == nil {
+			return nil
+		}
+		array.Elements = []ast.Expression{&ast.ExprExpression{Token: p.curToken, Expression: expr}}
+
+		// Consume tokens until we reach the closing bracket
+		for !p.curTokenIs(token.RBRACKET) && !p.curTokenIs(token.EOF) {
+			p.nextToken()
+		}
+	} else {
+		array.Elements = p.parseExpressionList(token.RBRACKET)
+	}
+
+	if !p.curTokenIs(token.RBRACKET) {
+		p.errors = append(p.errors, fmt.Sprintf("expected ], got %s instead", p.curToken.Type))
+		return nil
+	}
+	p.nextToken() // consume the ']'
+
 	return array
 }
 

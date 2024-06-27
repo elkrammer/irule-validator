@@ -384,15 +384,17 @@ type ExprExpression struct {
 
 func (ee *ExprExpression) expressionNode()      {}
 func (ee *ExprExpression) TokenLiteral() string { return ee.Token.Literal }
-func (ee *ExprExpression) String() string {
-	var out bytes.Buffer
-	out.WriteString(ee.TokenLiteral())
-	out.WriteString(" ")
-	if ee.Expression != nil {
-		out.WriteString(ee.Expression.String())
-	}
-	return out.String()
-}
+func (ee *ExprExpression) String() string       { return "expr " + ee.Expression.String() }
+
+// func (ee *ExprExpression) String() string {
+// 	var out bytes.Buffer
+// 	out.WriteString(ee.TokenLiteral())
+// 	out.WriteString(" ")
+// 	if ee.Expression != nil {
+// 		out.WriteString(ee.Expression.String())
+// 	}
+// 	return out.String()
+// }
 
 type ParenthesizedExpression struct {
 	Expression Expression

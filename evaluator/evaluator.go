@@ -14,6 +14,7 @@ var (
 )
 
 func Eval(node ast.Node, env *object.Environment) object.Object {
+	fmt.Printf("Evaluating node: %T\n", node) // Debug print
 	switch node := node.(type) {
 
 	// statements
@@ -56,7 +57,11 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return &object.ReturnValue{Value: val}
 	case *ast.SetStatement:
-		fmt.Printf("Evaluating SetStatement: %s\n", node.String()) // Add this line
+		// if node == nil {
+		// 	fmt.Printf("SetStatement is nil\n") // Debug print
+		// 	return nil
+		// }
+		// fmt.Printf("Evaluating SetStatement: %s\n", node.String()) // Add this line
 		val := Eval(node.Value, env)
 		if isError(val) {
 			return val
@@ -66,6 +71,15 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return val                                         // Return the value that was set
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
+	case *ast.ArrayLiteral:
+		elements := evalExpressions(node.Elements, env)
+		if len(elements) == 1 && isError(elements[0]) {
+			return elements[0]
+		}
+		return &object.Array{Elements: elements}
+	case *ast.ExprExpression:
+		return Eval(node.Expression, env)
+
 	}
 
 	return nil
@@ -264,4 +278,84 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 		}
 		return newError("identifier not found: " + node.Value)
 	}
+}
+
+// func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
+// 	elements := evalExpressions(node.Elements, env)
+// 	if len(elements) == 1 && isError(elements[0]) {
+// 		return elements[0]
+// 	}
+//
+// 	// If there's only one element and it's a function call to 'expr'
+// 	if len(elements) == 1 {
+// 		if callExp, ok := node.Elements[0].(*ast.CallExpression); ok {
+// 			if ident, ok := callExp.Function.(*ast.Identifier); ok && ident.Value == "expr" {
+// 				return evalExpressionCommand(callExp.Arguments, env)
+// 			}
+// 		}
+// 	}
+//
+// 	return &object.Array{Elements: elements}
+// }
+
+// func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
+// 	elements := evalExpressions(node.Elements, env)
+// 	if len(elements) == 1 && isError(elements[0]) {
+// 		return elements[0]
+// 	}
+//
+// 	// If there's only one element and it's an ExprExpression
+// 	if len(elements) == 1 {
+// 		if exprObj, ok := node.Elements[0].(*ast.ExprExpression); ok {
+// 			return Eval(exprObj.Expression, env)
+// 		}
+// 	}
+//
+// 	return &object.Array{Elements: elements}
+// }
+
+func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
+	elements := evalExpressions(node.Elements, env)
+	if len(elements) == 1 && isError(elements[0]) {
+		return elements[0]
+	}
+
+	// If there's only one element and it's from an ExprExpression, return it directly
+	if len(elements) == 1 {
+		if _, ok := node.Elements[0].(*ast.ExprExpression); ok {
+			return elements[0]
+		}
+	}
+
+	return &object.Array{Elements: elements}
+}
+
+func evalExpressions(
+	exps []ast.Expression,
+	env *object.Environment,
+) []object.Object {
+	var result []object.Object
+
+	for _, e := range exps {
+		evaluated := Eval(e, env)
+		if isError(evaluated) {
+			return []object.Object{evaluated}
+		}
+		result = append(result, evaluated)
+	}
+
+	return result
+}
+
+func evalExpressionCommand(args []ast.Expression, env *object.Environment) object.Object {
+	if len(args) != 1 {
+		return newError("wrong number of arguments for expr. got=%d, want=1", len(args))
+	}
+
+	result := Eval(args[0], env)
+	if number, ok := result.(*object.Number); ok {
+		return number
+	}
+
+	return newError("expr command expects a number expression, got=%T", result)
 }
