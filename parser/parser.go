@@ -633,51 +633,6 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 	return list
 }
 
-// func (p *Parser) parseArrayLiteral() ast.Expression {
-// 	array := &ast.ArrayLiteral{Token: p.curToken}
-// 	array.Elements = p.parseExpressionList(token.RBRACKET)
-// 	return array
-// }
-
-// func (p *Parser) parseArrayLiteral() ast.Expression {
-// 	array := &ast.ArrayLiteral{Token: p.curToken}
-//
-// 	p.nextToken() // consume the '['
-//
-// 	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
-// 		// Handle expr specially
-// 		p.nextToken() // consume 'expr'
-// 		array.Elements = []ast.Expression{p.parseExpression(LOWEST)}
-// 	} else {
-// 		array.Elements = p.parseExpressionList(token.RBRACKET)
-// 	}
-//
-// 	if !p.expectPeek(token.RBRACKET) {
-// 		return nil
-// 	}
-//
-// 	return array
-// }
-
-// func (p *Parser) parseArrayLiteral() ast.Expression {
-// 	array := &ast.ArrayLiteral{Token: p.curToken}
-// 	p.nextToken() // consume the '['
-//
-// 	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
-// 		p.nextToken() // consume 'expr'
-// 		expr := p.parseExpression(LOWEST)
-// 		array.Elements = []ast.Expression{expr}
-// 	} else {
-// 		array.Elements = p.parseExpressionList(token.RBRACKET)
-// 	}
-//
-// 	if !p.expectPeek(token.RBRACKET) {
-// 		return nil
-// 	}
-//
-// 	return array
-// }
-
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
 	p.nextToken() // consume the '['
@@ -706,12 +661,6 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 
 	return array
 }
-
-//	func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
-//		exp := &ast.CallExpression{Token: p.curToken, Function: function}
-//		exp.Arguments = p.parseExpressionList(token.RPAREN)
-//		return exp
-//	}
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
