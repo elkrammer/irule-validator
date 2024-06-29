@@ -252,12 +252,10 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
-	isVariable := strings.HasPrefix(p.curToken.Literal, "$")
-	value := strings.TrimPrefix(p.curToken.Literal, "$")
 	return &ast.Identifier{
 		Token:      p.curToken,
-		Value:      value,
-		IsVariable: isVariable,
+		Value:      p.curToken.Literal,
+		IsVariable: strings.HasPrefix(p.curToken.Literal, "$"),
 	}
 }
 
@@ -308,58 +306,58 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 }
 
 func (p *Parser) parseFunctionLiteral() ast.Expression {
-	lit := &ast.FunctionLiteral{Token: p.curToken}
+	proc := &ast.FunctionLiteral{Token: p.curToken}
 
-	// Expect an identifier after the 'FUNCTION' token.
+	// Expect the function name after 'proc'
 	if !p.expectPeek(token.IDENT) {
-		fmt.Println("Error: Expected function name.")
+		fmt.Println("Error: Expected function name after 'proc'")
 		return nil
 	}
 
 	// Expect an opening brace '{' after the function name.
 	if !p.expectPeek(token.LBRACE) {
-		fmt.Println("Error: Expected opening brace after function name.")
+		fmt.Println("Error: Expected opening brace after 'proc'")
 		return nil
 	}
 
-	lit.Parameters = p.parseFunctionParameters()
-	lit.Body = p.parseBlockStatement()
+	proc.Parameters = p.parseFunctionParameters()
 
-	return lit
+	// The next token should be the opening brace for the function body
+	if !p.expectPeek(token.LBRACE) {
+		fmt.Println("Error: Expected opening brace for function body")
+		return nil
+	}
+
+	proc.Body = p.parseBlockStatement()
+
+	return proc
 }
 
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	identifiers := []*ast.Identifier{}
 
-	// If the next token is '}', then there are no parameters.
+	// If the next token is '}', then there are no parameters
 	if p.peekTokenIs(token.RBRACE) {
-		p.nextToken() // Consume the '}' token.
+		p.nextToken() // Consume the '}' token
 		return identifiers
 	}
 
-	// Consume the opening curly brace.
-	p.nextToken()
+	p.nextToken() // Consume the opening brace
 
-	for {
-		if p.curTokenIs(token.IDENT) || p.curTokenIs(token.STRING) {
+	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		if p.curTokenIs(token.IDENT) {
 			identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 			identifiers = append(identifiers, identifier)
-			p.nextToken()
 		}
+		p.nextToken()
 
 		if p.curTokenIs(token.COMMA) {
-			p.nextToken()
-			continue
+			p.nextToken() // Skip comma
 		}
+	}
 
-		if p.curTokenIs(token.RBRACE) {
-			p.nextToken()
-			break
-		}
-
-		if p.curTokenIs(token.EOF) {
-			break
-		}
+	if !p.curTokenIs(token.RBRACE) {
+		fmt.Println("Error: Expected closing brace for parameters")
 	}
 
 	return identifiers

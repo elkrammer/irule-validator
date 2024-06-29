@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/elkrammer/irule-validator/ast"
 	"github.com/elkrammer/irule-validator/config"
@@ -65,7 +66,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		if arr, ok := val.(*object.Array); ok && len(arr.Elements) == 1 {
 			val = arr.Elements[0]
 		}
-		env.Set(node.Name.Value, val)
+		env.Set(strings.TrimPrefix(node.Name.Value, "$"), val)
 		return val
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
@@ -77,6 +78,10 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Array{Elements: elements}
 	case *ast.ExprExpression:
 		return Eval(node.Expression, env)
+	case *ast.FunctionLiteral:
+		params := node.Parameters
+		body := node.Body
+		return &object.Function{Parameters: params, Env: env, Body: body}
 
 	}
 
@@ -273,15 +278,20 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 }
 
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
-	prefix := ""
 	if node.IsVariable {
-		prefix = "$"
-	}
-
-	if val, ok := env.Get(node.Value); ok {
+		// Remove the leading $ for lookup
+		val, ok := env.Get(strings.TrimPrefix(node.Value, "$"))
+		if !ok {
+			return newError("identifier not found: %s", node.Value)
+		}
 		return val
 	}
-	return newError("identifier not found: " + prefix + node.Value)
+
+	val, ok := env.Get(node.Value)
+	if !ok {
+		return newError("identifier not found: %s", node.Value)
+	}
+	return val
 }
 
 func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
