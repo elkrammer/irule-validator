@@ -273,17 +273,15 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 }
 
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	prefix := ""
 	if node.IsVariable {
-		if val, ok := env.Get(node.Value); ok {
-			return val
-		}
-		return newError("identifier not found: $" + node.Value)
-	} else {
-		if val, ok := env.Get(node.Value); ok {
-			return val
-		}
-		return newError("identifier not found: " + node.Value)
+		prefix = "$"
 	}
+
+	if val, ok := env.Get(node.Value); ok {
+		return val
+	}
+	return newError("identifier not found: " + prefix + node.Value)
 }
 
 func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
