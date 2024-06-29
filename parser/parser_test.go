@@ -237,10 +237,10 @@ func TestParsingInfixExpressions(t *testing.T) {
 		{"expr {5 > 5}", 5, ">", 5},
 		{"expr {5 < 5}", 5, "<", 5},
 		{"expr {5 == 5}", 5, "==", 5},
-		// {"expr {5 != 5}", 5, "!=", 5},
-		// {"expr {1 == 1}", 1, "==", 1}, // true == true
-		// {"expr {1 != 0}", 1, "!=", 0}, // true != false
-		// {"expr {0 == 0}", 0, "==", 0}, // false == false
+		{"expr {5 != 5}", 5, "!=", 5},
+		{"expr {1 == 1}", 1, "==", 1}, // true == true
+		{"expr {1 != 0}", 1, "!=", 0}, // true != false
+		{"expr {0 == 0}", 0, "==", 0}, // false == false
 	}
 
 	for _, tt := range infixTests {
@@ -277,8 +277,8 @@ func testIdentifier(t *testing.T, exp ast.Expression, value string) bool {
 		return false
 	}
 
-	if ident.TokenLiteral() != value {
-		t.Errorf("ident.TokenLiteral not %s. Got=%s", value, ident.TokenLiteral())
+	if ident.TokenLiteral() != value && ident.TokenLiteral() != "$"+value {
+		t.Errorf("ident.TokenLiteral not %s. got=%s", value, ident.TokenLiteral())
 		return false
 	}
 

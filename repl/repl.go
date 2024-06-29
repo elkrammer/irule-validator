@@ -36,8 +36,12 @@ func Start(in io.Reader, out io.Writer) {
 
 		evaluated := evaluator.Eval(program, env)
 		if evaluated != nil {
-			// fmt.Println(evaluated.Inspect())
-			io.WriteString(out, evaluated.Inspect())
+			// Unwrap single-element arrays
+			if arr, ok := evaluated.(*object.Array); ok && len(arr.Elements) == 1 {
+				io.WriteString(out, arr.Elements[0].Inspect())
+			} else {
+				io.WriteString(out, evaluated.Inspect())
+			}
 			io.WriteString(out, "\n")
 		}
 	}
@@ -62,7 +66,7 @@ const ROUTER = `
 `
 
 func printParserErrors(out io.Writer, errors []string) {
-	io.WriteString(out, ROUTER)
+	// io.WriteString(out, ROUTER)
 	io.WriteString(out, "Woops! We ran into some funky business here!\n")
 	io.WriteString(out, " parser errors:\n")
 	for _, msg := range errors {

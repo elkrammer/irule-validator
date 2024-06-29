@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/elkrammer/irule-validator/ast"
+	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/token"
 )
@@ -101,23 +102,40 @@ func (p *Parser) peekError(t token.TokenType) {
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Advanced tokens - Current: %s, Peek: %s\n", p.curToken.Type, p.peekToken.Type)
+	}
 }
 
 func (p *Parser) ParseProgram() *ast.Program {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Starting to parse program\n")
+	}
 	program := &ast.Program{}
 	program.Statements = []ast.Statement{}
 
 	for !p.curTokenIs(token.EOF) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Parsing statement, current token: %s\n", p.curToken.Type)
+		}
 		stmt := p.parseStatement()
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
+		} else {
+			fmt.Printf("Failed to parse statement at token: %+v\n", p.curToken) // Debug print
 		}
 		p.nextToken()
+	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing program, total statements: %d\n", len(program.Statements))
 	}
 	return program
 }
 
 func (p *Parser) parseStatement() ast.Statement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing statement, token type: %s\n", p.curToken.Type)
+	}
 	switch p.curToken.Type {
 	case token.SET:
 		return p.parseSetStatement()
@@ -149,33 +167,33 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	stmt := &ast.SetStatement{Token: p.curToken}
 
 	if !p.expectPeek(token.IDENT) {
+		fmt.Printf("Expected IDENT, got: %+v\n", p.curToken)
 		return nil
 	}
 
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	// Instead of expecting an ASSIGN token, directly proceed to the value
-	p.nextToken()
+	p.nextToken() // Move past the variable name
 
-	// Check if the next token is a NUMBER, TRUE, or FALSE
-	switch p.curToken.Type {
-	case token.NUMBER:
-		value, err := strconv.ParseFloat(p.curToken.Literal, 64)
-		if err != nil {
+	// Check if the next token is a '['
+	if p.curTokenIs(token.LBRACKET) {
+		arrayLiteral := p.parseArrayLiteral()
+		if arrayLiteral == nil {
+			fmt.Printf("Failed to parse array literal: %s\n", strings.Join(p.errors, ", "))
 			return nil
 		}
-		stmt.Value = &ast.NumberLiteral{Token: p.curToken, Value: value}
-	case token.TRUE:
-		stmt.Value = &ast.Boolean{Token: p.curToken, Value: true}
-	case token.FALSE:
-		stmt.Value = &ast.Boolean{Token: p.curToken, Value: false}
-	case token.IDENT:
-		stmt.Value = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	default:
+		stmt.Value = arrayLiteral
+	} else {
+		// Parse the value as an expression
+		stmt.Value = p.parseExpression(LOWEST)
+	}
+
+	if stmt.Value == nil {
+		fmt.Printf("Failed to parse set statement value: %s\n", strings.Join(p.errors, ", "))
 		return nil
 	}
 
-	// Check if the next token is a semicolon and consume it if present
+	// Consume the semicolon if it's there
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -195,14 +213,23 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing expression with precedence %d, current token: %s\n", precedence, p.curToken.Type)
+	}
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	leftExp := prefix()
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsed left expression: %T\n", leftExp)
+	}
 
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Continuing expression, peek token: %s\n", p.peekToken.Type)
+		}
 		if p.peekTokenIs(token.LPAREN) {
 			p.nextToken() // Consume opening parenthesis
 			leftExp = p.parseCallExpression(leftExp)
@@ -218,13 +245,20 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		leftExp = infix(leftExp)
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing expression\n")
+	}
 	return leftExp
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
-	// Remove the '$' symbol if it's present in the token literal
+	isVariable := strings.HasPrefix(p.curToken.Literal, "$")
 	value := strings.TrimPrefix(p.curToken.Literal, "$")
-	return &ast.Identifier{Token: p.curToken, Value: value}
+	return &ast.Identifier{
+		Token:      p.curToken,
+		Value:      value,
+		IsVariable: isVariable,
+	}
 }
 
 func (p *Parser) parseNumberLiteral() ast.Expression {
@@ -332,6 +366,9 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 }
 
 func (p *Parser) parseIfExpression() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing if expression\n")
+	}
 	expression := &ast.IfExpression{Token: p.curToken}
 
 	// Expect an opening brace after 'if'
@@ -341,6 +378,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	}
 
 	p.nextToken() // Consume the '{'
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing if condition\n")
+	}
 	expression.Condition = p.parseExpression(LOWEST)
 
 	// Expect a closing brace after the condition
@@ -354,6 +394,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	}
 
 	// Parse the consequence block
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing if consequence\n")
+	}
 	consequence := p.parseBlockStatement()
 	if consequence == nil {
 		p.errors = append(p.errors, "missing closing brace")
@@ -377,6 +420,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 		expression.Alternative = alternative
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing if expression\n")
+	}
 	return expression
 }
 
@@ -536,15 +582,32 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
-	array.Elements = p.parseExpressionList(token.RBRACKET)
+	p.nextToken() // consume the '['
+
+	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
+		p.nextToken() // consume 'expr'
+		expr := p.parseExpression(LOWEST)
+		if expr == nil {
+			return nil
+		}
+		array.Elements = []ast.Expression{&ast.ExprExpression{Token: p.curToken, Expression: expr}}
+
+		// Consume tokens until we reach the closing bracket
+		for !p.curTokenIs(token.RBRACKET) && !p.curTokenIs(token.EOF) {
+			p.nextToken()
+		}
+	} else {
+		array.Elements = p.parseExpressionList(token.RBRACKET)
+	}
+
+	if !p.curTokenIs(token.RBRACKET) {
+		p.errors = append(p.errors, fmt.Sprintf("expected ], got %s instead", p.curToken.Type))
+		return nil
+	}
+	p.nextToken() // consume the ']'
+
 	return array
 }
-
-//	func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
-//		exp := &ast.CallExpression{Token: p.curToken, Function: function}
-//		exp.Arguments = p.parseExpressionList(token.RPAREN)
-//		return exp
-//	}
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}

@@ -46,6 +46,12 @@ func testEval(input string) object.Object {
 }
 
 func testNumberObject(t *testing.T, obj object.Object, expected float64) bool {
+
+	if obj == nil {
+		t.Errorf("object is nil. expected=%.2f", expected)
+		return false
+	}
+
 	result, ok := obj.(*object.Number)
 	if !ok {
 		t.Errorf("object is not a number. got=%T (%+v)", obj, obj)
@@ -244,12 +250,14 @@ func TestSetStatements(t *testing.T) {
 		expected float64
 	}{
 		{"set a 5; set result $a", 5},
-		// {"set a [expr 5 * 5]; set result $a", 25},
-		// {"set a 5; set b $a; set result $b", 5},
-		// {"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15},
+		{"set a 5; set b $a; set result $b", 5},
+		{"set a [expr 5 * 5]; set result $a", 25},
+		{"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15},
 	}
 
 	for _, tt := range tests {
+		evaluated := testEval(tt.input)
+		t.Logf("Evaluated result: %+v", evaluated)
 		testNumberObject(t, testEval(tt.input), tt.expected)
 	}
 }

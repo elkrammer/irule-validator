@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/evaluator"
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/object"
@@ -16,11 +18,17 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
+	debug := flag.Bool("debug", false, "Run in debug mode")
+	flag.Parse()
+	config.DebugMode = *debug
+
+	args := flag.Args()
+	if len(args) == 0 {
 		repl.Start(os.Stdin, os.Stdout)
+		return
 	}
 
-	filename := os.Args[1]
+	filename := os.Args[0]
 
 	content, err := os.ReadFile(filename)
 	if err != nil {

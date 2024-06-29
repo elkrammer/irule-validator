@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/elkrammer/irule-validator/ast"
+	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/object"
 )
 
@@ -14,6 +15,9 @@ var (
 )
 
 func Eval(node ast.Node, env *object.Environment) object.Object {
+	if config.DebugMode {
+		fmt.Printf("Evaluating node: %T\n", node)
+	}
 	switch node := node.(type) {
 
 	// statements
@@ -57,12 +61,23 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.ReturnValue{Value: val}
 	case *ast.SetStatement:
 		val := Eval(node.Value, env)
-		if isError(val) {
-			return val
+		// Unwrap single-element arrays resulting from expr evaluations
+		if arr, ok := val.(*object.Array); ok && len(arr.Elements) == 1 {
+			val = arr.Elements[0]
 		}
 		env.Set(node.Name.Value, val)
+		return val
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
+	case *ast.ArrayLiteral:
+		elements := evalExpressions(node.Elements, env)
+		if len(elements) == 1 && isError(elements[0]) {
+			return elements[0]
+		}
+		return &object.Array{Elements: elements}
+	case *ast.ExprExpression:
+		return Eval(node.Expression, env)
+
 	}
 
 	return nil
@@ -233,7 +248,13 @@ func evalBlockStatement(
 func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	var result object.Object
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Starting to eval program\n")
+	}
 	for _, statement := range program.Statements {
+		if config.DebugMode {
+			fmt.Printf("Evaluating statement: %T\n", statement)
+		}
 		result = Eval(statement, env)
 
 		switch result := result.(type) {
@@ -244,17 +265,69 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 		}
 	}
 
+	if config.DebugMode {
+		fmt.Printf("Final result: %+v\n", result)
+		fmt.Printf("DEBUG: Finished evaluating program\n")
+	}
 	return result
 }
 
-func evalIdentifier(
-	node *ast.Identifier,
-	env *object.Environment,
-) object.Object {
-	val, ok := env.Get(node.Value)
-	if !ok {
+func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	if node.IsVariable {
+		if val, ok := env.Get(node.Value); ok {
+			return val
+		}
+		return newError("identifier not found: $" + node.Value)
+	} else {
+		if val, ok := env.Get(node.Value); ok {
+			return val
+		}
 		return newError("identifier not found: " + node.Value)
 	}
+}
 
-	return val
+func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
+	elements := evalExpressions(node.Elements, env)
+	if len(elements) == 1 && isError(elements[0]) {
+		return elements[0]
+	}
+
+	// If there's only one element and it's from an ExprExpression, return it directly
+	if len(elements) == 1 {
+		if _, ok := node.Elements[0].(*ast.ExprExpression); ok {
+			return elements[0]
+		}
+	}
+
+	return &object.Array{Elements: elements}
+}
+
+func evalExpressions(
+	exps []ast.Expression,
+	env *object.Environment,
+) []object.Object {
+	var result []object.Object
+
+	for _, e := range exps {
+		evaluated := Eval(e, env)
+		if isError(evaluated) {
+			return []object.Object{evaluated}
+		}
+		result = append(result, evaluated)
+	}
+
+	return result
+}
+
+func evalExpressionCommand(args []ast.Expression, env *object.Environment) object.Object {
+	if len(args) != 1 {
+		return newError("wrong number of arguments for expr. got=%d, want=1", len(args))
+	}
+
+	result := Eval(args[0], env)
+	if number, ok := result.(*object.Number); ok {
+		return number
+	}
+
+	return newError("expr command expects a number expression, got=%T", result)
 }
