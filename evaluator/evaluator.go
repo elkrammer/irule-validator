@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/elkrammer/irule-validator/ast"
+	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/object"
 )
 
@@ -14,7 +15,9 @@ var (
 )
 
 func Eval(node ast.Node, env *object.Environment) object.Object {
-	fmt.Printf("Evaluating node: %T\n", node) // Debug print
+	if config.DebugMode {
+		fmt.Printf("Evaluating node: %T\n", node)
+	}
 	switch node := node.(type) {
 
 	// statements
@@ -245,8 +248,13 @@ func evalBlockStatement(
 func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	var result object.Object
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Starting to eval program\n")
+	}
 	for _, statement := range program.Statements {
-		fmt.Printf("Evaluating statement: %T\n", statement) // Add this line
+		if config.DebugMode {
+			fmt.Printf("Evaluating statement: %T\n", statement)
+		}
 		result = Eval(statement, env)
 
 		switch result := result.(type) {
@@ -257,7 +265,10 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 		}
 	}
 
-	fmt.Printf("Final result: %+v\n", result) // Add this line
+	if config.DebugMode {
+		fmt.Printf("Final result: %+v\n", result)
+		fmt.Printf("DEBUG: Finished evaluating program\n")
+	}
 	return result
 }
 

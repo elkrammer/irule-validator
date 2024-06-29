@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/elkrammer/irule-validator/ast"
+	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/token"
 )
@@ -101,14 +102,22 @@ func (p *Parser) peekError(t token.TokenType) {
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Advanced tokens - Current: %s, Peek: %s\n", p.curToken.Type, p.peekToken.Type)
+	}
 }
 
 func (p *Parser) ParseProgram() *ast.Program {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Starting to parse program\n")
+	}
 	program := &ast.Program{}
 	program.Statements = []ast.Statement{}
 
 	for !p.curTokenIs(token.EOF) {
-		fmt.Printf("Current token: %+v\n", p.curToken) // Debug print
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Parsing statement, current token: %s\n", p.curToken.Type)
+		}
 		stmt := p.parseStatement()
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
@@ -117,10 +126,16 @@ func (p *Parser) ParseProgram() *ast.Program {
 		}
 		p.nextToken()
 	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing program, total statements: %d\n", len(program.Statements))
+	}
 	return program
 }
 
 func (p *Parser) parseStatement() ast.Statement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing statement, token type: %s\n", p.curToken.Type)
+	}
 	switch p.curToken.Type {
 	case token.SET:
 		return p.parseSetStatement()
@@ -150,7 +165,6 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 
 func (p *Parser) parseSetStatement() *ast.SetStatement {
 	stmt := &ast.SetStatement{Token: p.curToken}
-	fmt.Printf("Parsing set statement, current token: %+v\n", p.curToken)
 
 	if !p.expectPeek(token.IDENT) {
 		fmt.Printf("Expected IDENT, got: %+v\n", p.curToken)
@@ -158,7 +172,6 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	}
 
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	fmt.Printf("Set statement name: %s\n", stmt.Name.Value)
 
 	p.nextToken() // Move past the variable name
 
@@ -200,14 +213,23 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing expression with precedence %d, current token: %s\n", precedence, p.curToken.Type)
+	}
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	leftExp := prefix()
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsed left expression: %T\n", leftExp)
+	}
 
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Continuing expression, peek token: %s\n", p.peekToken.Type)
+		}
 		if p.peekTokenIs(token.LPAREN) {
 			p.nextToken() // Consume opening parenthesis
 			leftExp = p.parseCallExpression(leftExp)
@@ -223,6 +245,9 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		leftExp = infix(leftExp)
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing expression\n")
+	}
 	return leftExp
 }
 
@@ -341,6 +366,9 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 }
 
 func (p *Parser) parseIfExpression() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing if expression\n")
+	}
 	expression := &ast.IfExpression{Token: p.curToken}
 
 	// Expect an opening brace after 'if'
@@ -350,6 +378,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	}
 
 	p.nextToken() // Consume the '{'
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing if condition\n")
+	}
 	expression.Condition = p.parseExpression(LOWEST)
 
 	// Expect a closing brace after the condition
@@ -363,6 +394,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 	}
 
 	// Parse the consequence block
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing if consequence\n")
+	}
 	consequence := p.parseBlockStatement()
 	if consequence == nil {
 		p.errors = append(p.errors, "missing closing brace")
@@ -386,6 +420,9 @@ func (p *Parser) parseIfExpression() ast.Expression {
 		expression.Alternative = alternative
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing if expression\n")
+	}
 	return expression
 }
 
