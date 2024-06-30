@@ -512,7 +512,7 @@ func TestIfElseExpression(t *testing.T) {
 }
 
 func TestFunctionLiteralParsing(t *testing.T) {
-	input := "proc add {x, y} { return $x + $y }"
+	input := "proc add {x y} { return $x + $y }"
 	expectedParams := []string{"x", "y"}
 
 	l := lexer.New(input)
@@ -520,19 +520,29 @@ func TestFunctionLiteralParsing(t *testing.T) {
 	program := p.ParseProgram()
 	checkParserErrors(t, p)
 
-	stmt := program.Statements[0].(*ast.ExpressionStatement)
-	proc := stmt.Expression.(*ast.FunctionLiteral)
+	if len(program.Statements) != 1 {
+		t.Fatalf("program.Statements does not contain 1 statement. got=%d", len(program.Statements))
+	}
+
+	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+			program.Statements[0])
+	}
+
+	proc, ok := stmt.Expression.(*ast.FunctionLiteral)
+	if !ok {
+		t.Fatalf("stmt.Expression is not ast.FunctionLiteral. got=%T",
+			stmt.Expression)
+	}
 
 	if len(proc.Parameters) != len(expectedParams) {
-		t.Fatalf("length of parameters wrong. want %d, got %d\n",
+		t.Fatalf("length parameters wrong. want %d, got=%d\n",
 			len(expectedParams), len(proc.Parameters))
 	}
 
 	for i, ident := range expectedParams {
-		if proc.Parameters[i].Value != ident {
-			t.Errorf("parameter %d wrong. want %s, got %s\n",
-				i, ident, proc.Parameters[i].Value)
-		}
+		testLiteralExpression(t, proc.Parameters[i], ident)
 	}
 }
 
@@ -540,37 +550,30 @@ func TestFunctionParameterParsing(t *testing.T) {
 	tests := []struct {
 		input          string
 		expectedParams []string
-		expectError    bool
 	}{
-		{input: "proc add {} {}", expectedParams: []string{}, expectError: true},
-		{input: "proc add {x} {}", expectedParams: []string{"x"}, expectError: false},
-		{input: "proc add {x y z} {}", expectedParams: []string{"x", "y", "z"}, expectError: false},
+		{input: "proc add {} {}", expectedParams: []string{}},
+		{input: "proc add {x} {}", expectedParams: []string{"x"}},
+		{input: "proc add {x y z} {}", expectedParams: []string{"x", "y", "z"}},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			l := lexer.New(tt.input)
 			p := New(l)
 			program := p.ParseProgram()
+			checkParserErrors(t, p)
 
-			if tt.expectError {
-				if len(p.Errors()) == 0 {
-					t.Fatalf("expected parser error, but got none")
-				}
+			stmt := program.Statements[0].(*ast.ExpressionStatement)
+			proc := stmt.Expression.(*ast.FunctionLiteral)
+
+			if len(proc.Parameters) != len(tt.expectedParams) {
+				t.Errorf("length parameters wrong. want %d, got=%d\n",
+					len(tt.expectedParams), len(proc.Parameters))
 				return
 			}
 
-			checkParserErrors(t, p)
-			stmt := program.Statements[0].(*ast.ExpressionStatement)
-			proc := stmt.Expression.(*ast.FunctionLiteral)
-			if len(proc.Parameters) != len(tt.expectedParams) {
-				t.Fatalf("length of parameters wrong. want %d, got %d\n",
-					len(tt.expectedParams), len(proc.Parameters))
-			}
 			for i, ident := range tt.expectedParams {
-				if proc.Parameters[i].Value != ident {
-					t.Errorf("parameter %d wrong. want %s, got %s\n",
-						i, ident, proc.Parameters[i].Value)
-				}
+				testLiteralExpression(t, proc.Parameters[i], ident)
 			}
 		})
 	}
