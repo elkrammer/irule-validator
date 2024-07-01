@@ -308,16 +308,27 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	proc := &ast.FunctionLiteral{Token: p.curToken}
 
+	if config.DebugMode {
+		fmt.Println("DEBUG: Start parsing function literal")
+	}
+
 	// Expect the function name after 'proc'
 	if !p.expectPeek(token.IDENT) {
 		fmt.Println("Error: Expected function name after 'proc'")
 		return nil
+	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Function name token: %v\n", p.curToken)
 	}
 
 	// Expect an opening brace '{' after the function name.
 	if !p.expectPeek(token.LBRACE) {
 		fmt.Println("Error: Expected opening brace after 'proc'")
 		return nil
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Opening brace for parameters token: %v\n", p.curToken)
 	}
 
 	proc.Parameters = p.parseFunctionParameters()
@@ -328,7 +339,15 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 		return nil
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Opening brace for function body token: %v\n", p.curToken)
+	}
+
 	proc.Body = p.parseBlockStatement()
+
+	if config.DebugMode {
+		fmt.Println("DEBUG: Finished parsing function literal")
+	}
 
 	return proc
 }
@@ -339,15 +358,24 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	// If the next token is '}', then there are no parameters
 	if p.peekTokenIs(token.RBRACE) {
 		p.nextToken() // Consume the '}' token
+		if config.DebugMode {
+			fmt.Println("DEBUG: No parameters for function")
+		}
 		return identifiers
 	}
 
 	p.nextToken() // Consume the opening brace
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Starting to parse parameters, current token: %v\n", p.curToken)
+	}
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 		if p.curTokenIs(token.IDENT) {
 			identifier := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 			identifiers = append(identifiers, identifier)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Parsed parameter: %s\n", identifier.Value)
+			}
 		}
 		p.nextToken()
 
@@ -360,6 +388,9 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 		fmt.Println("Error: Expected closing brace for parameters")
 	}
 
+	if config.DebugMode {
+		fmt.Println("DEBUG: Finished parsing parameters")
+	}
 	return identifiers
 }
 
@@ -488,6 +519,9 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block.Statements = []ast.Statement{}
 
 	p.nextToken()
+	if config.DebugMode {
+		fmt.Println("DEBUG: Starting parsing block statement")
+	}
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
@@ -495,11 +529,19 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.nextToken()
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Advanced tokens in block - Current: %v, Peek: %v\n", p.curToken, p.peekToken)
+		}
 	}
 
 	if p.curTokenIs(token.EOF) {
+		fmt.Println("Error: Missing closing brace for block statement")
 		p.errors = append(p.errors, "missing closing brace")
 		return nil
+	}
+
+	if config.DebugMode {
+		fmt.Println("DEBUG: Finished parsing block statement")
 	}
 
 	return block

@@ -340,6 +340,9 @@ func evalExpressionCommand(args []ast.Expression, env *object.Environment) objec
 	if len(args) != 1 {
 		return newError("wrong number of arguments for expr. got=%d, want=1", len(args))
 	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Evaluating expr command with args: %v\n", args)
+	}
 
 	result := Eval(args[0], env)
 	if number, ok := result.(*object.Number); ok {
@@ -350,6 +353,9 @@ func evalExpressionCommand(args []ast.Expression, env *object.Environment) objec
 }
 
 func applyFunction(fn object.Object, args []object.Object) object.Object {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Applying function: %v with args: %v\n", fn, args)
+	}
 	function, ok := fn.(*object.Function)
 	if !ok {
 		return newError("not a function: %s", fn.Type())
