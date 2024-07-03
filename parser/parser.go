@@ -216,6 +216,11 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Parsing expression with precedence %d, current token: %s\n", precedence, p.curToken.Type)
 	}
+
+	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
+		return p.parseExpr()
+	}
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
@@ -517,13 +522,23 @@ func (p *Parser) curPrecedence() int {
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
-
+	braceCount := 1 // Start with 1 for the opening brace
 	p.nextToken()
 	if config.DebugMode {
 		fmt.Println("DEBUG: Starting parsing block statement")
 	}
 
-	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+	for braceCount > 0 && !p.curTokenIs(token.EOF) {
+		if p.curTokenIs(token.LBRACE) {
+			braceCount++
+		}
+		if p.curTokenIs(token.RBRACE) {
+			braceCount--
+			if braceCount == 0 {
+				break // We've found the closing brace of the block
+			}
+		}
+
 		stmt := p.parseStatement()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
@@ -534,7 +549,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		}
 	}
 
-	if p.curTokenIs(token.EOF) {
+	if braceCount > 0 {
 		fmt.Println("Error: Missing closing brace for block statement")
 		p.errors = append(p.errors, "missing closing brace")
 		return nil
@@ -543,7 +558,6 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	if config.DebugMode {
 		fmt.Println("DEBUG: Finished parsing block statement")
 	}
-
 	return block
 }
 
@@ -650,6 +664,9 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 }
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Parsing call expression for function: %v\n", function)
+	}
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	p.nextToken() // Consume the '('
 
@@ -677,6 +694,9 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	}
 
 	exp.Arguments = args
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Finished parsing call expression: %v\n", exp)
+	}
 	return exp
 }
 
@@ -709,13 +729,18 @@ func (p *Parser) parseExprExpression(left ast.Expression) ast.Expression {
 }
 
 func (p *Parser) parseExpr() ast.Expression {
-	exprExpr := &ast.ExprExpression{
-		Token: p.curToken,
-	}
-
+	exprExpr := &ast.ExprExpression{Token: p.curToken}
 	p.nextToken() // Consume the 'expr' token
 
-	exprExpr.Expression = p.parseExprBody()
+	if p.curTokenIs(token.LBRACE) {
+		p.nextToken() // Consume the opening brace
+		exprExpr.Expression = p.parseExpression(LOWEST)
+		if !p.expectPeek(token.RBRACE) {
+			return nil
+		}
+	} else {
+		exprExpr.Expression = p.parseExpression(LOWEST)
+	}
 
 	return exprExpr
 }

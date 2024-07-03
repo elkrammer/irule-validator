@@ -83,6 +83,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
 	case *ast.CallExpression:
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Evaluating CallExpression: %v\n", node)
+		}
 		function := Eval(node.Function, env)
 		if isError(function) {
 			return function
@@ -245,8 +248,17 @@ func evalBlockStatement(
 ) object.Object {
 	var result object.Object
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Evaluating block statement: %v\n", block)
+	}
+
 	for _, statement := range block.Statements {
 		result = Eval(statement, env)
+
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Evaluating statement in block: %T\n", statement)
+			fmt.Printf("DEBUG: Statement result: %v\n", result)
+		}
 
 		if result != nil {
 			rt := result.Type()
@@ -256,6 +268,9 @@ func evalBlockStatement(
 		}
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Block statement result: %v\n", result)
+	}
 	return result
 }
 
@@ -287,11 +302,17 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 }
 
 func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Evaluating identifier: %s\n", node.Value)
+	}
 	if node.IsVariable {
 		// Remove the leading $ for lookup
 		val, ok := env.Get(strings.TrimPrefix(node.Value, "$"))
 		if !ok {
 			return newError("identifier not found: %s", node.Value)
+		}
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Identifier value: %v\n", val)
 		}
 		return val
 	}
@@ -363,6 +384,11 @@ func applyFunction(fn object.Object, args []object.Object) object.Object {
 
 	extendedEnv := extendFunctionEnv(function, args)
 	evaluated := Eval(function.Body, extendedEnv)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Extended environment: %v\n", extendedEnv)
+		fmt.Printf("DEBUG: Function body evaluated to: %v\n", evaluated)
+	}
 	return unwrapReturnValue(evaluated)
 }
 
