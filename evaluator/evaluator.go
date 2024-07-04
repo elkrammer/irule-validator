@@ -17,7 +17,7 @@ var (
 
 func Eval(node ast.Node, env *object.Environment) object.Object {
 	if config.DebugMode {
-		fmt.Printf("Evaluating node: %T\n", node)
+		fmt.Printf("DEBUG: Eval - Node type: %T\n", node)
 	}
 	switch node := node.(type) {
 

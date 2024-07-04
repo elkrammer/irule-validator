@@ -134,7 +134,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 func (p *Parser) parseStatement() ast.Statement {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Parsing statement, token type: %s\n", p.curToken.Type)
+		fmt.Printf("DEBUG: parseStatement - Current token: %s, Peek token: %s\n", p.curToken.Type, p.peekToken.Type)
 	}
 	switch p.curToken.Type {
 	case token.SET:
@@ -202,8 +202,14 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseExpressionStatement - Starting\n")
+	}
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseExpressionStatement - Parsed expression: %T\n", stmt.Expression)
+	}
 
 	if p.peekTokenIs(token.NEWLINE) {
 		p.nextToken()
@@ -214,7 +220,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Parsing expression with precedence %d, current token: %s\n", precedence, p.curToken.Type)
+		fmt.Printf("DEBUG: parseExpression - Current token: %s, Precedence: %d\n", p.curToken.Type, precedence)
 	}
 
 	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
@@ -665,7 +671,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Parsing call expression for function: %v\n", function)
+		fmt.Printf("DEBUG: parseCallExpression - Function: %T\n", function)
 	}
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	p.nextToken() // Consume the '('
