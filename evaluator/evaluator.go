@@ -335,6 +335,10 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 		return val
 	}
 
+	if builtin, ok := builtins[node.Value]; ok {
+		return builtin
+	}
+
 	val, ok := env.Get(node.Value)
 	if !ok {
 		if config.DebugMode {
@@ -342,6 +346,7 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 		}
 		return newError("identifier not found: %s", node.Value)
 	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Function found: %s = %v\n", node.Value, val)
 	}
@@ -404,20 +409,24 @@ func applyFunction(fn object.Object, args []object.Object) object.Object {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Applying function: %T with args: %+v\n", fn, args)
 	}
-	function, ok := fn.(*object.Function)
-	if !ok {
+
+	switch fn := fn.(type) {
+	case *object.Function:
+		extendedEnv := extendFunctionEnv(fn, args)
+		evaluated := Eval(fn.Body, extendedEnv)
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Function body: %v\n", fn.Body)
+			fmt.Printf("DEBUG: Extended environment: %v\n", extendedEnv)
+			fmt.Printf("DEBUG: Function body evaluated to: %v\n", evaluated)
+		}
+		return unwrapReturnValue(evaluated)
+
+	case *object.Builtin:
+		return fn.Fn(args...)
+
+	default:
 		return newError("not a function: %s", fn.Type())
 	}
-
-	extendedEnv := extendFunctionEnv(function, args)
-	evaluated := Eval(function.Body, extendedEnv)
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Function body: %v\n", function.Body)
-		fmt.Printf("DEBUG: Extended environment: %v\n", extendedEnv)
-		fmt.Printf("DEBUG: Function body evaluated to: %v\n", evaluated)
-	}
-	return unwrapReturnValue(evaluated)
 }
 
 func extendFunctionEnv(
