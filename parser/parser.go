@@ -206,12 +206,21 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 		fmt.Printf("DEBUG: parseExpressionStatement - Starting\n")
 	}
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
-	stmt.Expression = p.parseExpression(LOWEST)
+
+	leftExp := p.parseExpression(LOWEST)
+
+	// Check if this might be a function call
+	if p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.NUMBER) {
+		stmt.Expression = p.parseCallExpression(leftExp)
+	} else {
+		stmt.Expression = leftExp
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseExpressionStatement - Parsed expression: %T\n", stmt.Expression)
 	}
 
-	if p.peekTokenIs(token.NEWLINE) {
+	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
 
@@ -222,40 +231,26 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseExpression - Current token: %s, Precedence: %d\n", p.curToken.Type, precedence)
 	}
-
-	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
-		return p.parseExpr()
-	}
-
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	leftExp := prefix()
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Parsed left expression: %T\n", leftExp)
+
+	// Check if this might be a function call
+	if p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.NUMBER) || p.peekTokenIs(token.STRING) {
+		return p.parseCallExpression(leftExp)
 	}
 
 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: Continuing expression, peek token: %s\n", p.peekToken.Type)
-		}
-		if p.peekTokenIs(token.LPAREN) {
-			p.nextToken() // Consume opening parenthesis
-			leftExp = p.parseCallExpression(leftExp)
-			continue
-		}
-
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
 			return leftExp
 		}
-
-		p.nextToken() // Consume infix token
+		p.nextToken()
 		leftExp = infix(leftExp)
 	}
-
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Finished parsing expression\n")
 	}
@@ -324,7 +319,10 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 	}
 
 	// Expect the function name after 'proc'
-	if !p.expectPeek(token.IDENT) {
+	if p.peekTokenIs(token.IDENT) {
+		p.nextToken()
+		proc.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	} else {
 		fmt.Println("Error: Expected function name after 'proc'")
 		return nil
 	}
@@ -673,35 +671,20 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseCallExpression - Function: %T\n", function)
 	}
+
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
-	p.nextToken() // Consume the '('
+	exp.Arguments = []ast.Expression{}
 
-	args := []ast.Expression{}
-	if p.peekTokenIs(token.RPAREN) {
-		p.nextToken() // Consume the ')'
-	} else {
-		for {
-			arg := p.parseExpression(LOWEST)
-			if arg == nil {
-				return nil
-			}
-			args = append(args, arg)
-
-			if !p.peekTokenIs(token.COMMA) {
-				break
-			}
-			p.nextToken() // Consume the ','
+	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) {
+		p.nextToken()
+		arg := p.parseExpression(LOWEST)
+		if arg != nil {
+			exp.Arguments = append(exp.Arguments, arg)
 		}
-
-		if !p.expectPeek(token.RPAREN) {
-			return nil
-		}
-		p.nextToken() // Consume the ')'
 	}
 
-	exp.Arguments = args
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Finished parsing call expression: %v\n", exp)
+		fmt.Printf("DEBUG: parseCallExpression - Function: %v, Arguments: %d\n", function, len(exp.Arguments))
 	}
 	return exp
 }

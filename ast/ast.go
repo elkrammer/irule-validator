@@ -265,6 +265,7 @@ func (ie *IfExpression) String() string {
 // FUNCTION LITERALS
 type FunctionLiteral struct {
 	Token      token.Token // the 'proc' token
+	Name       *Identifier
 	Parameters []*Identifier
 	Body       *BlockStatement
 }

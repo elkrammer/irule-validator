@@ -81,15 +81,22 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	case *ast.FunctionLiteral:
 		params := node.Parameters
 		body := node.Body
-		return &object.Function{Parameters: params, Env: env, Body: body}
+		function := &object.Function{Parameters: params, Env: env, Body: body}
+		if node.Name != nil {
+			env.Set(node.Name.Value, function)
+		}
+		return function
 	case *ast.CallExpression:
 		if config.DebugMode {
 			fmt.Printf("DEBUG: Evaluating CallExpression: %v\n", node)
+			fmt.Printf("DEBUG: CallExpression - Function: %T, Arguments: %d\n", node.Function, len(node.Arguments))
 		}
+
 		function := Eval(node.Function, env)
 		if isError(function) {
 			return function
 		}
+
 		args := evalExpressions(node.Arguments, env)
 		if len(args) == 1 && isError(args[0]) {
 			return args[0]
@@ -285,6 +292,9 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 			fmt.Printf("Evaluating statement: %T\n", statement)
 		}
 		result = Eval(statement, env)
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Statement result: %v\n", result)
+		}
 
 		switch result := result.(type) {
 		case *object.ReturnValue:
@@ -295,8 +305,8 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("Final result: %+v\n", result)
 		fmt.Printf("DEBUG: Finished evaluating program\n")
+		fmt.Printf("Final result: %+v\n", result)
 	}
 	return result
 }
@@ -309,6 +319,9 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 		// Remove the leading $ for lookup
 		val, ok := env.Get(strings.TrimPrefix(node.Value, "$"))
 		if !ok {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Variable not found: %s\n", node.Value)
+			}
 			return newError("identifier not found: %s", node.Value)
 		}
 		if config.DebugMode {
@@ -319,7 +332,13 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 
 	val, ok := env.Get(node.Value)
 	if !ok {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Function not found: %s\n", node.Value)
+		}
 		return newError("identifier not found: %s", node.Value)
+	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Function found: %s = %v\n", node.Value, val)
 	}
 	return val
 }
@@ -366,6 +385,9 @@ func evalExpressionCommand(args []ast.Expression, env *object.Environment) objec
 	}
 
 	result := Eval(args[0], env)
+	if config.DebugMode {
+		fmt.Printf("DEBUG: expr command result: %v\n", result)
+	}
 	if number, ok := result.(*object.Number); ok {
 		return number
 	}
@@ -375,7 +397,7 @@ func evalExpressionCommand(args []ast.Expression, env *object.Environment) objec
 
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Applying function: %v with args: %v\n", fn, args)
+		fmt.Printf("DEBUG: Applying function: %T with args: %v\n", fn, args)
 	}
 	function, ok := fn.(*object.Function)
 	if !ok {
@@ -386,6 +408,7 @@ func applyFunction(fn object.Object, args []object.Object) object.Object {
 	evaluated := Eval(function.Body, extendedEnv)
 
 	if config.DebugMode {
+		fmt.Printf("DEBUG: Function body: %v\n", function.Body)
 		fmt.Printf("DEBUG: Extended environment: %v\n", extendedEnv)
 		fmt.Printf("DEBUG: Function body evaluated to: %v\n", evaluated)
 	}
