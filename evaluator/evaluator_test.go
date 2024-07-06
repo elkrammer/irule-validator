@@ -295,9 +295,9 @@ func TestFunctionApplication(t *testing.T) {
 	}{
 		{"proc identity {x} {return $x}; identity 5;", 5},
 		{"proc double {x} {expr {$x * 2}}; double 5;", 10},
-		// {"proc add {x y} {expr {$x + $y}}; add 5 5;", 10},
+		{"proc anon {x} {return $x}; anon 5", 5},
+		{"proc add {x y} {expr {$x + $y}}; add 5 5;", 10},
 		// {"proc add {x y} {expr {$x + $y}}; add [expr {5 + 5}] [add 5 5];", 20},
-		// {"proc anon {x} {return $x}; anon 5", 5},
 	}
 
 	for _, tt := range tests {

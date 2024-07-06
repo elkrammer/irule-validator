@@ -397,7 +397,7 @@ func evalExpressionCommand(args []ast.Expression, env *object.Environment) objec
 
 func applyFunction(fn object.Object, args []object.Object) object.Object {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Applying function: %T with args: %v\n", fn, args)
+		fmt.Printf("DEBUG: Applying function: %T with args: %+v\n", fn, args)
 	}
 	function, ok := fn.(*object.Function)
 	if !ok {

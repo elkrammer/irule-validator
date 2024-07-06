@@ -674,6 +674,9 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	exp.Arguments = []ast.Expression{}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseCallExpression - Arguments: %T\n", exp.Arguments)
+	}
 
 	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) {
 		p.nextToken()
