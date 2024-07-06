@@ -55,6 +55,7 @@ expr {10 != 9};
 "foo bar"
 {1 2}
 {"foo" "bar"}
+array set test {"a" "b" "c" "d"}
 `
 
 	tests := []struct {
@@ -65,10 +66,12 @@ expr {10 != 9};
 		{token.IDENT, "five"},
 		{token.NUMBER, "5"},
 		{token.SEMICOLON, ";"},
+
 		{token.SET, "set"},
 		{token.IDENT, "ten"},
 		{token.NUMBER, "10"},
 		{token.SEMICOLON, ";"},
+
 		{token.FUNCTION, "proc"},
 		{token.IDENT, "add"},
 		{token.LBRACE, "{"},
@@ -86,6 +89,7 @@ expr {10 != 9};
 		{token.RBRACE, "}"},
 		{token.RBRACKET, "]"},
 		{token.RBRACE, "}"},
+
 		{token.SET, "set"},
 		{token.IDENT, "result"},
 		{token.LBRACKET, "["},
@@ -94,12 +98,14 @@ expr {10 != 9};
 		{token.IDENT, "$ten"},
 		{token.RBRACKET, "]"},
 		{token.SEMICOLON, ";"},
+
 		{token.EXPR, "expr"},
 		{token.LBRACE, "{"},
 		{token.MINUS, "-"},
 		{token.NUMBER, "5"},
 		{token.RBRACE, "}"},
 		{token.SEMICOLON, ";"},
+
 		{token.EXPR, "expr"},
 		{token.LBRACE, "{"},
 		{token.NUMBER, "5"},
@@ -109,6 +115,7 @@ expr {10 != 9};
 		{token.NUMBER, "5"},
 		{token.RBRACE, "}"},
 		{token.SEMICOLON, ";"},
+
 		{token.IF, "if"},
 		{token.LBRACE, "{"},
 		{token.NUMBER, "5"},
@@ -126,6 +133,7 @@ expr {10 != 9};
 		{token.FALSE, "false"},
 		{token.SEMICOLON, ";"},
 		{token.RBRACE, "}"},
+
 		{token.EXPR, "expr"},
 		{token.LBRACE, "{"},
 		{token.NUMBER, "10"},
@@ -133,6 +141,7 @@ expr {10 != 9};
 		{token.NUMBER, "10"},
 		{token.RBRACE, "}"},
 		{token.SEMICOLON, ";"},
+
 		{token.EXPR, "expr"},
 		{token.LBRACE, "{"},
 		{token.NUMBER, "10"},
@@ -140,16 +149,31 @@ expr {10 != 9};
 		{token.NUMBER, "9"},
 		{token.RBRACE, "}"},
 		{token.SEMICOLON, ";"},
+
 		{token.STRING, "foobar"},
+
 		{token.STRING, "foo bar"},
+
 		{token.LBRACE, "{"},
 		{token.NUMBER, "1"},
 		{token.NUMBER, "2"},
 		{token.RBRACE, "}"},
+
 		{token.LBRACE, "{"},
 		{token.STRING, "foo"},
 		{token.STRING, "bar"},
 		{token.RBRACE, "}"},
+
+		{token.IDENT, "array"},
+		{token.SET, "set"},
+		{token.IDENT, "test"},
+		{token.LBRACE, "{"},
+		{token.STRING, "a"},
+		{token.STRING, "b"},
+		{token.STRING, "c"},
+		{token.STRING, "d"},
+		{token.RBRACE, "}"},
+
 		{token.EOF, ""},
 	}
 
