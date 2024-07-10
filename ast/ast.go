@@ -331,14 +331,14 @@ func (ie *IndexExpression) String() string {
 	return out.String()
 }
 
-type ArrayLiteral struct {
+type ListLiteral struct {
 	Token    token.Token // the '[' token
 	Elements []Expression
 }
 
-func (al *ArrayLiteral) expressionNode()      {}
-func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
-func (al *ArrayLiteral) String() string {
+func (al *ListLiteral) expressionNode()      {}
+func (al *ListLiteral) TokenLiteral() string { return al.Token.Literal }
+func (al *ListLiteral) String() string {
 	var out bytes.Buffer
 
 	elements := []string{}
@@ -347,7 +347,7 @@ func (al *ArrayLiteral) String() string {
 	}
 
 	out.WriteString("[")
-	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString(strings.Join(elements, " "))
 	out.WriteString("]")
 
 	return out.String()

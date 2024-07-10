@@ -70,7 +70,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return val
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
-	case *ast.ArrayLiteral:
+	case *ast.ListLiteral:
 		elements := evalExpressions(node.Elements, env)
 		if len(elements) == 1 && isError(elements[0]) {
 			return elements[0]
@@ -353,7 +353,7 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 	return val
 }
 
-func evalArrayLiteral(node *ast.ArrayLiteral, env *object.Environment) object.Object {
+func evalListLiteral(node *ast.ListLiteral, env *object.Environment) object.Object {
 	elements := evalExpressions(node.Elements, env)
 	if len(elements) == 1 && isError(elements[0]) {
 		return elements[0]

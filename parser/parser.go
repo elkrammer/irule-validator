@@ -71,7 +71,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
-	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
+	p.registerPrefix(token.LBRACKET, p.parseListLiteral)
 	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
 	p.registerPrefix(token.EXPR, p.parseExpr)
 
@@ -177,12 +177,12 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 	// Check if the next token is a '['
 	if p.curTokenIs(token.LBRACKET) {
-		arrayLiteral := p.parseArrayLiteral()
-		if arrayLiteral == nil {
-			fmt.Printf("Failed to parse array literal: %s\n", strings.Join(p.errors, ", "))
+		listLiteral := p.parseListLiteral()
+		if listLiteral == nil {
+			fmt.Printf("Failed to parse list literal: %s\n", strings.Join(p.errors, ", "))
 			return nil
 		}
-		stmt.Value = arrayLiteral
+		stmt.Value = listLiteral
 	} else {
 		// Parse the value as an expression
 		stmt.Value = p.parseExpression(LOWEST)
@@ -638,8 +638,8 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 	return list
 }
 
-func (p *Parser) parseArrayLiteral() ast.Expression {
-	array := &ast.ArrayLiteral{Token: p.curToken}
+func (p *Parser) parseListLiteral() ast.Expression {
+	array := &ast.ListLiteral{Token: p.curToken}
 	p.nextToken() // consume the '['
 
 	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "expr" {
