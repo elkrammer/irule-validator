@@ -33,6 +33,7 @@ const (
 	GT       = ">"
 	EQ       = "=="
 	NOT_EQ   = "!="
+	DOLLAR   = "$"
 
 	// delimiters
 	COMMA    = ","
@@ -49,9 +50,10 @@ const (
 	RETURN   = "RETURN"
 	TRUE     = "TRUE"
 	FALSE    = "FALSE"
-	FUNCTION = "proc"
-	SET      = "set"
-	EXPR     = "expr"
+	FUNCTION = "PROC"
+	SET      = "SET"
+	EXPR     = "EXPR"
+	ARRAY    = "ARRAY"
 
 	// HTTP_URI      = "HTTP::uri"
 	// HTTP_METHOD   = "HTTP::method"

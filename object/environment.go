@@ -28,3 +28,14 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env.outer = outer
 	return env
 }
+
+func (e *Environment) GetOrCreateArray(name string) *Hash {
+	if obj, ok := e.Get(name); ok {
+		if hash, ok := obj.(*Hash); ok {
+			return hash
+		}
+	}
+	hash := &Hash{Pairs: make(map[HashKey]HashPair)}
+	e.Set(name, hash)
+	return hash
+}

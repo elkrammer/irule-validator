@@ -61,13 +61,55 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return &object.ReturnValue{Value: val}
 	case *ast.SetStatement:
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Evaluating SetStatement: %v\n", node)
+		}
+		// Evaluate the value to be assigned
 		val := Eval(node.Value, env)
-		// Unwrap single-element arrays resulting from expr evaluations
+		if isError(val) {
+			return val
+		}
+		// Unwrap the value if it's an array with one element (likely from expr)
 		if arr, ok := val.(*object.Array); ok && len(arr.Elements) == 1 {
 			val = arr.Elements[0]
 		}
-		env.Set(strings.TrimPrefix(node.Name.Value, "$"), val)
+		// Handle array or hash assignment
+		if node.Index != nil {
+			// Get or create the hash for this variable
+			varName := node.Name.Value
+			var hashObj *object.Hash
+			existingVal, exists := env.Get(node.Name.Value)
+			if !exists {
+				// If it doesn't exist, create a new hash
+				// existingVal = &object.Hash{Pairs: make(map[object.HashKey]object.HashPair)}
+				// env.Set(node.Name.Value, existingVal)
+				hashObj = &object.Hash{Pairs: make(map[object.HashKey]object.HashPair)}
+				env.Set(varName, hashObj)
+			} else if hash, ok := existingVal.(*object.Hash); ok {
+				hashObj = hash
+			} else {
+				return newError("cannot use index on non-hash object: %s", varName)
+			}
+
+			// Evaluate the index
+			index := Eval(node.Index, env)
+			if isError(index) {
+				return index
+			}
+
+			// Set the value in the hash
+			hashKey, ok := index.(object.Hashable)
+			if !ok {
+				return newError("unusable as hash key: %s", index.Type())
+			}
+			hashObj.Pairs[hashKey.HashKey()] = object.HashPair{Key: index, Value: val}
+		} else {
+			// Regular variable assignment
+			env.Set(node.Name.Value, val)
+		}
+
 		return val
+
 	case *ast.Identifier:
 		return evalIdentifier(node, env)
 	case *ast.ListLiteral:
@@ -77,7 +119,18 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		}
 		return &object.Array{Elements: elements}
 	case *ast.ExprExpression:
-		return Eval(node.Expression, env)
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Evaluating ExprExpression: %v\n", node)
+		}
+		result := Eval(node.Expression, env)
+		// Only unwrap if it's an array with one element
+		if arr, ok := result.(*object.Array); ok && len(arr.Elements) == 1 {
+			return arr.Elements[0]
+		}
+		if config.DebugMode {
+			fmt.Printf("DEBUG: ExprExpression Result: %v\n", result)
+		}
+		return result
 	case *ast.FunctionLiteral:
 		params := node.Parameters
 		body := node.Body
@@ -105,9 +158,25 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return applyFunction(function, args)
 	case *ast.StringLiteral:
 		return &object.String{Value: node.Value}
+	case *ast.IndexExpression:
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Evaluating IndexExpression: %v\n", node)
+		}
+
+		left := Eval(node.Left, env)
+		if isError(left) {
+			return left
+		}
+
+		index := Eval(node.Index, env)
+		if isError(index) {
+			return index
+		}
+
+		return evalIndexExpression(left, index)
 
 	}
-	return nil
+	return NULL
 }
 
 func newError(format string, a ...interface{}) *object.Error {
@@ -320,37 +389,26 @@ func evalIdentifier(node *ast.Identifier, env *object.Environment) object.Object
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Evaluating identifier: %s\n", node.Value)
 	}
-	if node.IsVariable {
-		// Remove the leading $ for lookup
-		val, ok := env.Get(strings.TrimPrefix(node.Value, "$"))
-		if !ok {
-			if config.DebugMode {
-				fmt.Printf("DEBUG: Variable not found: %s\n", node.Value)
-			}
-			return newError("identifier not found: %s", node.Value)
-		}
-		if config.DebugMode {
-			fmt.Printf("DEBUG: Identifier value: %v\n", val)
-		}
-		return val
-	}
 
+	// Check for built-in functions first
 	if builtin, ok := builtins[node.Value]; ok {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Found built-in function: %s\n", node.Value)
+		}
 		return builtin
 	}
 
-	val, ok := env.Get(node.Value)
-	if !ok {
+	// Handle variables (including those starting with $)
+	varName := strings.TrimPrefix(node.Value, "$")
+	if value, ok := env.Get(varName); ok {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Function not found: %s\n", node.Value)
+			fmt.Printf("DEBUG: Variable value: %v\n", value)
 		}
-		return newError("identifier not found: %s", node.Value)
+		return value
 	}
 
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Function found: %s = %v\n", node.Value, val)
-	}
-	return val
+	// If the identifier is not found, return an error
+	return newError("identifier not found: %s", node.Value)
 }
 
 func evalListLiteral(node *ast.ListLiteral, env *object.Environment) object.Object {
@@ -462,4 +520,45 @@ func evalStringInfixExpression(
 	leftVal := left.(*object.String).Value
 	rightVal := right.(*object.String).Value
 	return &object.String{Value: leftVal + rightVal}
+}
+
+func evalIndexExpression(left, index object.Object) object.Object {
+	switch left := left.(type) {
+	case *object.Array:
+		idx, ok := index.(*object.Number)
+		if !ok {
+			return newError("array index must be a number")
+		}
+		i := int(idx.Value)
+		if i < 0 || i >= len(left.Elements) {
+			return NULL
+		}
+		return left.Elements[i]
+	case *object.Hash:
+		key, ok := index.(object.Hashable)
+		if !ok {
+			return newError("unusable as hash key: %s", index.Type())
+		}
+		pair, ok := left.Pairs[key.HashKey()]
+		if !ok {
+			return NULL
+		}
+		return pair.Value
+	default:
+		return newError("index operator not supported: %s", left.Type())
+	}
+}
+
+func evalHashIndexExpression(hash *object.Hash, index object.Object) object.Object {
+	key, ok := index.(object.Hashable)
+	if !ok {
+		return newError("unusable as hash key: %s", index.Type())
+	}
+
+	pair, ok := hash.Pairs[key.HashKey()]
+	if !ok {
+		return NULL
+	}
+
+	return pair.Value
 }
