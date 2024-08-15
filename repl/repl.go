@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/elkrammer/irule-validator/evaluator"
 	"github.com/elkrammer/irule-validator/lexer"
-	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
 )
 
@@ -15,7 +13,6 @@ const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
 	scanner := bufio.NewScanner(in)
-	env := object.NewEnvironment()
 
 	for {
 		fmt.Fprintf(out, PROMPT)
@@ -33,17 +30,8 @@ func Start(in io.Reader, out io.Writer) {
 			printParserErrors(out, p.Errors())
 			continue
 		}
-
-		evaluated := evaluator.Eval(program, env)
-		if evaluated != nil {
-			// Unwrap single-element arrays
-			if arr, ok := evaluated.(*object.Array); ok && len(arr.Elements) == 1 {
-				io.WriteString(out, arr.Elements[0].Inspect())
-			} else {
-				io.WriteString(out, evaluated.Inspect())
-			}
-			io.WriteString(out, "\n")
-		}
+		io.WriteString(out, program.String())
+		io.WriteString(out, "\n")
 	}
 }
 

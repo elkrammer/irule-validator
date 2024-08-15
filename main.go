@@ -10,9 +10,7 @@ import (
 	"strings"
 
 	"github.com/elkrammer/irule-validator/config"
-	"github.com/elkrammer/irule-validator/evaluator"
 	"github.com/elkrammer/irule-validator/lexer"
-	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
 	"github.com/elkrammer/irule-validator/repl"
 )
@@ -44,17 +42,10 @@ func main() {
 		l := lexer.New(line)
 		p := parser.New(l)
 
-		program := p.ParseProgram()
+		p.ParseProgram()
 		if len(p.Errors()) != 0 {
 			printParserErrors(out, p.Errors())
 			os.Exit(1)
-		}
-
-		env := object.NewEnvironment()
-		evaluated := evaluator.Eval(program, env)
-		if evaluated != nil {
-			io.WriteString(out, evaluated.Inspect())
-			io.WriteString(out, "\n")
 		}
 	}
 
