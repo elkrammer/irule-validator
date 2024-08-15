@@ -4,6 +4,8 @@ import (
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/object"
 	"github.com/elkrammer/irule-validator/parser"
+
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -252,18 +254,24 @@ func TestErrorHandling(t *testing.T) {
 func TestSetStatements(t *testing.T) {
 	tests := []struct {
 		input    string
-		expected float64
+		expected interface{}
 	}{
-		{"set a 5; set result $a", 5},
-		{"set a 5; set b $a; set result $b", 5},
-		{"set a [expr 5 * 5]; set result $a", 25},
-		{"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15},
+		{"set a 5; set result $a", 5.0},
+		{"set a 5; set b $a; set result $b", 5.0},
+		{"set a [expr 5 * 5]; set result $a", 25.0},
+		{"set a 5; set b $a; set c [expr $a + $b + 5]; set result $c", 15.0},
 	}
-
 	for _, tt := range tests {
 		evaluated := testEval(tt.input)
+		t.Logf("Input: %s", tt.input)
 		t.Logf("Evaluated result: %+v", evaluated)
-		testNumberObject(t, testEval(tt.input), tt.expected)
+
+		switch expected := tt.expected.(type) {
+		case float64:
+			testNumberObject(t, evaluated, expected)
+		default:
+			t.Errorf("unexpected result type. got=%T, want=%T", evaluated, expected)
+		}
 	}
 }
 
@@ -382,5 +390,42 @@ func TestBuiltinFunctions(t *testing.T) {
 				testNumberObject(t, array.Elements[i], float64(expectedElem))
 			}
 		}
+	}
+}
+
+func TestArrayExpressions(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"set arr(0) 10; set arr(1) 20; return $arr(0)", "10"},
+		// {"array set arr {0 30 1 40}; return $arr(1)", "40"},
+		// {"set arr(foo) bar; return $arr(foo)", "bar"},
+		// {"array set arr {a 1 b 2 c 3}; return [array size arr]", "3"},
+		// {"array set arr {0 10 1 20 2 30}; return [array names arr]", "0 1 2"},
+	}
+
+	for _, tt := range tests {
+		evaluated := testEval(tt.input)
+		testStringObject(t, evaluated, tt.expected)
+	}
+}
+
+func testStringObject(t *testing.T, obj object.Object, expected string) {
+	// Check if the object is a Number and convert it to a String if true
+	if numObj, ok := obj.(*object.Number); ok {
+		// Convert the number to a string
+		obj = &object.String{Value: fmt.Sprintf("%d", int(numObj.Value))}
+	}
+
+	// Now proceed with the original String test
+	result, ok := obj.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", obj, obj)
+	}
+
+	if result.Value != expected {
+		t.Errorf("object has wrong value. got=%q, want=%q",
+			result.Value, expected)
 	}
 }

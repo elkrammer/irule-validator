@@ -60,32 +60,37 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
-	p.registerPrefix(token.IDENT, p.parseIdentifier)
-	p.registerPrefix(token.NUMBER, p.parseNumberLiteral)
-	p.registerPrefix(token.STRING, p.parseStringLiteral)
-	p.registerPrefix(token.TRUE, p.parseBoolean)
-	p.registerPrefix(token.FALSE, p.parseBoolean)
-	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
-	p.registerPrefix(token.IF, p.parseIfExpression)
-	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.ARRAY, p.parseArrayOperation)
+	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
+	p.registerPrefix(token.DOLLAR, p.parseVariableOrArrayAccess)
+	p.registerPrefix(token.EXPR, p.parseExpr)
+	p.registerPrefix(token.FALSE, p.parseBoolean)
 	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(token.IDENT, p.parseIdentifier)
+	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 	p.registerPrefix(token.LBRACKET, p.parseListLiteral)
-	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
-	p.registerPrefix(token.EXPR, p.parseExpr)
+	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.NUMBER, p.parseNumberLiteral)
+	p.registerPrefix(token.RBRACKET, p.parseArrayLiteral)
+	p.registerPrefix(token.RPAREN, p.parseGroupedExpression)
+	p.registerPrefix(token.SET, p.parseSetExpression)
+	p.registerPrefix(token.STRING, p.parseStringLiteral)
+	p.registerPrefix(token.TRUE, p.parseBoolean)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
-	p.registerInfix(token.EQ, p.parseInfixExpression)
-	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
-	p.registerInfix(token.LT, p.parseInfixExpression)
-	p.registerInfix(token.GT, p.parseInfixExpression)
-	p.registerInfix(token.PLUS, p.parseInfixExpression)
-	p.registerInfix(token.MINUS, p.parseInfixExpression)
-	p.registerInfix(token.SLASH, p.parseInfixExpression)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
-	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.EQ, p.parseInfixExpression)
+	p.registerInfix(token.GT, p.parseInfixExpression)
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.LT, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
 
 	return p
 }
@@ -124,7 +129,17 @@ func (p *Parser) ParseProgram() *ast.Program {
 		} else {
 			fmt.Printf("Failed to parse statement at token: %+v\n", p.curToken) // Debug print
 		}
+
 		p.nextToken()
+		// Only advance if we're not at EOF and the current token isn't SET
+		// This ensures we don't skip the next statement after a semicolon
+		// if !p.curTokenIs(token.EOF) && p.curToken.Type != token.SET {
+		// 	p.nextToken()
+		// }
+		// p.nextToken()
+		for p.curTokenIs(token.SEMICOLON) {
+			p.nextToken()
+		}
 	}
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Finished parsing program, total statements: %d\n", len(program.Statements))
@@ -138,12 +153,22 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 	switch p.curToken.Type {
 	case token.SET:
-		return p.parseSetStatement()
+		stmt := p.parseSetStatement()
+		if stmt == nil {
+			fmt.Printf("Failed to parse SET statement\n")
+		}
+		return stmt
 	case token.RETURN:
 		return p.parseReturnStatement()
 	case token.SEMICOLON:
 		p.nextToken()
 		return nil
+	case token.IDENT:
+		if p.curToken.Literal == "array" && p.peekTokenIs(token.IDENT) && p.peekToken.Literal == "set" {
+			fmt.Printf("DEBUG: MAGIC ARRAY")
+			return p.parseArraySetStatement()
+		}
+		return p.parseExpressionStatement()
 	default:
 		return p.parseExpressionStatement()
 	}
@@ -166,36 +191,44 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 func (p *Parser) parseSetStatement() *ast.SetStatement {
 	stmt := &ast.SetStatement{Token: p.curToken}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetStatement Start\n")
+	}
+
 	if !p.expectPeek(token.IDENT) {
 		fmt.Printf("Expected IDENT, got: %+v\n", p.curToken)
+		p.errors = append(p.errors, fmt.Sprintf("Expected next token to be IDENT, got %s instead", p.peekToken.Type))
 		return nil
 	}
 
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	p.nextToken() // Move past the variable name
+	// Check for array index
+	if p.peekTokenIs(token.LPAREN) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Parsing array index")
+		}
+		p.nextToken() // consume '('
+		p.nextToken() // move to index
+		stmt.Index = p.parseExpression(LOWEST)
 
-	// Check if the next token is a '['
-	if p.curTokenIs(token.LBRACKET) {
-		listLiteral := p.parseListLiteral()
-		if listLiteral == nil {
-			fmt.Printf("Failed to parse list literal: %s\n", strings.Join(p.errors, ", "))
+		if !p.expectPeek(token.RPAREN) {
+			p.errors = append(p.errors, fmt.Sprintf("Expected next token to be ), got %s instead", p.peekToken.Type))
 			return nil
 		}
-		stmt.Value = listLiteral
-	} else {
-		// Parse the value as an expression
-		stmt.Value = p.parseExpression(LOWEST)
+
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Finished parsing array index: %+v\n", stmt.Index)
+		}
 	}
 
-	if stmt.Value == nil {
-		fmt.Printf("Failed to parse set statement value: %s\n", strings.Join(p.errors, ", "))
-		return nil
-	}
+	p.nextToken() // Move to the value
 
-	// Consume the semicolon if it's there
-	if p.peekTokenIs(token.SEMICOLON) {
-		p.nextToken()
+	// Parse the value
+	stmt.Value = p.parseExpression(LOWEST)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetStatement End: set %s(%v) %v\n", stmt.Name.Value, stmt.Index, stmt.Value)
 	}
 
 	return stmt
@@ -231,12 +264,23 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseExpression - Current token: %s, Precedence: %d\n", p.curToken.Type, precedence)
 	}
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	leftExp := prefix()
+
+	// Handle array indexing
+	if p.peekTokenIs(token.LPAREN) {
+		leftExp = p.parseIndexExpression(leftExp)
+	}
+
+	// Check if this might be an array
+	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "array" {
+		return p.parseArrayOperation()
+	}
 
 	// Check if this might be a function call
 	if p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.NUMBER) || p.peekTokenIs(token.STRING) {
@@ -251,9 +295,21 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		p.nextToken()
 		leftExp = infix(leftExp)
 	}
+
+	// Handle command substitution
+	if p.peekTokenIs(token.LBRACKET) {
+		p.nextToken() // consume '['
+		command := p.parseExpression(LOWEST)
+		if !p.expectPeek(token.RBRACKET) {
+			return nil
+		}
+		leftExp = &ast.CommandSubstitution{Token: p.curToken, Command: command}
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Finished parsing expression\n")
 	}
+
 	return leftExp
 }
 
@@ -566,12 +622,18 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
+	fmt.Println("DEBUG: Parsing index expression")
+
 	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
 
-	p.nextToken() // consume '[' token
+	if !p.expectPeek(token.LPAREN) {
+		return nil
+	}
+
+	p.nextToken() // move past '(' token
 	exp.Index = p.parseExpression(LOWEST)
 
-	if !p.expectPeek(token.RBRACKET) {
+	if !p.expectPeek(token.RPAREN) {
 		return nil
 	}
 
@@ -612,7 +674,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 }
 
 func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
-	var list []ast.Expression
+	list := []ast.Expression{}
 
 	// If the next token is the end token, return an empty list
 	if p.peekTokenIs(end) {
@@ -624,6 +686,7 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 
 	// Parse expressions until encountering the end token
 	list = append(list, p.parseExpression(LOWEST))
+
 	for p.peekTokenIs(token.COMMA) {
 		p.nextToken() // Consume the comma
 		p.nextToken() // Move to the next expression
@@ -785,4 +848,158 @@ func (p *Parser) parseBinaryExpression(precedence int, left ast.Expression) ast.
 	}
 
 	return left
+}
+
+func (p *Parser) parseArrayOperation() ast.Expression {
+	operation := &ast.ArrayOperation{Token: p.curToken}
+
+	// Expect the next token to be the array command
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	operation.Command = p.curToken.Literal
+
+	// Parse array name
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	operation.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// Check if there's an index
+	if p.peekTokenIs(token.LPAREN) {
+		p.nextToken() // consume '('
+		// p.nextToken() // move to index
+		operation.Index = p.parseExpression(LOWEST)
+		if !p.expectPeek(token.RPAREN) {
+			return nil
+		}
+	}
+
+	// If it's a 'set' operation, parse the value
+	if operation.Command == "set" {
+		p.nextToken() // move to value
+		operation.Value = p.parseExpression(LOWEST)
+	}
+
+	return operation
+}
+
+func (p *Parser) parseSetExpression() ast.Expression {
+	stmt := &ast.SetStatement{Token: p.curToken}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetExpression - Starting\n")
+	}
+
+	if !p.expectPeek(token.IDENT) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseSetExpression - Expected IDENT, got %s\n", p.curToken.Type)
+		}
+		return nil
+	}
+
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetExpression - Name: %s\n", stmt.Name.Value)
+	}
+
+	p.nextToken() // move past the variable Name
+
+	if p.peekTokenIs(token.LPAREN) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseSetExpression - Parsing array index\n")
+		}
+		p.nextToken() // consume '('
+		p.nextToken() // move to the index expression
+		stmt.Index = p.parseExpression(LOWEST)
+		if !p.expectPeek(token.RPAREN) {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseSetExpression - Expected RPAREN, got %s\n", p.curToken.Type)
+			}
+			return nil
+		} else {
+			p.nextToken() // move past the identifier or closing parenthesis
+		}
+	}
+
+	stmt.Value = p.parseExpression(LOWEST)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetExpression - Value parsed: %v\n", stmt.Value)
+		fmt.Printf("DEBUG: parseSetExpression - Completed: %v\n", stmt)
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{Token: p.curToken}
+	array.Elements = p.parseExpressionList(token.RBRACKET)
+	return array
+}
+
+func (p *Parser) parseArraySetStatement() *ast.SetStatement {
+	fmt.Println("DEBUG: Parsing array set statement")
+	stmt := &ast.SetStatement{Token: p.curToken, IsArraySet: true}
+
+	// Consume "array"
+	p.nextToken()
+	// Consume "set"
+	if !p.expectPeek(token.IDENT) || p.curToken.Literal != "set" {
+		p.errors = append(p.errors, "Expected 'set' after 'array'")
+		return nil
+	}
+	p.nextToken()
+
+	// Parse the array name
+	if !p.expectPeek(token.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("Expected next token to be IDENT, got %s instead", p.peekToken.Type))
+		return nil
+	}
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	fmt.Printf("DEBUG: Array name: %s\n", stmt.Name.Value)
+
+	// Parse the index (if any)
+	if p.peekTokenIs(token.LPAREN) {
+		p.nextToken() // consume '('
+		fmt.Println("DEBUG: Parsing array index")
+		p.nextToken() // move to index
+		stmt.Index = p.parseExpression(LOWEST)
+		if !p.expectPeek(token.RPAREN) {
+			p.errors = append(p.errors, fmt.Sprintf("Expected next token to be ), got %s instead", p.peekToken.Type))
+			return nil
+		}
+		fmt.Printf("DEBUG: Array index: %v\n", stmt.Index)
+	}
+
+	// Parse the value
+	p.nextToken()
+	fmt.Println("DEBUG: Parsing array value")
+	stmt.Value = p.parseExpression(LOWEST)
+	fmt.Printf("DEBUG: Array value: %v\n", stmt.Value)
+
+	return stmt
+}
+
+func (p *Parser) parseVariableOrArrayAccess() ast.Expression {
+	p.nextToken() // consume '$'
+	if !p.curTokenIs(token.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("Expected identifier after $, got %s instead", p.curToken.Type))
+		return nil
+	}
+
+	varExp := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal, IsVariable: true}
+
+	if p.peekTokenIs(token.LPAREN) {
+		p.nextToken() // consume '('
+		p.nextToken() // move to index
+		index := p.parseExpression(LOWEST)
+		if !p.expectPeek(token.RPAREN) {
+			return nil
+		}
+		return &ast.IndexExpression{Left: varExp, Index: index}
+	}
+
+	return varExp
 }

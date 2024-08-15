@@ -598,3 +598,111 @@ func testNumberLiteral(t *testing.T, nl ast.Expression, value float64) bool {
 
 	return true
 }
+
+func TestParsingArrayOperations(t *testing.T) {
+	input := `
+    set languages(0) Tcl
+    set balloon(color) red
+    set languages(1) "C Language"
+    `
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+
+	checkParserErrors(t, p)
+
+	if len(program.Statements) != 3 {
+		t.Fatalf("program has wrong number of statements. got=%d", len(program.Statements))
+	}
+
+	tests := []struct {
+		expectedName  string
+		expectedIndex interface{}
+		expectedValue string
+	}{
+		{"languages", 0, "Tcl"},
+		{"balloon", "color", "red"},
+		{"languages", 1, "C Language"},
+		// {"myArray", 0, "1"},
+	}
+
+	for i, tt := range tests {
+		stmt, ok := program.Statements[i].(*ast.SetStatement)
+		if !ok {
+			t.Fatalf("program.Statements[%d] is not ast.SetStatement. got=%T", i, program.Statements[i])
+		}
+
+		if stmt.Name.Value != tt.expectedName {
+			t.Errorf("statement[%d] - name wrong. expected=%q, got=%q", i, tt.expectedName, stmt.Name.Value)
+		}
+
+		switch index := stmt.Index.(type) {
+		case *ast.NumberLiteral:
+			if expectedNum, ok := tt.expectedIndex.(int); ok {
+				if int(index.Value) != expectedNum {
+					t.Errorf("statement[%d] - index wrong. expected=%d, got=%d", i, expectedNum, int(index.Value))
+				}
+			}
+		case *ast.StringLiteral:
+			if expectedStr, ok := tt.expectedIndex.(string); ok {
+				if index.Value != expectedStr {
+					t.Errorf("statement[%d] - index wrong. expected=%q, got=%q", i, expectedStr, index.Value)
+				}
+			}
+		case *ast.Identifier:
+			if expectedStr, ok := tt.expectedIndex.(string); ok {
+				if index.Value != expectedStr {
+					t.Errorf("statement[%d] - index wrong. expected=%q, got=%q", i, expectedStr, index.Value)
+				}
+			}
+		default:
+			t.Errorf("statement[%d] - index is of unexpected type. got=%T", i, stmt.Index)
+		}
+
+		switch value := stmt.Value.(type) {
+		case *ast.StringLiteral:
+			if value.Value != tt.expectedValue {
+				t.Errorf("statement[%d] - value wrong. expected=%q, got=%q", i, tt.expectedValue, value.Value)
+			}
+		case *ast.Identifier:
+			if value.Value != tt.expectedValue {
+				t.Errorf("statement[%d] - value wrong. expected=%q, got=%q", i, tt.expectedValue, value.Value)
+			}
+		default:
+			t.Errorf("statement[%d] - value is of unexpected type. got=%T", i, stmt.Value)
+		}
+	}
+}
+
+func testArrayValue(t *testing.T, actual ast.Expression, expected interface{}) {
+	switch expected := expected.(type) {
+	case int:
+		intLiteral, ok := actual.(*ast.NumberLiteral)
+		if !ok {
+			t.Fatalf("expression is not ast.NumberLiteral. got=%T", actual)
+		}
+		if intLiteral.Value != float64(expected) {
+			t.Errorf("intLiteral.Value not %d. got=%f", expected, intLiteral.Value)
+		}
+	case string:
+		strLiteral, ok := actual.(*ast.StringLiteral)
+		if !ok {
+			t.Fatalf("expression is not ast.StringLiteral. got=%T", actual)
+		}
+		if strLiteral.Value != expected {
+			t.Errorf("strLiteral.Value not '%s'. got=%s", expected, strLiteral.Value)
+		}
+	case *ast.InfixExpression:
+		infixExpr, ok := actual.(*ast.InfixExpression)
+		if !ok {
+			t.Fatalf("expression is not ast.InfixExpression. got=%T", actual)
+		}
+		if infixExpr.Operator != expected.Operator {
+			t.Errorf("infixExpr.Operator not '%s'. got=%s", expected.Operator, infixExpr.Operator)
+		}
+		testArrayValue(t, infixExpr.Left, expected.Left)
+		testArrayValue(t, infixExpr.Right, expected.Right)
+	default:
+		t.Fatalf("unsupported expected value type. got=%T", expected)
+	}
+}

@@ -78,12 +78,15 @@ func (i *Identifier) TokenLiteral() string {
 
 // SET Statement
 type SetStatement struct {
-	Token token.Token // the token.LET token
-	Name  *Identifier
-	Value Expression
+	Token      token.Token
+	Name       *Identifier
+	Index      Expression
+	Value      Expression
+	IsArraySet bool
 }
 
 func (ls *SetStatement) statementNode()       {}
+func (ls *SetStatement) expressionNode()      {}
 func (ls *SetStatement) TokenLiteral() string { return ls.Token.Literal }
 func (ls *SetStatement) String() string {
 	var out bytes.Buffer
@@ -91,11 +94,16 @@ func (ls *SetStatement) String() string {
 	out.WriteString(ls.TokenLiteral() + " ")
 	out.WriteString(ls.Name.String())
 
-	if ls.Value != nil {
-		out.WriteString(ls.Value.String())
+	if ls.Index != nil {
+		out.WriteString("(")
+		out.WriteString(ls.Index.String())
+		out.WriteString(")")
 	}
 
-	out.WriteString(";")
+	if ls.Value != nil {
+		out.WriteString(" ")
+		out.WriteString(ls.Value.String())
+	}
 
 	return out.String()
 }
@@ -395,4 +403,71 @@ func (pe *ParenthesizedExpression) expressionNode()      {}
 func (pe *ParenthesizedExpression) TokenLiteral() string { return "(" }
 func (pe *ParenthesizedExpression) String() string {
 	return "(" + pe.Expression.String() + ")"
+}
+
+// ArrayLiteral represents a TCL list (which is equivalent to an array in many languages)
+type ArrayLiteral struct {
+	Token    token.Token // the '[' token
+	Elements []Expression
+}
+
+func (al *ArrayLiteral) expressionNode()      {}
+func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
+func (al *ArrayLiteral) String() string {
+	var out bytes.Buffer
+
+	elements := []string{}
+	for _, el := range al.Elements {
+		elements = append(elements, el.String())
+	}
+
+	out.WriteString("[")
+	out.WriteString(strings.Join(elements, " ")) // Note: TCL uses space as separator
+	out.WriteString("]")
+
+	return out.String()
+}
+
+type ArrayOperation struct {
+	Token   token.Token
+	Command string     // e.g., "set", "get", "exists", etc.
+	Name    Expression // Array name
+	Index   Expression // Array index (optional, can be nil)
+	Value   Expression // For set operations (optional, can be nil)
+}
+
+func (ao *ArrayOperation) expressionNode()      {}
+func (ao *ArrayOperation) TokenLiteral() string { return ao.Token.Literal }
+func (ao *ArrayOperation) String() string {
+	var out bytes.Buffer
+	out.WriteString("array ")
+	out.WriteString(ao.Command)
+	out.WriteString(" ")
+	out.WriteString(ao.Name.String())
+	if ao.Index != nil {
+		out.WriteString("(")
+		out.WriteString(ao.Index.String())
+		out.WriteString(")")
+	}
+	if ao.Value != nil {
+		out.WriteString(" ")
+		out.WriteString(ao.Value.String())
+	}
+	return out.String()
+}
+
+// CommandSubstitution represents a command substitution in TCL, enclosed in square brackets
+type CommandSubstitution struct {
+	Token   token.Token // the '[' token
+	Command Expression
+}
+
+func (cs *CommandSubstitution) expressionNode()      {}
+func (cs *CommandSubstitution) TokenLiteral() string { return cs.Token.Literal }
+func (cs *CommandSubstitution) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(cs.Command.String())
+	out.WriteString("]")
+	return out.String()
 }
