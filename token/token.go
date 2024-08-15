@@ -44,15 +44,12 @@ const (
 	RBRACKET = "]"
 
 	// KEYWORDS
-	// IF       = "IF"
-	// ELSE     = "ELSE"
-	// RETURN   = "RETURN"
-	// TRUE     = "TRUE"
-	// FALSE    = "FALSE"
-	// FUNCTION = "PROC"
-	// SET      = "SET"
-	// EXPR     = "EXPR"
-	// ARRAY    = "ARRAY"
+	IF     = "IF"
+	ELSE   = "ELSE"
+	RETURN = "RETURN"
+	TRUE   = "TRUE"
+	FALSE  = "FALSE"
+	ARRAY  = "ARRAY"
 
 	// F5 iRules SPECIFIC TOKENS
 	HTTP_URI      = "HTTP::uri"

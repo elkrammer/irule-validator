@@ -153,16 +153,37 @@ func (l *Lexer) skipWhitespace() {
 	}
 }
 
-// skip comment (until the end of the line).
+// skips over single-line and block comments.
 func (l *Lexer) skipComment() {
-	// Read until the end of the line or the end of the input
-	for l.ch != '\x00' && l.ch != '\n' {
-		l.readChar()
+	// Handle single-line comments starting with # or //
+	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
+		for l.ch != '\x00' && l.ch != '\n' {
+			l.readChar()
+		}
+		if l.ch == '\n' {
+			l.readChar() // move past the newline character
+		}
+		return
 	}
 
-	// if it's a newline
-	if l.ch == '\n' {
-		return
+	// Handle block comments starting with /*
+	if l.ch == '/' && l.peekChar() == '*' {
+		l.readChar() // Move past the /
+		l.readChar() // Move past the *
+
+		// Read until the end of the block comment (*/)
+		for {
+			if l.ch == '*' && l.peekChar() == '/' {
+				l.readChar() // Move past the *
+				l.readChar() // Move past the /
+				break
+			}
+			// If end of input is reached without finding */, break to avoid infinite loop
+			if l.ch == '\x00' {
+				break
+			}
+			l.readChar()
+		}
 	}
 
 	// Skip any whitespace after the comment
