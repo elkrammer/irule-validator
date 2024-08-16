@@ -22,17 +22,19 @@ const (
 	STRING  = "STRING"
 
 	//operators
-	ASSIGN   = "="
-	PLUS     = "+"
-	MINUS    = "-"
-	BANG     = "!"
-	ASTERISK = "*"
-	SLASH    = "/"
-	LT       = "<"
-	GT       = ">"
-	EQ       = "=="
-	NOT_EQ   = "!="
-	DOLLAR   = "$"
+	ASSIGN       = "="
+	PLUS         = "+"
+	MINUS        = "-"
+	BANG         = "!"
+	ASTERISK     = "*"
+	SLASH        = "/"
+	LT           = "<"
+	GT           = ">"
+	EQ           = "=="
+	NOT_EQ       = "!="
+	DOLLAR       = "$"
+	COLON        = ":"
+	DOUBLE_COLON = "::"
 
 	// delimiters
 	COMMA    = ","
@@ -46,10 +48,12 @@ const (
 	// KEYWORDS
 	IF     = "IF"
 	ELSE   = "ELSE"
+	ELSEIF = "ELSEIF"
 	RETURN = "RETURN"
 	TRUE   = "TRUE"
 	FALSE  = "FALSE"
 	ARRAY  = "ARRAY"
+	SET    = "SET"
 
 	// F5 iRules SPECIFIC TOKENS
 	HTTP_URI      = "HTTP::uri"
@@ -80,11 +84,30 @@ const (
 	LB_SELECTED         = "LB_SELECTED"
 	LB_FAILED           = "LB_FAILED"
 	TCP_REQUEST         = "TCP_REQUEST"
+	CLIENT_ACCEPTED     = "CLIENT_ACCEPTED"
+	SERVER_CONNECTED    = "SERVER_CONNECTED"
 
-	// F5 COMMANDS
+	// iRule-specific keywords
 	STARTS_WITH = "starts_with"
+	ENDS_WITH   = "ends_with"
 	WHEN        = "when"
 	THEN        = "then"
+	CONTAINS    = "contains"
+	MATCH       = "match"
+	MATCHES     = "matches"
+
+	// Additional control structures
+	SWITCH  = "switch"
+	CASE    = "case"
+	DEFAULT = "default"
+
+	// Additional operators
+	AND = "&&"
+	OR  = "||"
+
+	// iRule-specific commands
+	LOG  = "log"
+	POOL = "pool"
 )
 
 var keywords = map[string]TokenType{
@@ -97,6 +120,18 @@ var keywords = map[string]TokenType{
 	"true":        TRUE,
 	"false":       FALSE,
 	"starts_with": STARTS_WITH,
+	"set":         SET,
+	"contains":    CONTAINS,
+	"match":       MATCH,
+	"elseif":      ELSEIF,
+	"switch":      SWITCH,
+	"case":        CASE,
+	"default":     DEFAULT,
+	"log":         LOG,
+	"pool":        POOL,
+	"array":       ARRAY,
+	"matches":     MATCHES,
+	"ends_with":   ENDS_WITH,
 
 	// F5 Event Contexts
 	"HTTP_REQUEST":        HTTP_REQUEST,

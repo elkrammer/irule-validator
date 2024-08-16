@@ -64,9 +64,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 	p.registerPrefix(token.DOLLAR, p.parseVariableOrArrayAccess)
-	p.registerPrefix(token.EXPR, p.parseExpr)
+	// p.registerPrefix(token.EXPR, p.parseExpr)
 	p.registerPrefix(token.FALSE, p.parseBoolean)
-	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	// p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
@@ -79,6 +79,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.SET, p.parseSetExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
+	// p.registerPrefix(token.WHEN, p.parseWhenExpression)
+	// p.registerPrefix(token.HTTP_REQUEST, p.parseHttpRequestEvent)
+	// p.registerPrefix(token.HTTP_RESPONSE, p.parseHttpResponseEvent)
+	// p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
@@ -91,6 +95,12 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
+	p.registerInfix(token.STARTS_WITH, p.parseInfixExpression)
+	p.registerInfix(token.CONTAINS, p.parseInfixExpression)
+	p.registerInfix(token.ENDS_WITH, p.parseInfixExpression)
+	p.registerInfix(token.MATCHES, p.parseInfixExpression)
+	p.registerInfix(token.AND, p.parseInfixExpression)
+	p.registerInfix(token.OR, p.parseInfixExpression)
 
 	return p
 }
