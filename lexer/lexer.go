@@ -1,7 +1,7 @@
 package lexer
 
 import (
-	"strings"
+	// "strings"
 
 	"github.com/elkrammer/irule-validator/token"
 )
@@ -78,10 +78,10 @@ func (l *Lexer) NextToken() token.Token {
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
 	case '$':
-		val := l.readVariable()
 		tok.Type = token.IDENT
-		tok.Literal = val
-	case '"':
+		tok.Literal = l.readVariable()
+		return tok
+	case '"', '\'':
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
 	case '+':
@@ -107,6 +107,15 @@ func (l *Lexer) NextToken() token.Token {
 		} else {
 			tok = newToken(token.BANG, l.ch)
 		}
+	case ':':
+		if l.peekChar() == ':' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = token.Token{Type: token.DOUBLE_COLON, Literal: literal}
+		} else {
+			tok = newToken(token.COLON, l.ch)
+		}
 	case 0:
 		tok.Type = token.EOF
 		tok.Literal = ""
@@ -117,12 +126,30 @@ func (l *Lexer) NextToken() token.Token {
 			tok.Literal = l.readNumber()
 			return tok
 		}
+
 		// Check for identifier
 		if isLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
-			tok.Type = token.LookupIdent(tok.Literal)
+			switch tok.Literal {
+			case "IP::client_addr":
+				tok.Type = token.IP_CLIENT_ADDR
+			case "HTTP::host":
+				tok.Type = token.HTTP_HOST
+			case "HTTP::redirect":
+				tok.Type = token.HTTP_REDIRECT
+			case "HTTP_REQUEST":
+				tok.Type = token.HTTP_REQUEST
+			case "HTTP::uri":
+				tok.Type = token.HTTP_URI
+			case "eq":
+				tok.Type = token.EQ
+				tok.Literal = "=="
+			default:
+				tok.Type = token.LookupIdent(tok.Literal)
+			}
 			return tok
 		}
+
 		// Everything else is an illegal token
 		tok = newToken(token.ILLEGAL, l.ch)
 	}
@@ -133,14 +160,14 @@ func (l *Lexer) NextToken() token.Token {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) || l.ch == ':' {
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' || l.ch == ':' || l.ch == '.' {
 		l.readChar()
 	}
 	return l.input[position:l.position]
 }
 
 func isLetter(ch byte) bool {
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' || ch == ':' || ch == '.'
 }
 
 func isDigit(ch byte) bool {
@@ -207,35 +234,53 @@ func (l *Lexer) peekChar() byte {
 }
 
 func (l *Lexer) readString() string {
+	startingQuote := l.ch // Capture the type of quote used to start the string
 	position := l.position + 1
 	for {
 		l.readChar()
-		if l.ch == '"' || l.ch == 0 {
+
+		// Break if we encounter the same quote used to start the string or the end of input
+		if l.ch == startingQuote || l.ch == 0 {
 			break
 		}
+
+		// Handle escape sequences
+		if l.ch == '\\' && l.peekChar() == startingQuote {
+			l.readChar() // Skip the escaped quote
+		}
 	}
+
 	return l.input[position:l.position]
 }
 
 func (l *Lexer) readVariable() string {
-	var str strings.Builder
-	str.WriteRune('$') // Include the '$' character in the string builder
-
-	for {
+	position := l.position
+	l.readChar() // consume $
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' {
 		l.readChar()
-
-		if isLetter(l.ch) || isDigit(l.ch) {
-			str.WriteByte(l.ch) // Append the character to the string builder
-		} else {
-			// l.rewind()
-			l.readPosition-- // Move the position back to the non-letter/digit character
-			break
-		}
-
-		// Check for the end of input
-		if l.readPosition >= len(l.input) {
-			break
-		}
 	}
-	return str.String()
+	return l.input[position:l.position]
 }
+
+// func (l *Lexer) readVariable() string {
+// 	var str strings.Builder
+// 	str.WriteRune('$') // Include the '$' character in the string builder
+//
+// 	for {
+// 		l.readChar()
+//
+// 		if isLetter(l.ch) || isDigit(l.ch) {
+// 			str.WriteByte(l.ch) // Append the character to the string builder
+// 		} else {
+// 			// l.rewind()
+// 			l.readPosition-- // Move the position back to the non-letter/digit character
+// 			break
+// 		}
+//
+// 		// Check for the end of input
+// 		if l.readPosition >= len(l.input) {
+// 			break
+// 		}
+// 	}
+// 	return str.String()
+// }

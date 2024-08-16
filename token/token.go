@@ -127,11 +127,11 @@ var keywords = map[string]TokenType{
 	"switch":      SWITCH,
 	"case":        CASE,
 	"default":     DEFAULT,
-	"log":         LOG,
-	"pool":        POOL,
 	"array":       ARRAY,
 	"matches":     MATCHES,
 	"ends_with":   ENDS_WITH,
+	"equals":      EQ,
+	"eq":          EQ,
 
 	// F5 Event Contexts
 	"HTTP_REQUEST":        HTTP_REQUEST,
