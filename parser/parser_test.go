@@ -290,11 +290,11 @@ func testIdentifier(t *testing.T, exp ast.Expression, value string) bool {
 func testLiteralExpression(t *testing.T, exp ast.Expression, expected interface{}) bool {
 	switch v := expected.(type) {
 	case int:
-		return testNumberLiteral(t, exp, float64(v))
+		return testNumberLiteral(t, exp, int64(v))
 	case int64:
-		return testNumberLiteral(t, exp, float64(v))
+		return testNumberLiteral(t, exp, int64(v))
 	case float64:
-		return testNumberLiteral(t, exp, v)
+		return testNumberLiteral(t, exp, int64(v))
 	case string:
 		return testIdentifier(t, exp, v)
 	case bool:
@@ -495,7 +495,7 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 // 	}
 // }
 
-func testNumberLiteral(t *testing.T, nl ast.Expression, value float64) bool {
+func testNumberLiteral(t *testing.T, nl ast.Expression, value int64) bool {
 	num, ok := nl.(*ast.NumberLiteral)
 	if !ok {
 		t.Errorf("nl not *ast.NumberLiteral. got=%T", nl)
@@ -503,12 +503,12 @@ func testNumberLiteral(t *testing.T, nl ast.Expression, value float64) bool {
 	}
 
 	if num.Value != value {
-		t.Errorf("num.Value not %f. got=%f", value, num.Value)
+		t.Errorf("num.Value not %d. got=%d", value, num.Value)
 		return false
 	}
 
-	if num.TokenLiteral() != fmt.Sprintf("%f", value) {
-		t.Errorf("num.TokenLiteral not %f. got=%s", value, num.TokenLiteral())
+	if num.TokenLiteral() != fmt.Sprintf("%d", value) {
+		t.Errorf("num.TokenLiteral not %d. got=%s", value, num.TokenLiteral())
 		return false
 	}
 

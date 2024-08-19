@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -26,7 +24,7 @@ func main() {
 		return
 	}
 
-	filename := os.Args[0]
+	filename := args[0]
 
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -34,25 +32,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	scanner := bufio.NewScanner(bufio.NewReader(bytes.NewReader(content)))
-	var out io.Writer = os.Stdout
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		l := lexer.New(line)
-		p := parser.New(l)
-
-		p.ParseProgram()
-		if len(p.Errors()) != 0 {
-			printParserErrors(out, p.Errors())
-			os.Exit(1)
-		}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Input content:\n%s\n", string(content))
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Printf("Error scanning file: %v\n", err)
+	l := lexer.New(string(content))
+	p := parser.New(l)
+
+	program := p.ParseProgram()
+	if len(p.Errors()) != 0 {
+		printParserErrors(os.Stdout, p.Errors())
 		os.Exit(1)
 	}
+
+	// You can add further processing of the parsed program here if needed
+	fmt.Printf("Successfully parsed program with %d statements\n", len(program.Statements))
 }
 
 func printParserErrors(out io.Writer, errors []string) {

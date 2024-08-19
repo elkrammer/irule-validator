@@ -171,3 +171,42 @@ when HTTP_REQUEST {
 		}
 	}
 }
+
+func TestEdgeCaseTokens(t *testing.T) {
+	input := `
+    set uri    [HTTP::uri ]
+    set host  [  HTTP::host   ]
+    if { [HTTP::uri ] eq "/test" } {
+        log local0. "Matched"
+    }
+    `
+
+	tests := []struct {
+		expectedType    token.TokenType
+		expectedLiteral string
+	}{
+		{token.SET, "set"},
+		{token.IDENT, "uri"},
+		{token.LBRACKET, "["},
+		{token.HTTP_URI, "HTTP::uri"},
+		{token.RBRACKET, "]"},
+
+		// More expected tokens...
+	}
+
+	l := New(input)
+
+	for i, tt := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != tt.expectedType {
+			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q",
+				i, tt.expectedType, tok.Type)
+		}
+
+		if tok.Literal != tt.expectedLiteral {
+			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
+				i, tt.expectedLiteral, tok.Literal)
+		}
+	}
+}

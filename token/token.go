@@ -56,6 +56,7 @@ const (
 	SET    = "SET"
 
 	// F5 iRules SPECIFIC TOKENS
+	HTTP_COMMAND  = "HTTP_COMMAND"
 	HTTP_URI      = "HTTP::uri"
 	HTTP_METHOD   = "HTTP::method"
 	HTTP_HOST     = "HTTP::host"

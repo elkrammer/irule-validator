@@ -1,8 +1,9 @@
 package lexer
 
 import (
-	// "strings"
+	"fmt"
 
+	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/token"
 )
 
@@ -11,11 +12,15 @@ type Lexer struct {
 	position     int  // current position in input (points to current char)
 	readPosition int  // current reading position in input (after current char)
 	ch           byte // current char under examination
+	braceDepth   int
 }
 
 func New(input string) *Lexer {
 	l := &Lexer{input: input}
 	l.readChar()
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Lexer initialized with input length: %d\n", len(input))
+	}
 	return l
 }
 
@@ -23,8 +28,14 @@ func New(input string) *Lexer {
 func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Reached EOF in lexer at position %d\n", l.position)
+		}
 	} else {
 		l.ch = l.input[l.readPosition]
+		// if config.DebugMode {
+		// 	fmt.Printf("DEBUG: Read char '%c' at position %d\n", l.ch, l.readPosition)
+		// }
 	}
 	l.position = l.readPosition
 	l.readPosition += 1
@@ -47,6 +58,8 @@ func (l *Lexer) NextToken() token.Token {
 
 	l.skipWhitespace()
 
+	// fmt.Printf("[Lexer] NextToken: Current char = '%c'\n", l.ch)
+
 	// skip single line comments
 	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
 		l.skipComment()
@@ -65,8 +78,16 @@ func (l *Lexer) NextToken() token.Token {
 		}
 	case '{':
 		tok = newToken(token.LBRACE, l.ch)
+		l.braceDepth++
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Lexer identified opening brace '{', depth now %d\n", l.braceDepth)
+		}
 	case '}':
 		tok = newToken(token.RBRACE, l.ch)
+		l.braceDepth--
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Lexer identified closing brace '}', depth now %d\n", l.braceDepth)
+		}
 	case '(':
 		tok = newToken(token.LPAREN, l.ch)
 	case ')':
@@ -116,14 +137,48 @@ func (l *Lexer) NextToken() token.Token {
 		} else {
 			tok = newToken(token.COLON, l.ch)
 		}
+	case 'H':
+		fmt.Printf("DEBUG: Encountered 'H', peeking word\n")
+		peekedWord := l.peekWord()
+		fmt.Printf("DEBUG: Peeked word: %s\n", peekedWord)
+		if peekedWord == "HTTP_REQUEST" {
+			l.readIdentifier() // consume the word
+			fmt.Printf("DEBUG: Identified HTTP_REQUEST token\n")
+			return token.Token{Type: token.HTTP_REQUEST, Literal: "HTTP_REQUEST"}
+		}
+		if peekedWord == "HTTP::uri" {
+			l.readIdentifier() // consume the word
+			fmt.Printf("DEBUG: Identified HTTP::uri token\n")
+			return token.Token{Type: token.HTTP_URI, Literal: "HTTP::uri"}
+		}
+		if peekedWord == "HTTP::host" {
+			l.readIdentifier() // consume the word
+			fmt.Printf("DEBUG: Identified HTTP::host token\n")
+			return token.Token{Type: token.HTTP_HOST, Literal: "HTTP::host"}
+		}
+		if peekedWord == "HTTP::redirect" {
+			l.readIdentifier() // consume the word
+			fmt.Printf("DEBUG: Identified HTTP::redirect token\n")
+			return token.Token{Type: token.HTTP_REDIRECT, Literal: "HTTP::redirect"}
+		}
+		identifier := l.readIdentifier()
+		fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
+		return token.Token{Type: token.IDENT, Literal: identifier}
 	case 0:
+		if l.braceDepth > 0 {
+			fmt.Printf("Unexpected EOF: unclosed brace, depth: %d\n", l.braceDepth)
+		}
 		tok.Type = token.EOF
 		tok.Literal = ""
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Lexer reached EOF at position %d\n", l.position)
+		}
 	default:
 		// Check for number
 		if isDigit(l.ch) || (l.ch == '-' && isDigit(l.peekChar())) {
 			tok.Type = token.NUMBER
 			tok.Literal = l.readNumber()
+			// fmt.Printf("NextToken: Identified number = '%s'\n", tok.Literal)
 			return tok
 		}
 
@@ -138,6 +193,9 @@ func (l *Lexer) NextToken() token.Token {
 			case "HTTP::redirect":
 				tok.Type = token.HTTP_REDIRECT
 			case "HTTP_REQUEST":
+				if config.DebugMode {
+					fmt.Printf("[Lexer] Recognized HTTP_REQUEST token\n")
+				}
 				tok.Type = token.HTTP_REQUEST
 			case "HTTP::uri":
 				tok.Type = token.HTTP_URI
@@ -147,14 +205,20 @@ func (l *Lexer) NextToken() token.Token {
 			default:
 				tok.Type = token.LookupIdent(tok.Literal)
 			}
+			fmt.Printf("NextToken: Identified token = '%s'\n", tok.Literal)
 			return tok
 		}
 
 		// Everything else is an illegal token
+		fmt.Printf("NextToken: Illegal token found = '%c'\n", l.ch)
 		tok = newToken(token.ILLEGAL, l.ch)
 	}
 
 	l.readChar()
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Lexer produced token: Type=%s, Literal='%s', Position=%d\n", tok.Type, tok.Literal, l.position)
+	}
 	return tok
 }
 
@@ -262,25 +326,15 @@ func (l *Lexer) readVariable() string {
 	return l.input[position:l.position]
 }
 
-// func (l *Lexer) readVariable() string {
-// 	var str strings.Builder
-// 	str.WriteRune('$') // Include the '$' character in the string builder
-//
-// 	for {
-// 		l.readChar()
-//
-// 		if isLetter(l.ch) || isDigit(l.ch) {
-// 			str.WriteByte(l.ch) // Append the character to the string builder
-// 		} else {
-// 			// l.rewind()
-// 			l.readPosition-- // Move the position back to the non-letter/digit character
-// 			break
-// 		}
-//
-// 		// Check for the end of input
-// 		if l.readPosition >= len(l.input) {
-// 			break
-// 		}
-// 	}
-// 	return str.String()
-// }
+func (l *Lexer) peekWord() string {
+	position := l.position
+	for isLetter(l.ch) || l.ch == ':' || l.ch == '_' {
+		l.readChar()
+	}
+	word := l.input[position:l.position]
+	l.position = position
+	l.readPosition = position + 1
+	l.ch = l.input[position]
+	fmt.Printf("DEBUG: peekWord result: %s\n", word)
+	return word
+}

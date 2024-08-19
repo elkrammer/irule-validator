@@ -1,0 +1,5 @@
+when HTTP_REQUEST {
+  if {[HTTP::uri] contains "forbidden"} {
+    return 403
+  }
+}

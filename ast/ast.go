@@ -146,11 +146,11 @@ func (es *ExpressionStatement) String() string {
 // Numbers
 type NumberLiteral struct {
 	Token token.Token
-	Value float64
+	Value int64
 }
 
 func (il *NumberLiteral) expressionNode()      {}
-func (nl *NumberLiteral) TokenLiteral() string { return fmt.Sprintf("%f", nl.Value) }
+func (nl *NumberLiteral) TokenLiteral() string { return fmt.Sprintf("%d", nl.Value) }
 func (il *NumberLiteral) String() string       { return il.Token.Literal }
 
 // PREFIXES
@@ -264,6 +264,31 @@ func (ie *IfExpression) String() string {
 	if ie.Alternative != nil {
 		out.WriteString("else ")
 		out.WriteString(ie.Alternative.String())
+	}
+
+	return out.String()
+}
+
+type IfStatement struct {
+	Token       token.Token
+	Condition   Expression
+	Consequence *BlockStatement
+	Alternative *BlockStatement
+}
+
+func (is *IfStatement) statementNode()       {}
+func (is *IfStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *IfStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("if ")
+	out.WriteString(is.Condition.String())
+	out.WriteString(" ")
+	out.WriteString(is.Consequence.String())
+
+	if is.Alternative != nil {
+		out.WriteString(" else ")
+		out.WriteString(is.Alternative.String())
 	}
 
 	return out.String()
@@ -504,5 +529,50 @@ func (hue *HttpUriExpression) String() string {
 		out.WriteString(" ")
 		out.WriteString(hue.Method.String())
 	}
+	return out.String()
+}
+
+type IRuleNode struct {
+	When       *WhenNode
+	Statements []Statement
+}
+
+type WhenNode struct {
+	Event      string
+	Statements []Statement
+}
+
+type HttpExpression struct {
+	Token   token.Token // The '[' token
+	Command *Identifier // The HTTP command (e.g., HTTP::uri)
+	Method  *Identifier // Optional method (e.g., path, host)
+}
+
+func (he *HttpExpression) expressionNode()      {}
+func (he *HttpExpression) TokenLiteral() string { return he.Token.Literal }
+func (he *HttpExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(he.Command.String())
+	if he.Method != nil {
+		out.WriteString(" ")
+		out.WriteString(he.Method.String())
+	}
+	out.WriteString("]")
+	return out.String()
+}
+
+type BracketExpression struct {
+	Token      token.Token
+	Expression Expression
+}
+
+func (be *BracketExpression) expressionNode()      {}
+func (be *BracketExpression) TokenLiteral() string { return be.Token.Literal }
+func (be *BracketExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(be.Expression.String())
+	out.WriteString("]")
 	return out.String()
 }
