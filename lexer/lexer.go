@@ -162,7 +162,7 @@ func (l *Lexer) NextToken() token.Token {
 			return token.Token{Type: token.HTTP_REDIRECT, Literal: "HTTP::redirect"}
 		}
 		identifier := l.readIdentifier()
-		fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
+		// fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
 		return token.Token{Type: token.IDENT, Literal: identifier}
 	case 0:
 		if l.braceDepth > 0 {
@@ -188,20 +188,15 @@ func (l *Lexer) NextToken() token.Token {
 			switch tok.Literal {
 			case "IP::client_addr":
 				tok.Type = token.IP_CLIENT_ADDR
-			case "HTTP::host":
-				tok.Type = token.HTTP_HOST
-			case "HTTP::redirect":
-				tok.Type = token.HTTP_REDIRECT
-			case "HTTP_REQUEST":
-				if config.DebugMode {
-					fmt.Printf("[Lexer] Recognized HTTP_REQUEST token\n")
-				}
-				tok.Type = token.HTTP_REQUEST
-			case "HTTP::uri":
-				tok.Type = token.HTTP_URI
 			case "eq":
 				tok.Type = token.EQ
 				tok.Literal = "=="
+			case "starts_with":
+				tok.Type = token.STARTS_WITH
+				tok.Literal = "starts_with"
+			case "default":
+				tok.Type = token.DEFAULT
+				tok.Literal = "default"
 			default:
 				tok.Type = token.LookupIdent(tok.Literal)
 			}

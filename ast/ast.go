@@ -78,11 +78,11 @@ func (i *Identifier) TokenLiteral() string {
 
 // SET Statement
 type SetStatement struct {
-	Token      token.Token
-	Name       *Identifier
-	Index      Expression
-	Value      Expression
-	IsArraySet bool
+	Token token.Token
+	Name  Expression
+	// Name  *Identifier
+	// Index Expression
+	Value Expression
 }
 
 func (ls *SetStatement) statementNode()       {}
@@ -94,11 +94,11 @@ func (ls *SetStatement) String() string {
 	out.WriteString(ls.TokenLiteral() + " ")
 	out.WriteString(ls.Name.String())
 
-	if ls.Index != nil {
-		out.WriteString("(")
-		out.WriteString(ls.Index.String())
-		out.WriteString(")")
-	}
+	// if ls.Index != nil {
+	// 	out.WriteString("(")
+	// 	out.WriteString(ls.Index.String())
+	// 	out.WriteString(")")
+	// }
 
 	if ls.Value != nil {
 		out.WriteString(" ")
@@ -574,5 +574,49 @@ func (be *BracketExpression) String() string {
 	out.WriteString("[")
 	out.WriteString(be.Expression.String())
 	out.WriteString("]")
+	return out.String()
+}
+
+type SwitchStatement struct {
+	Token   token.Token // the 'switch' token
+	Value   Expression
+	Cases   []*CaseStatement
+	Default *CaseStatement
+}
+
+func (ss *SwitchStatement) expressionNode()      {}
+func (ls *SwitchStatement) statementNode()       {}
+func (ss *SwitchStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *SwitchStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("switch ")
+	out.WriteString(ss.Value.String())
+	out.WriteString(" {\n")
+	for _, c := range ss.Cases {
+		out.WriteString(c.String())
+	}
+	if ss.Default != nil {
+		out.WriteString("default ")
+		out.WriteString(ss.Default.String())
+	}
+	out.WriteString("}\n")
+
+	return out.String()
+}
+
+type CaseStatement struct {
+	Token       token.Token // the 'case' token
+	Value       Expression
+	Consequence *BlockStatement
+}
+
+func (cs *CaseStatement) expressionNode()      {}
+func (cs *CaseStatement) TokenLiteral() string { return cs.Token.Literal }
+func (cs *CaseStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(cs.Value.String())
+	out.WriteString(" ")
+	out.WriteString(cs.Consequence.String())
+	out.WriteString("\n")
 	return out.String()
 }

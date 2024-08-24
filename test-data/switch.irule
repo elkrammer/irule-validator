@@ -1,0 +1,5 @@
+switch -glob [HTTP::uri] {
+  "/images/*" { pool image_pool }
+  "/videos/*" { pool video_pool }
+  default { pool default_pool }
+}
