@@ -138,17 +138,17 @@ func (l *Lexer) NextToken() token.Token {
 			tok = newToken(token.COLON, l.ch)
 		}
 	case 'H':
-		fmt.Printf("DEBUG: Encountered 'H', peeking word\n")
+		// fmt.Printf("DEBUG: Encountered 'H', peeking word\n")
 		peekedWord := l.peekWord()
-		fmt.Printf("DEBUG: Peeked word: %s\n", peekedWord)
+		// fmt.Printf("DEBUG: Peeked word: %s\n", peekedWord)
 		if peekedWord == "HTTP_REQUEST" {
 			l.readIdentifier() // consume the word
-			fmt.Printf("DEBUG: Identified HTTP_REQUEST token\n")
+			// fmt.Printf("DEBUG: Identified HTTP_REQUEST token\n")
 			return token.Token{Type: token.HTTP_REQUEST, Literal: "HTTP_REQUEST"}
 		}
 		if peekedWord == "HTTP::uri" {
 			l.readIdentifier() // consume the word
-			fmt.Printf("DEBUG: Identified HTTP::uri token\n")
+			// fmt.Printf("DEBUG: Identified HTTP::uri token\n")
 			return token.Token{Type: token.HTTP_URI, Literal: "HTTP::uri"}
 		}
 		if peekedWord == "HTTP::host" {
@@ -205,7 +205,7 @@ func (l *Lexer) NextToken() token.Token {
 			default:
 				tok.Type = token.LookupIdent(tok.Literal)
 			}
-			fmt.Printf("NextToken: Identified token = '%s'\n", tok.Literal)
+			// fmt.Printf("NextToken: Identified token = '%s'\n", tok.Literal)
 			return tok
 		}
 
@@ -335,6 +335,6 @@ func (l *Lexer) peekWord() string {
 	l.position = position
 	l.readPosition = position + 1
 	l.ch = l.input[position]
-	fmt.Printf("DEBUG: peekWord result: %s\n", word)
+	// fmt.Printf("DEBUG: peekWord result: %s\n", word)
 	return word
 }

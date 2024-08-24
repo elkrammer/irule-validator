@@ -42,11 +42,12 @@ func main() {
 	program := p.ParseProgram()
 	if len(p.Errors()) != 0 {
 		printParserErrors(os.Stdout, p.Errors())
+		fmt.Printf("❌ There were errors parsing this program\n")
 		os.Exit(1)
 	}
 
 	// You can add further processing of the parsed program here if needed
-	fmt.Printf("Successfully parsed program with %d statements\n", len(program.Statements))
+	fmt.Printf("✅ Successfully parsed program with %d statements\n", len(program.Statements))
 }
 
 func printParserErrors(out io.Writer, errors []string) {

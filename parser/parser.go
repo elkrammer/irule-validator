@@ -707,7 +707,9 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 		return nil
 	}
 
-	fmt.Printf("DEBUG: parseExpressionList End\n")
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseExpressionList End\n")
+	}
 	return list
 }
 
