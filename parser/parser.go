@@ -20,6 +20,7 @@ const (
 	PRODUCT     // *
 	PREFIX      // -X or !X
 	CALL        // myFunction(X)
+	LOGICAL     // && or ||
 	CONTAINS
 )
 
@@ -33,6 +34,8 @@ var precedences = map[token.TokenType]int{
 	token.SLASH:       PRODUCT,
 	token.ASTERISK:    PRODUCT,
 	token.LPAREN:      CALL,
+	token.AND:         LOGICAL,
+	token.OR:          LOGICAL,
 	token.CONTAINS:    CONTAINS,
 	token.STARTS_WITH: EQUALS,
 }
@@ -81,6 +84,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.WHEN, p.parseWhenExpression)
 	p.registerPrefix(token.HTTP_COMMAND, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_HEADER, p.parseHttpCommand)
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
 	// p.registerPrefix(token.RBRACE, p.parseBracketExpression)
@@ -104,6 +108,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.AND, p.parseInfixExpression)
 	p.registerInfix(token.OR, p.parseInfixExpression)
 	p.registerInfix(token.CONTAINS, p.parseInfixExpression)
+	p.registerInfix(token.AND, p.parseInfixExpression)
+	p.registerInfix(token.OR, p.parseInfixExpression)
 
 	return p
 }

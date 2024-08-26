@@ -119,6 +119,24 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.SLASH, l.ch)
 	case '-':
 		tok = newToken(token.MINUS, l.ch)
+	case '&':
+		if l.peekChar() == '&' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = token.Token{Type: token.AND, Literal: literal}
+		} else {
+			tok = newToken(token.AND, l.ch)
+		}
+	case '|':
+		if l.peekChar() == '|' {
+			ch := l.ch
+			l.readChar()
+			literal := string(ch) + string(l.ch)
+			tok = token.Token{Type: token.OR, Literal: literal}
+		} else {
+			tok = newToken(token.ILLEGAL, l.ch)
+		}
 	case '!':
 		if l.peekChar() == '=' {
 			ch := l.ch
@@ -160,6 +178,11 @@ func (l *Lexer) NextToken() token.Token {
 			l.readIdentifier() // consume the word
 			fmt.Printf("DEBUG: Identified HTTP::redirect token\n")
 			return token.Token{Type: token.HTTP_REDIRECT, Literal: "HTTP::redirect"}
+		}
+		if peekedWord == "HTTP::header" {
+			l.readIdentifier() // consume the word
+			fmt.Printf("DEBUG: Identified HTTP::header token\n")
+			return token.Token{Type: token.HTTP_HEADER, Literal: "HTTP::header"}
 		}
 		identifier := l.readIdentifier()
 		// fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
