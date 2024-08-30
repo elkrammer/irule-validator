@@ -543,9 +543,10 @@ type WhenNode struct {
 }
 
 type HttpExpression struct {
-	Token   token.Token // The '[' token
-	Command *Identifier // The HTTP command (e.g., HTTP::uri)
-	Method  *Identifier // Optional method (e.g., path, host)
+	Token    token.Token // The '[' token
+	Command  *Identifier // The HTTP command (e.g., HTTP::uri)
+	Method   *Identifier // Optional method (e.g., path, host)
+	Argument Expression
 }
 
 func (he *HttpExpression) expressionNode()      {}

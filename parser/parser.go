@@ -85,11 +85,11 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.WHEN, p.parseWhenExpression)
 	p.registerPrefix(token.HTTP_COMMAND, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_HEADER, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_RESPOND, p.parseHttpCommand)
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
 	// p.registerPrefix(token.RBRACE, p.parseBracketExpression)
 	// p.registerPrefix(token.HTTP_REQUEST, p.parseWhenExpression)
-	// p.registerPrefix(token.HTTP_RESPONSE, p.parseHttpResponseEvent)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
@@ -360,11 +360,12 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.RBRACE) && precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
-			// if p.peekTokenIs(token.CONTAINS) {
-			// 	p.nextToken()
-			// 	leftExp = p.parseInfixExpression(leftExp)
-			// } else {
-			return leftExp
+			if p.peekTokenIs(token.STARTS_WITH) || p.peekTokenIs(token.EQ) {
+				p.nextToken()
+				leftExp = p.parseInfixExpression(leftExp)
+			} else {
+				return leftExp
+			}
 		}
 		// } else {
 		p.nextToken()
@@ -634,10 +635,19 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 
 	p.nextToken() // consume opening brace
 
-	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseBlockStatement - Current token: %s\n", p.curToken.Type)
+	braceCount := 1
+
+	for braceCount > 0 && !p.curTokenIs(token.EOF) {
+		if p.curTokenIs(token.LBRACE) {
+			braceCount++
+		} else if p.curTokenIs(token.RBRACE) {
+			braceCount--
 		}
+
+		if braceCount == 0 {
+			break // We've found the matching closing brace
+		}
+
 		stmt := p.parseStatement()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
@@ -645,9 +655,8 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		p.nextToken()
 	}
 
-	if !p.curTokenIs(token.RBRACE) {
-		p.peekError(token.RBRACE)
-		return nil
+	if braceCount > 0 {
+		p.errors = append(p.errors, "Unmatched opening brace in block statement")
 	}
 
 	if config.DebugMode {
@@ -1106,10 +1115,21 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	}
 	expr := &ast.HttpExpression{Token: p.curToken}
 
-	// if !p.expectPeek(token.IDENT) {
-	// 	return nil
-	// }
+	// Check if we're starting with a '['
+	if p.curTokenIs(token.LBRACKET) {
+		p.nextToken() // consume '['
+	}
+
+	// Parse the HTTP command (e.g., HTTP::header)
 	expr.Command = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// If we started with '[', expect a closing ']'
+	if p.curToken.Type == token.LBRACKET {
+		if !p.expectPeek(token.RBRACKET) {
+			p.errors = append(p.errors, fmt.Sprintf("Expected closing bracket after HTTP command, got %s", p.peekToken.Type))
+			return nil
+		}
+	}
 
 	if config.DebugMode {
 		fmt.Printf("DEBUG: End parseHttpCommand\n")

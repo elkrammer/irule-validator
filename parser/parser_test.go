@@ -725,7 +725,7 @@ func checkHttpRespond(t *testing.T, stmt ast.Statement) {
 		t.Fatalf("stmt.Expression not *ast.CallExpression. got=%T", exprStmt.Expression)
 	}
 
-	if callExpr.Function.String() != "HTTP::respond" {
+	if callExpr.Function.String() != "[HTTP::respond]" {
 		t.Errorf("callExpr.Function not 'HTTP::respond'. got=%q", callExpr.Function)
 	}
 

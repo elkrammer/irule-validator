@@ -156,33 +156,30 @@ func (l *Lexer) NextToken() token.Token {
 			tok = newToken(token.COLON, l.ch)
 		}
 	case 'H':
-		// fmt.Printf("DEBUG: Encountered 'H', peeking word\n")
 		peekedWord := l.peekWord()
-		// fmt.Printf("DEBUG: Peeked word: %s\n", peekedWord)
 		if peekedWord == "HTTP_REQUEST" {
 			l.readIdentifier() // consume the word
-			// fmt.Printf("DEBUG: Identified HTTP_REQUEST token\n")
 			return token.Token{Type: token.HTTP_REQUEST, Literal: "HTTP_REQUEST"}
 		}
 		if peekedWord == "HTTP::uri" {
 			l.readIdentifier() // consume the word
-			// fmt.Printf("DEBUG: Identified HTTP::uri token\n")
 			return token.Token{Type: token.HTTP_URI, Literal: "HTTP::uri"}
 		}
 		if peekedWord == "HTTP::host" {
 			l.readIdentifier() // consume the word
-			fmt.Printf("DEBUG: Identified HTTP::host token\n")
 			return token.Token{Type: token.HTTP_HOST, Literal: "HTTP::host"}
 		}
 		if peekedWord == "HTTP::redirect" {
 			l.readIdentifier() // consume the word
-			fmt.Printf("DEBUG: Identified HTTP::redirect token\n")
 			return token.Token{Type: token.HTTP_REDIRECT, Literal: "HTTP::redirect"}
 		}
 		if peekedWord == "HTTP::header" {
 			l.readIdentifier() // consume the word
-			fmt.Printf("DEBUG: Identified HTTP::header token\n")
 			return token.Token{Type: token.HTTP_HEADER, Literal: "HTTP::header"}
+		}
+		if peekedWord == "HTTP::respond" {
+			l.readIdentifier() // consume the word
+			return token.Token{Type: token.HTTP_RESPOND, Literal: "HTTP::respond"}
 		}
 		identifier := l.readIdentifier()
 		// fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
