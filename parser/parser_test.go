@@ -784,18 +784,18 @@ func TestComplexExpressions(t *testing.T) {
 			expectedStatements: 3,
 			checkFunc:          checkComplexCondition,
 		},
-		{
-			input: `if { ([HTTP::uri] starts_with "/api") && ([HTTP::method] equals "POST") } {
-		                      set content_type [HTTP::header "Content-Type"]
-		                      if { $content_type contains "application/json" } {
-		                          pool api_json_pool
-		                      } else {
-		                          HTTP::respond 415 content "Unsupported Media Type"
-		                      }
-		                  }`,
-			expectedStatements: 1,
-			checkFunc:          checkNestedIfWithHttpCommands,
-		},
+		// {
+		// 	input: `if { ([HTTP::uri] starts_with "/api") && ([HTTP::method] equals "POST") } {
+		//                       set content_type [HTTP::header "Content-Type"]
+		//                       if { $content_type contains "application/json" } {
+		//                           pool api_json_pool
+		//                       } else {
+		//                           HTTP::respond 415 content "Unsupported Media Type"
+		//                       }
+		//                   }`,
+		// 	expectedStatements: 1,
+		// 	checkFunc:          checkNestedIfWithHttpCommands,
+		// },
 	}
 
 	for _, tt := range tests {

@@ -70,26 +70,28 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
 	p.registerPrefix(token.DOLLAR, p.parseVariableOrArrayAccess)
 	p.registerPrefix(token.FALSE, p.parseBoolean)
-	p.registerPrefix(token.HTTP_URI, p.parseHttpCommand)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
-	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
-	p.registerPrefix(token.NUMBER, p.parseNumberLiteral)
 	p.registerPrefix(token.RBRACKET, p.parseArrayLiteral)
 	p.registerPrefix(token.RPAREN, p.parseGroupedExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.NUMBER, p.parseNumberLiteral)
 	p.registerPrefix(token.SET, p.parseSetExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.WHEN, p.parseWhenExpression)
 	p.registerPrefix(token.HTTP_COMMAND, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_HEADER, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_METHOD, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_PATH, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_QUERY, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_REDIRECT, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_RESPOND, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_URI, p.parseHttpCommand)
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
-	// p.registerPrefix(token.RBRACE, p.parseBracketExpression)
-	// p.registerPrefix(token.HTTP_REQUEST, p.parseWhenExpression)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
@@ -224,6 +226,9 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 }
 
 func (p *Parser) parseSetStatement() *ast.SetStatement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetStatement Start\n")
+	}
 	stmt := &ast.SetStatement{Token: p.curToken}
 
 	p.nextToken() // Move past 'set'
@@ -232,6 +237,7 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	stmt.Name = p.parseExpression(LOWEST)
 
 	if stmt.Name == nil {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseSetStatement: Expected a name for set statement"))
 		return nil
 	}
 
@@ -242,14 +248,17 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	}
 
 	// Consume any remaining tokens until EOF or semicolon
-	for !p.curTokenIs(token.EOF) && !p.curTokenIs(token.SEMICOLON) {
-		p.nextToken()
-	}
+	// for !p.curTokenIs(token.EOF) && !p.curTokenIs(token.SEMICOLON) {
+	// 	p.nextToken()
+	// }
 
-	// fmt.Printf("DEBUG: Set statement name type: %T\n", stmt.Name)
-	// fmt.Printf("DEBUG: Set statement name: %+v\n", stmt.Name)
-	// fmt.Printf("DEBUG: Set statement value type: %T\n", stmt.Value)
-	// fmt.Printf("DEBUG: Set statement value: %+v\n", stmt.Value)
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Set statement name type: %T\n", stmt.Name)
+		fmt.Printf("DEBUG: Set statement name: %v\n", stmt.Name)
+		fmt.Printf("DEBUG: Set statement value type: %T\n", stmt.Value)
+		fmt.Printf("DEBUG: Set statement value: %v\n", stmt.Value)
+		fmt.Printf("DEBUG: parseSetStatement End\n")
+	}
 
 	return stmt
 }
@@ -367,10 +376,8 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 				return leftExp
 			}
 		}
-		// } else {
 		p.nextToken()
 		leftExp = infix(leftExp)
-		// }
 	}
 
 	if config.DebugMode {
@@ -640,8 +647,14 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	for braceCount > 0 && !p.curTokenIs(token.EOF) {
 		if p.curTokenIs(token.LBRACE) {
 			braceCount++
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Found opening brace, count: %d\n", braceCount)
+			}
 		} else if p.curTokenIs(token.RBRACE) {
 			braceCount--
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Found closing brace, count: %d\n", braceCount)
+			}
 		}
 
 		if braceCount == 0 {
@@ -651,12 +664,22 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Added statement to block, type: %T\n", stmt)
+			}
+		} else if config.DebugMode {
+			fmt.Printf("DEBUG: Failed to parse statement at token: %+v\n", p.curToken)
 		}
+
 		p.nextToken()
 	}
 
 	if braceCount > 0 {
 		p.errors = append(p.errors, "Unmatched opening brace in block statement")
+	}
+
+	if p.curTokenIs(token.EOF) && braceCount > 0 {
+		p.errors = append(p.errors, "Unexpected EOF in block statement")
 	}
 
 	if config.DebugMode {
@@ -884,7 +907,7 @@ func (p *Parser) parseSetExpression() ast.Expression {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseSetExpression - Value parsed: %v\n", stmt.Value)
+		fmt.Printf("DEBUG: parseSetExpression - Value parsed: %T\n", stmt.Value)
 		fmt.Printf("DEBUG: parseSetExpression - Completed: %v\n", stmt)
 	}
 
@@ -1032,17 +1055,23 @@ func (p *Parser) parseHttpExpression() ast.Expression {
 	expr := &ast.HttpExpression{Token: p.curToken}
 
 	p.nextToken() // consume '['
-	if !p.curTokenIs(token.HTTP_URI) {
-		p.errors = append(p.errors, fmt.Sprintf("Expected HTTP::uri, got %s", p.curToken.Type))
+	if !p.curTokenIs(token.HTTP_URI) && !p.curTokenIs(token.HTTP_METHOD) && !p.curTokenIs(token.HTTP_HEADER) {
+		p.errors = append(p.errors, fmt.Sprintf("Expected HTTP command, got %s", p.curToken.Type))
 		return nil
 	}
 
 	expr.Command = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	if p.peekTokenIs(token.IDENT) {
+	// Check for arguments
+	if p.peekTokenIs(token.STRING) {
 		p.nextToken()
-		expr.Method = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 	}
+
+	// if p.peekTokenIs(token.IDENT) {
+	// 	p.nextToken()
+	// 	expr.Method = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	// }
 
 	if !p.expectPeek(token.RBRACKET) {
 		if config.DebugMode {
