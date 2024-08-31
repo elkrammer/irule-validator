@@ -228,13 +228,13 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 
 	p.nextToken() // consume the 'return' token
 
-	switch p.curToken.Type {
-	case token.STRING, token.NUMBER:
-		stmt.ReturnValue = p.parseExpression(LOWEST)
-	default:
-		p.errors = append(p.errors, fmt.Sprintf("Expected STRING or NUMBER after return, got %s", p.curToken.Type))
-		return nil
+	// Check if the next token is a semicolon or a closing brace
+	// If so, it's a bare return statement
+	if p.curTokenIs(token.SEMICOLON) || p.curTokenIs(token.RBRACE) {
+		return stmt
 	}
+
+	stmt.ReturnValue = p.parseExpression(LOWEST)
 
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()

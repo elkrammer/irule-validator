@@ -185,10 +185,6 @@ func (l *Lexer) NextToken() token.Token {
 			l.readIdentifier() // consume the word
 			return token.Token{Type: token.HTTP_QUERY, Literal: "HTTP::query"}
 		}
-		if peekedWord == "HTTP::redirect" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_REDIRECT, Literal: "HTTP::redirect"}
-		}
 
 		identifier := l.readIdentifier()
 		// fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
