@@ -298,14 +298,6 @@ func (l *Lexer) skipComment() {
 	l.skipWhitespace()
 }
 
-func (l *Lexer) readNumber() string {
-	position := l.position
-	for isDigit(l.ch) {
-		l.readChar()
-	}
-	return l.input[position:l.position]
-}
-
 func (l *Lexer) peekChar() byte {
 	if l.readPosition >= len(l.input) {
 		return 0
