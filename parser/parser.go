@@ -873,16 +873,22 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	expr.Command = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if expr.Command.String() == "HTTP::header" {
-		if !p.expectPeek(token.STRING) {
-			return nil
+		// Parse the header name, which may contain multiple words
+		var headerParts []string
+		for p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.MINUS) || p.peekTokenIs(token.STRING) {
+			p.nextToken()
+			headerParts = append(headerParts, p.curToken.Literal)
 		}
 
-		expr.Argument = &ast.StringLiteral{
-			Token: p.curToken,
-			Value: p.curToken.Literal,
-		}
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseHttpCommand successfully parsed http::header arg %+v\n", expr.Argument)
+		if len(headerParts) > 0 {
+			headerName := strings.Join(headerParts, "")
+			expr.Argument = &ast.StringLiteral{
+				Token: token.Token{Type: token.STRING, Literal: headerName},
+				Value: headerName,
+			}
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseHttpCommand successfully parsed http::header arg %+v\n", expr.Argument)
+			}
 		}
 	}
 

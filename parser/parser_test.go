@@ -491,8 +491,7 @@ func TestInfixExpressions(t *testing.T) {
 		{"[HTTP::uri] contains \"admin\"", "[HTTP::uri]", "contains", "admin"},
 		{"$static::max_connections > 100", "$static::max_connections", ">", 100},
 		{"[IP::client_addr] equals 10.0.0.1", "IP::client_addr", "equals", "10.0.0.1"},
-		{"[HTTP::header User-Agent] starts_with \"Mozilla\"", "HTTP::header User-Agent", "starts_with", "Mozilla"},
-		// {"[HTTP::status] == 200", "HTTP::status", "==", 200},
+		{"[HTTP::header User-Agent] starts_with \"Mozilla\"", "[HTTP::header]", "starts_with", "Mozilla"}, // {"[HTTP::status] == 200", "HTTP::status", "==", 200},
 		// {"[TCP::local_port] != 443", "TCP::local_port", "!=", 443},
 		// {"$current_users <= $max_users", "$current_users", "<=", "$max_users"},
 	}

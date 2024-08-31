@@ -1,0 +1,1 @@
+[HTTP::header User-Agent] starts_with "Mozilla"
