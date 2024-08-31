@@ -238,43 +238,6 @@ func testLiteralExpression(t *testing.T, exp ast.Expression, expected interface{
 	return false
 }
 
-func testBooleanExpression(t *testing.T) {
-	tests := []struct {
-		input           string
-		expectedBoolean bool
-	}{
-		{"true;", true},
-		{"false;", false},
-	}
-
-	for _, tt := range tests {
-		l := lexer.New(tt.input)
-		p := New(l)
-		program := p.ParseProgram()
-		checkParserErrors(t, p)
-
-		if len(program.Statements) != 1 {
-			t.Fatalf("program has not enough statements. got=%d",
-				len(program.Statements))
-		}
-
-		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
-		if !ok {
-			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
-				program.Statements[0])
-		}
-
-		boolean, ok := stmt.Expression.(*ast.Boolean)
-		if !ok {
-			t.Fatalf("exp not *ast.Boolean. got=%T", stmt.Expression)
-		}
-		if boolean.Value != tt.expectedBoolean {
-			t.Errorf("boolean.Value not %t. got=%t", tt.expectedBoolean,
-				boolean.Value)
-		}
-	}
-}
-
 func TestOperatorPrecedenceParsing(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -432,37 +395,6 @@ func testPath(t *testing.T, exp *ast.InfixExpression, expectedPath string) bool 
 	actualPath := left.Value + "/" + right.Value
 	if actualPath != expectedPath {
 		t.Errorf("Path not %s. got=%s", expectedPath, actualPath)
-		return false
-	}
-
-	return true
-}
-
-func testHttpUriExpression(t *testing.T, exp *ast.InfixExpression, expectedName string) bool {
-	if exp.Operator != "/" {
-		t.Errorf("Operator is not '/'. got=%s", exp.Operator)
-		return false
-	}
-
-	arrayLiteral, ok := exp.Left.(*ast.ArrayLiteral)
-	if !ok {
-		t.Errorf("Left of InfixExpression is not an ArrayLiteral. got=%T", exp.Left)
-		return false
-	}
-
-	if len(arrayLiteral.Elements) != 1 {
-		t.Errorf("ArrayLiteral does not contain 1 element. got=%d", len(arrayLiteral.Elements))
-		return false
-	}
-
-	httpExp, ok := arrayLiteral.Elements[0].(*ast.HttpExpression)
-	if !ok {
-		t.Errorf("Element is not an HttpExpression. got=%T", arrayLiteral.Elements[0])
-		return false
-	}
-
-	if httpExp.Command.Value != expectedName {
-		t.Errorf("HttpExpression.Command.Value not '%s'. got=%s", expectedName, httpExp.Command.Value)
 		return false
 	}
 

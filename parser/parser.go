@@ -349,51 +349,6 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	return leftExp
 }
 
-// func (p *Parser) parseExpression(precedence int) ast.Expression {
-// 	if config.DebugMode {
-// 		fmt.Printf("DEBUG: parseExpression - Current token: %s, Precedence: %d\n", p.curToken.Type, precedence)
-// 	}
-//
-// 	var leftExp ast.Expression
-//
-// 	switch p.curToken.Type {
-// 	case token.IDENT:
-// 		return p.parseIdentifier()
-// 	case token.NUMBER:
-// 		return p.parseNumberLiteral()
-// 	case token.LBRACKET:
-// 		return p.parseBracketExpression()
-// 	case token.HTTP_URI:
-// 		leftExp = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-// 	case token.RBRACE:
-// 		if config.DebugMode {
-// 			fmt.Printf("DEBUG: parseExpression found closing brace\n")
-// 		}
-// 		return nil
-// 	default:
-// 		p.noPrefixParseFnError(p.curToken.Type)
-// 		return nil
-// 	}
-//
-// 	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-// 		infix := p.infixParseFns[p.peekToken.Type]
-// 		if infix == nil {
-// 			if config.DebugMode {
-// 				fmt.Printf("DEBUG: parseExpression - No infix parse function for %s\n", p.peekToken.Type)
-// 			}
-// 			return leftExp
-// 		}
-// 		p.nextToken()
-// 		leftExp = infix(leftExp)
-// 	}
-//
-// 	if config.DebugMode {
-// 		fmt.Printf("DEBUG: Finished parsing expression, type: %T\n", leftExp)
-// 	}
-//
-// 	return leftExp
-// }
-
 func (p *Parser) parseIdentifier() ast.Expression {
 	return &ast.Identifier{
 		Token:      p.curToken,
@@ -650,15 +605,6 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 
 	p.nextToken() // Move past the opening bracket
 
-	// Check if it's an HTTP command
-	// if p.curTokenIs(token.HTTP_URI) || p.curTokenIs(token.HTTP_METHOD) || p.curTokenIs(token.HTTP_HEADER) {
-	// 	httpExpr := p.parseHttpCommand()
-	// 	if httpExpr != nil {
-	// 		list = append(list, httpExpr)
-	// 	}
-	// 	return list
-	// }
-
 	// Parse expressions until encountering the end token
 	list = append(list, p.parseExpression(LOWEST))
 
@@ -905,34 +851,6 @@ func (p *Parser) parseBlockStatements() []ast.Statement {
 
 	return statements
 }
-
-// func (p *Parser) parseBracketExpression() ast.Expression {
-// 	if config.DebugMode {
-// 		fmt.Printf("DEBUG: Start parseBracketExpression\n")
-// 	}
-//
-// 	expr := &ast.BracketExpression{Token: p.curToken}
-//
-// 	p.nextToken() // Advance past the `[` token
-//
-// 	if p.curTokenIs(token.HTTP_URI) {
-// 		expr.Expression = p.parseHttpCommand()
-// 	} else {
-// 		expr.Expression = p.parseExpression(LOWEST)
-// 	}
-//
-// 	// We expect a closing bracket `]` after the expression
-// 	if !p.expectPeek(token.RBRACKET) {
-// 		p.errors = append(p.errors, fmt.Sprintf("Expected closing bracket, got %s", p.peekToken.Type))
-// 		return nil
-// 	}
-//
-// 	if config.DebugMode {
-// 		fmt.Printf("DEBUG: End parseBracketExpression - %+v\n", expr)
-// 	}
-//
-// 	return expr
-// }
 
 func (p *Parser) parseHttpCommand() ast.Expression {
 	if config.DebugMode {
