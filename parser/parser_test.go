@@ -781,7 +781,7 @@ func TestComplexExpressions(t *testing.T) {
 	}{
 		{
 			input:              `(HTTP::uri contains "admin") && (HTTP::header "User-Agent" contains "Mozilla")`,
-			expectedStatements: 3,
+			expectedStatements: 1,
 			checkFunc:          checkComplexCondition,
 		},
 		// {
@@ -828,9 +828,9 @@ func checkComplexCondition(t *testing.T, stmt ast.Statement) {
 		t.Errorf("operator is not '&&'. got=%q", infixExpr.Operator)
 	}
 
-	t.Logf("Top-level expression: %T", exprStmt.Expression)
-	t.Logf("Left expression type: %T", infixExpr.Left)
-	t.Logf("Right expression type: %T", infixExpr.Right)
+	// t.Logf("Top-level expression: %T", exprStmt.Expression)
+	// t.Logf("Left expression type: %T", infixExpr.Left)
+	// t.Logf("Right expression type: %T", infixExpr.Right)
 
 	checkHttpExpression(t, infixExpr.Left, "HTTP::uri", "contains", "admin")
 	checkHttpHeaderExpression(t, infixExpr.Right)
@@ -866,30 +866,39 @@ func checkHttpExpression(t *testing.T, expr ast.Expression, command, operator, v
 }
 
 func checkHttpHeaderExpression(t *testing.T, expr ast.Expression) {
-	httpExpr, ok := expr.(*ast.HttpExpression)
+	infixExpr, ok := expr.(*ast.InfixExpression)
 	if !ok {
-		t.Fatalf("expr not *ast.HttpExpression. got=%T", expr)
-		return
+		t.Fatalf("expr not *ast.InfixExpression. got=%T", expr)
+	}
+	if infixExpr.Operator != "contains" {
+		t.Errorf("operator is not 'contains'. got=%q", infixExpr.Operator)
 	}
 
-	if httpExpr.Command == nil {
-		t.Fatalf("httpExpr.Command is nil")
-		return
+	httpExpr, ok := infixExpr.Left.(*ast.HttpExpression)
+	if !ok {
+		t.Fatalf("left expr not *ast.HttpExpression. got=%T", infixExpr.Left)
 	}
 
 	if httpExpr.Command.Value != "HTTP::header" {
 		t.Errorf("command is not HTTP::header. got=%q", httpExpr.Command.Value)
 	}
 
-	// Log the entire HttpExpression for debugging
-	t.Logf("HttpExpression: %+v", httpExpr)
+	argLiteral, ok := httpExpr.Argument.(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("argument not *ast.StringLiteral. got=%T", httpExpr.Argument)
+	}
 
-	if httpExpr.Method == nil {
-		t.Logf("httpExpr.Method is nil. This might be correct if 'User-Agent' is handled differently.")
-	} else {
-		if httpExpr.Method.Value != "User-Agent" {
-			t.Errorf("header is not 'User-Agent'. got=%q", httpExpr.Method.Value)
-		}
+	if argLiteral.Value != "User-Agent" {
+		t.Errorf("header is not 'User-Agent'. got=%q", argLiteral.Value)
+	}
+
+	rightLiteral, ok := infixExpr.Right.(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("right expr not *ast.StringLiteral. got=%T", infixExpr.Right)
+	}
+
+	if rightLiteral.Value != "Mozilla" {
+		t.Errorf("right value is not 'Mozilla'. got=%q", rightLiteral.Value)
 	}
 }
 

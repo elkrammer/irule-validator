@@ -54,6 +54,8 @@ type Parser struct {
 
 	prefixParseFns map[token.TokenType]prefixParseFn
 	infixParseFns  map[token.TokenType]infixParseFn
+
+	braceCount int
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -139,8 +141,12 @@ func (p *Parser) ParseProgram() *ast.Program {
 	}
 	program := &ast.Program{}
 	program.Statements = []ast.Statement{}
+	p.braceCount = 0
 
 	for !p.curTokenIs(token.EOF) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Current token: %s, Brace count: %d\n", p.curToken.Type, p.braceCount)
+		}
 		stmt := p.parseStatement()
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
@@ -150,6 +156,19 @@ func (p *Parser) ParseProgram() *ast.Program {
 
 		p.nextToken()
 	}
+
+	// Handle any remaining open blocks at EOF
+	for p.braceCount > 0 {
+		p.braceCount--
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Closing unclosed block at EOF. Brace count: %d\n", p.braceCount)
+		}
+	}
+
+	if p.braceCount != 0 {
+		p.errors = append(p.errors, fmt.Sprintf("Mismatched braces. Final brace count: %d", p.braceCount))
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Finished parsing program, total statements: %d\n", len(program.Statements))
 	}
@@ -507,27 +526,14 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
 
+	p.braceCount++
 	p.nextToken() // consume opening brace
 
-	braceCount := 1
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Entering block statement. Brace count: %d\n", p.braceCount)
+	}
 
-	for braceCount > 0 && !p.curTokenIs(token.EOF) {
-		if p.curTokenIs(token.LBRACE) {
-			braceCount++
-			if config.DebugMode {
-				fmt.Printf("DEBUG: Found opening brace, count: %d\n", braceCount)
-			}
-		} else if p.curTokenIs(token.RBRACE) {
-			braceCount--
-			if config.DebugMode {
-				fmt.Printf("DEBUG: Found closing brace, count: %d\n", braceCount)
-			}
-		}
-
-		if braceCount == 0 {
-			break // We've found the matching closing brace
-		}
-
+	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
@@ -541,12 +547,16 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 		p.nextToken()
 	}
 
-	if braceCount > 0 {
-		p.errors = append(p.errors, "Unmatched opening brace in block statement")
-	}
-
-	if p.curTokenIs(token.EOF) && braceCount > 0 {
-		p.errors = append(p.errors, "Unexpected EOF in block statement")
+	if p.curTokenIs(token.RBRACE) {
+		p.braceCount--
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Exiting block statement. Brace count: %d\n", p.braceCount)
+		}
+	} else if p.curTokenIs(token.EOF) {
+		p.braceCount--
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Reached EOF while parsing block statement. Brace count: %d\n", p.braceCount)
+		}
 	}
 
 	if config.DebugMode {
@@ -757,12 +767,25 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseArrayLiteral Start\n")
 	}
-	// if p.peekTokenIs(token.HTTP_URI) || p.peekTokenIs(token.HTTP_METHOD) || p.peekTokenIs(token.HTTP_HEADER) {
-	// 	return p.parseHttpCommand()
-	// }
 
 	array := &ast.ArrayLiteral{Token: p.curToken}
-	array.Elements = p.parseExpressionList(token.RBRACKET)
+
+	// Check if the next token is an HTTP-related token
+	if p.peekTokenIs(token.HTTP_URI) || p.peekTokenIs(token.HTTP_METHOD) || p.peekTokenIs(token.HTTP_HEADER) {
+		p.nextToken() // Move to the HTTP token
+		httpExpr := p.parseHttpCommand()
+		if httpExpr != nil {
+			array.Elements = []ast.Expression{httpExpr}
+		}
+
+		// Expect the closing bracket
+		if !p.expectPeek(token.RBRACKET) {
+			return nil
+		}
+	} else {
+		array.Elements = p.parseExpressionList(token.RBRACKET)
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseArrayLiteral End. Array: %s\n", array)
 	}
@@ -909,6 +932,20 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	// Parse the HTTP command (e.g., HTTP::header)
 	expr.Command = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
+	if expr.Command.String() == "HTTP::header" {
+		if !p.expectPeek(token.STRING) {
+			return nil
+		}
+
+		expr.Argument = &ast.StringLiteral{
+			Token: p.curToken,
+			Value: p.curToken.Literal,
+		}
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseHttpCommand successfully parsed http::header arg %+v\n", expr.Argument)
+		}
+	}
+
 	// If we started with '[', expect a closing ']'
 	if p.curToken.Type == token.LBRACKET {
 		if !p.expectPeek(token.RBRACKET) {
@@ -955,6 +992,13 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 			return nil
 		}
 		stmt.Alternative = p.parseBlockStatement()
+	}
+
+	// Handle EOF
+	if p.curTokenIs(token.EOF) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Reached EOF while parsing if statement. Brace count: %d\n", p.braceCount)
+		}
 	}
 
 	if config.DebugMode {
