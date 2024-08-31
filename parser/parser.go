@@ -92,6 +92,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.HTTP_REDIRECT, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_RESPOND, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_URI, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_HOST, p.parseHttpCommand)
+
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
 	p.registerPrefix(token.IP_CLIENT_ADDR, p.parseIpExpression)
