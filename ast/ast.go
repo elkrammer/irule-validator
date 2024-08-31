@@ -639,3 +639,24 @@ type IpAddressLiteral struct {
 func (ip *IpAddressLiteral) expressionNode()      {}
 func (ip *IpAddressLiteral) TokenLiteral() string { return ip.Token.Literal }
 func (ip *IpAddressLiteral) String() string       { return ip.Value }
+
+type LoadBalancerExpression struct {
+	Token    token.Token // The '[' token
+	Command  *Identifier // The Load Balancer command (e.g., LB::select)
+	Method   *Identifier // Optional method or subcommand
+	Argument Expression
+}
+
+func (lbe *LoadBalancerExpression) expressionNode()      {}
+func (lbe *LoadBalancerExpression) TokenLiteral() string { return lbe.Token.Literal }
+func (lbe *LoadBalancerExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(lbe.Command.String())
+	if lbe.Method != nil {
+		out.WriteString(" ")
+		out.WriteString(lbe.Method.String())
+	}
+	out.WriteString("]")
+	return out.String()
+}

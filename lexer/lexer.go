@@ -15,6 +15,47 @@ type Lexer struct {
 	braceDepth   int
 }
 
+var HttpKeywords = map[string]token.TokenType{
+	"HTTP_REQUEST":   token.HTTP_REQUEST,
+	"HTTP::uri":      token.HTTP_URI,
+	"HTTP::host":     token.HTTP_HOST,
+	"HTTP::redirect": token.HTTP_REDIRECT,
+	"HTTP::header":   token.HTTP_HEADER,
+	"HTTP::respond":  token.HTTP_RESPOND,
+	"HTTP::method":   token.HTTP_METHOD,
+	"HTTP::path":     token.HTTP_PATH,
+	"HTTP::query":    token.HTTP_QUERY,
+}
+
+var LbKeywords = map[string]token.TokenType{
+	"LB_SELECTED":      token.LB_SELECTED,
+	"LB_FAILED":        token.LB_FAILED,
+	"LB_QUEUED":        token.LB_QUEUED,
+	"LB_COMPLETED":     token.LB_COMPLETED,
+	"LB::mode":         token.LB_MODE,
+	"LB::select":       token.LB_SELECT,
+	"LB::reselect":     token.LB_RESELECT,
+	"LB::detach":       token.LB_DETACH,
+	"LB::server":       token.LB_SERVER,
+	"LB::server addr":  token.LB_SERVER_ADDR,
+	"LB::server port":  token.LB_SERVER_PORT,
+	"LB::pool":         token.LB_POOL,
+	"LB::pool name":    token.LB_POOL_NAME,
+	"LB::pool member":  token.LB_POOL_MEMBER,
+	"LB::pool members": token.LB_POOL_MEMBERS,
+	"LB::status":       token.LB_STATUS,
+	"LB::alive":        token.LB_ALIVE,
+	"LB::persist":      token.LB_PERSIST,
+	"LB::method":       token.LB_METHOD,
+	"LB::score":        token.LB_SCORE,
+	"LB::priority":     token.LB_PRIORITY,
+	"LB::connect":      token.LB_CONNECT,
+	"LB::bias":         token.LB_BIAS,
+	"LB::snat":         token.LB_SNAT,
+	"LB::limit":        token.LB_LIMIT,
+	"LB::class":        token.LB_CLASS,
+}
+
 func New(input string) *Lexer {
 	l := &Lexer{input: input}
 	l.readChar()
@@ -65,6 +106,10 @@ func (l *Lexer) NextToken() token.Token {
 			l.readChar()
 			literal := string(ch) + string(l.ch)
 			tok = token.Token{Type: token.EQ, Literal: literal}
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Lexer produced EQ token in case '=': %v\n", tok)
+			}
+
 		} else {
 			tok = newToken(token.ASSIGN, l.ch)
 		}
@@ -149,45 +194,21 @@ func (l *Lexer) NextToken() token.Token {
 		}
 	case 'H':
 		peekedWord := l.peekWord()
-		if peekedWord == "HTTP_REQUEST" {
+		if tokenType, isHTTPKeyword := HttpKeywords[peekedWord]; isHTTPKeyword {
 			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_REQUEST, Literal: "HTTP_REQUEST"}
-		}
-		if peekedWord == "HTTP::uri" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_URI, Literal: "HTTP::uri"}
-		}
-		if peekedWord == "HTTP::host" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_HOST, Literal: "HTTP::host"}
-		}
-		if peekedWord == "HTTP::redirect" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_REDIRECT, Literal: "HTTP::redirect"}
-		}
-		if peekedWord == "HTTP::header" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_HEADER, Literal: "HTTP::header"}
-		}
-		if peekedWord == "HTTP::respond" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_RESPOND, Literal: "HTTP::respond"}
-		}
-		if peekedWord == "HTTP::method" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_METHOD, Literal: "HTTP::method"}
-		}
-		if peekedWord == "HTTP::path" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_PATH, Literal: "HTTP::path"}
-		}
-		if peekedWord == "HTTP::query" {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: token.HTTP_QUERY, Literal: "HTTP::query"}
+			return token.Token{Type: tokenType, Literal: peekedWord}
 		}
 
 		identifier := l.readIdentifier()
-		// fmt.Printf("DEBUG: Read identifier: %s\n", identifier)
+		return token.Token{Type: token.IDENT, Literal: identifier}
+	case 'L':
+		peekedWord := l.peekWord()
+		if tokenType, isLBKeyword := LbKeywords[peekedWord]; isLBKeyword {
+			l.readIdentifier() // consume the word
+			return token.Token{Type: tokenType, Literal: peekedWord}
+		}
+
+		identifier := l.readIdentifier()
 		return token.Token{Type: token.IDENT, Literal: identifier}
 	case 0:
 		if l.braceDepth > 0 {
@@ -212,7 +233,7 @@ func (l *Lexer) NextToken() token.Token {
 				tok.Type = token.IP_CLIENT_ADDR
 			case "eq":
 				tok.Type = token.EQ
-				tok.Literal = "=="
+				tok.Literal = "eq"
 			case "starts_with":
 				tok.Type = token.STARTS_WITH
 				tok.Literal = "starts_with"

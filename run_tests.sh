@@ -12,12 +12,13 @@ test_files=(
   "complex2.irule"
   "header.irule"
   "headers.irule"
-  "if-else.irule"
-  "if.irule"
-  "switch.irule"
-  "set.irule"
   "hello.tcl"
   "http-to-https.irule"
+  "if-else.irule"
+  "if.irule"
+  "load-balancing.irule"
+  "set.irule"
+  "switch.irule"
 )
 
 # Calculate the length of the longest test file name

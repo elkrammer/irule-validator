@@ -84,7 +84,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.WHEN, p.parseWhenExpression)
-	p.registerPrefix(token.HTTP_COMMAND, p.parseHttpCommand)
+
+	// http commands
 	p.registerPrefix(token.HTTP_HEADER, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_METHOD, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_PATH, p.parseHttpCommand)
@@ -93,6 +94,34 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.HTTP_RESPOND, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_URI, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_HOST, p.parseHttpCommand)
+
+	// load balancer commands
+	p.registerPrefix(token.LB_SELECTED, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_FAILED, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_QUEUED, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_COMPLETED, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_MODE, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_SELECT, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_RESELECT, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_DETACH, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_SERVER, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_SERVER_ADDR, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_SERVER_PORT, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_POOL, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_POOL_NAME, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_POOL_MEMBER, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_POOL_MEMBERS, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_STATUS, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_ALIVE, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_PERSIST, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_METHOD, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_SCORE, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_PRIORITY, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_CONNECT, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_BIAS, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_SNAT, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_LIMIT, p.parseLoadBalancerCommand)
+	p.registerPrefix(token.LB_CLASS, p.parseLoadBalancerCommand)
 
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
@@ -218,6 +247,12 @@ func (p *Parser) parseStatement() ast.Statement {
 		stmt = p.parseExpressionStatement()
 	}
 
+	if stmt == nil {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseStatement - Unexpected token: %s", p.curToken.Literal))
+		p.nextToken() // Skip problematic token
+		return nil
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStatement exit - Parsed: %T\n", stmt)
 	}
@@ -291,7 +326,7 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpressionStatement - Starting\n")
+		fmt.Printf("DEBUG: Start parseExpressionStatement, current token: %s\n", p.curToken.Type)
 	}
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
@@ -312,6 +347,10 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 		p.nextToken()
 	}
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: End parseExpressionStatement, expression type: %T\n", stmt.Expression)
+	}
+
 	return stmt
 }
 
@@ -322,33 +361,53 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
-		if p.curToken.Type == token.RBRACE {
-			return nil // Return nil for closing brace
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseExpression - no prefix parse function for  %s\n", p.curToken.Literal)
+		}
+
+		// Handle closing braces and brackets gracefully
+		if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.RBRACKET) {
+			return nil
 		}
 		if p.curTokenIs(token.EOF) {
-			return nil // Return nil for EOF
+			return nil
 		}
+
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
 	leftExp := prefix()
 
-	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.RBRACE) && precedence < p.peekPrecedence() {
+	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) && precedence < p.peekPrecedence() {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseExpression loop, current: %s, peek: %s, precedence: %d, peek precedence: %d\n",
+				p.curToken.Type, p.peekToken.Type, precedence, p.peekPrecedence())
+		}
+
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
-			if p.peekTokenIs(token.STARTS_WITH) || p.peekTokenIs(token.EQ) {
+			if p.peekTokenIs(token.STARTS_WITH) || p.peekTokenIs(token.EQ) || p.peekTokenIs(token.CONTAINS) {
+				fmt.Printf("DEBUG: parseExpression - handling STARTS_WITH or EQ token \n")
 				p.nextToken()
 				leftExp = p.parseInfixExpression(leftExp)
 			} else {
+				// Check if we've reached the end of the expression
+				if p.peekTokenIs(token.RBRACE) || p.peekTokenIs(token.RBRACKET) {
+					break
+				}
 				return leftExp
 			}
+		} else {
+			p.nextToken()
+			if config.DebugMode {
+				fmt.Printf("DEBUG: Parsing infix expression, operator: %s\n", p.curToken.Literal)
+			}
+			leftExp = infix(leftExp)
 		}
-		p.nextToken()
-		leftExp = infix(leftExp)
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Finished parsing expression, type: %T\n", leftExp)
+		fmt.Printf("DEBUG: parseExpression end, result type: %T\n", leftExp)
 	}
 
 	return leftExp
@@ -728,7 +787,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	}
 
 	// Check if the next token is an HTTP-related token
-	if p.peekTokenIs(token.HTTP_URI) || p.peekTokenIs(token.HTTP_METHOD) || p.peekTokenIs(token.HTTP_HEADER) {
+	if p.isHttpKeyword(p.peekToken.Type) {
 		p.nextToken() // Move to the HTTP token
 		httpExpr := p.parseHttpCommand()
 		if httpExpr != nil {
@@ -737,6 +796,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 
 		// Expect the closing brackets
 		if !p.expectPeek(token.RBRACKET) {
+			p.errors = append(p.errors, "ERROR: parseArrayLiteral was expecting RBRACKET")
 			return nil
 		}
 		if doubleBracket {
@@ -744,10 +804,32 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 				return nil
 			}
 		}
+	} else if p.isLbKeyword(p.peekToken.Type) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseArrayLiteral parsing Load Balancer statement!\n")
+		}
+		// p.nextToken() // Move to the LB token
+		lbExpr := p.parseLoadBalancerCommand()
+		if lbExpr != nil {
+			array.Elements = []ast.Expression{lbExpr}
+		}
+
+		if config.DebugMode {
+			fmt.Printf("DEBUG: After LB command in parseArrayLiteral, current: %s, peek: %s\n",
+				p.curToken.Type, p.peekToken.Type)
+		}
+
+		// Expect the closing brackets
+		// if !p.expectPeek(token.RBRACKET) {
+		// 	return nil
+		// }
 	} else {
 		array.Elements = p.parseExpressionList(token.RBRACKET)
 		if doubleBracket {
 			if !p.expectPeek(token.RBRACKET) {
+				if config.DebugMode {
+					fmt.Printf("DEBUG: parseLoadBalancerCommand doble bracket Expected RBRACKET, got %s\n", p.peekToken.Type)
+				}
 				return nil
 			}
 		}
@@ -811,9 +893,9 @@ func (p *Parser) parseWhenNode() *ast.WhenNode {
 	}
 	when := &ast.WhenNode{}
 
-	if !p.expectPeek(token.HTTP_REQUEST) {
+	if !p.expectPeek(token.HTTP_REQUEST) || !p.peekTokenIs(token.LB_SELECTED) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseWhenNode - Expected HTTP_REQUEST, got %s\n", p.curToken.Type)
+			fmt.Printf("DEBUG: parseWhenNode - Expected HTTP_REQUEST or LB_SELECTED, got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -917,20 +999,29 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 	}
 	stmt := &ast.IfStatement{Token: p.curToken}
 
-	// parse the condition
+	// Expect '{'
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement: Expected {, got %s", p.curToken.Literal))
 		return nil
 	}
+
 	p.nextToken() // consume '{'
+
+	// Optionally consume '('
+	if p.peekTokenIs(token.LPAREN) {
+		p.nextToken()
+	}
 
 	stmt.Condition = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.RBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement Condition Expected }, got %s", p.curToken.Literal))
 		return nil
 	}
 
 	// Parse consequence
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement Consequence Expected {, got %s", p.curToken.Literal))
 		return nil
 	}
 	stmt.Consequence = p.parseBlockStatement()
@@ -940,6 +1031,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 		p.nextToken() // consume 'else'
 
 		if !p.expectPeek(token.LBRACE) {
+			p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSE Expected {, got %s", p.curToken.Literal))
 			return nil
 		}
 		stmt.Alternative = p.parseBlockStatement()
@@ -965,12 +1057,18 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 	}
 	expr := &ast.WhenExpression{Token: p.curToken}
 
-	if !p.expectPeek(token.HTTP_REQUEST) {
+	// Check if the next token is either HTTP_REQUEST or LB_SELECTED
+	if p.peekTokenIs(token.HTTP_REQUEST) || p.peekTokenIs(token.LB_SELECTED) {
+		p.nextToken() // Advance to the event token
+	} else {
+		p.errors = append(p.errors, "ERROR: parseWhenExpression - Expected HTTP_REQUEST or LB_SELECTED")
 		return nil
 	}
+
 	expr.Event = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, "ERROR: parseWhenExpression - expected LBRACE")
 		return nil
 	}
 
@@ -995,6 +1093,7 @@ func (p *Parser) parsePoolStatement() *ast.ExpressionStatement {
 	}
 
 	if !p.expectPeek(token.IDENT) {
+		p.errors = append(p.errors, "ERROR: parsePoolStatement Expected IDENT")
 		return nil
 	}
 
@@ -1025,6 +1124,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	switchStmt.Value = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, "ERROR: parseSwitchStatement expected LBRACE")
 		return nil
 	}
 
@@ -1081,6 +1181,7 @@ func (p *Parser) parseCaseStatement() *ast.CaseStatement {
 	caseStmt.Value = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, "ERROR: parseCaseStatement expected LBRACE")
 		return nil
 	}
 
@@ -1103,6 +1204,7 @@ func (p *Parser) parseDefaultCase() *ast.CaseStatement {
 	defaultCase := &ast.CaseStatement{Token: p.curToken, Value: nil}
 
 	if !p.expectPeek(token.LBRACE) {
+		p.errors = append(p.errors, "ERROR: parseDefaultCase expected LBRACE")
 		return nil
 	}
 
@@ -1132,4 +1234,75 @@ func (p *Parser) parseIpExpression() ast.Expression {
 
 func (p *Parser) parseIpAddressLiteral() ast.Expression {
 	return &ast.IpAddressLiteral{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseLoadBalancerCommand() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Start parseLoadBalancerCommand\n")
+	}
+	command := &ast.LoadBalancerExpression{Token: p.curToken}
+	var commandParts []string
+
+	// Check if the command starts with an opening bracket
+	if p.curTokenIs(token.LBRACKET) {
+		// Parse the command until the closing bracket
+		for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
+			p.nextToken()
+			if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.LBRACE) {
+				break
+			}
+			commandParts = append(commandParts, p.curToken.Literal)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseLoadBalancerCommand Adding to command %s\n", p.curToken.Literal)
+			}
+		}
+
+		// Expect the closing bracket after parsing the command
+		if !p.expectPeek(token.RBRACKET) {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseLoadBalancerCommand Expected RBRACKET, got %s\n", p.peekToken.Type)
+			}
+			return nil
+		}
+	} else {
+		// Parse the command without brackets
+		for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) {
+			commandParts = append(commandParts, p.curToken.Literal)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseLoadBalancerCommand Adding to command %s\n", p.curToken.Literal)
+			}
+			p.nextToken()
+		}
+	}
+
+	// Combine all parts into a single command string
+	command.Command = &ast.Identifier{Token: p.curToken, Value: strings.Join(commandParts, " ")}
+	if config.DebugMode {
+		fmt.Printf("DEBUG:  parseLoadBalancerCommand Command: %v\n", command.Command.Value)
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: End parseLoadBalancerCommand. Current token: %s, Next token: %s\n", p.curToken.Type, p.peekToken.Type)
+	}
+	return command
+}
+
+// Helper function to check if a token is an HTTP keyword
+func (p *Parser) isHttpKeyword(tokenType token.TokenType) bool {
+	for _, httpTokenType := range lexer.HttpKeywords {
+		if tokenType == httpTokenType {
+			return true
+		}
+	}
+	return false
+}
+
+// Helper function to check if a token is an LB keyword
+func (p *Parser) isLbKeyword(tokenType token.TokenType) bool {
+	for _, lbTokenType := range lexer.LbKeywords {
+		if tokenType == lbTokenType {
+			return true
+		}
+	}
+	return false
 }
