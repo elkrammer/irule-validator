@@ -16,24 +16,25 @@ const (
 
 	// types
 	BLOCK   = "BLOCK"
-	EVAL    = "EVAL"
 	IDENT   = "IDENT"
 	ILLEGAL = "ILLEGAL"
 	NUMBER  = "NUMBER"
 	STRING  = "STRING"
 
 	//operators
-	ASSIGN   = "="
-	PLUS     = "+"
-	MINUS    = "-"
-	BANG     = "!"
-	ASTERISK = "*"
-	SLASH    = "/"
-	LT       = "<"
-	GT       = ">"
-	EQ       = "=="
-	NOT_EQ   = "!="
-	DOLLAR   = "$"
+	ASSIGN       = "="
+	PLUS         = "+"
+	MINUS        = "-"
+	BANG         = "!"
+	ASTERISK     = "*"
+	SLASH        = "/"
+	LT           = "<"
+	GT           = ">"
+	EQ           = "=="
+	NOT_EQ       = "!="
+	DOLLAR       = "$"
+	COLON        = ":"
+	DOUBLE_COLON = "::"
 
 	// delimiters
 	COMMA    = ","
@@ -45,95 +46,104 @@ const (
 	RBRACKET = "]"
 
 	// KEYWORDS
-	IF       = "IF"
-	ELSE     = "ELSE"
-	RETURN   = "RETURN"
-	TRUE     = "TRUE"
-	FALSE    = "FALSE"
-	FUNCTION = "PROC"
-	SET      = "SET"
-	EXPR     = "EXPR"
-	ARRAY    = "ARRAY"
+	IF     = "IF"
+	ELSE   = "ELSE"
+	ELSEIF = "ELSEIF"
+	RETURN = "RETURN"
+	TRUE   = "TRUE"
+	FALSE  = "FALSE"
+	ARRAY  = "ARRAY"
+	SET    = "SET"
 
-	// HTTP_URI      = "HTTP::uri"
-	// HTTP_METHOD   = "HTTP::method"
-	// HTTP_HOST     = "HTTP::host"
-	// HTTP_PATH     = "HTTP::path"
-	// HTTP_QUERY    = "HTTP::query"
-	// HTTP_HEADER   = "HTTP::header"
-	// HTTP_REDIRECT = "HTTP::redirect"
-	//
-	// SSL_CIPHER      = "SSL::cipher"
-	// SSL_CIPHER_BITS = "SSL::cipher_bits"
-	//
-	// IP_CLIENT_ADDR = "IP::client_addr"
-	// IP_SERVER_ADDR = "IP::server_addr"
-	//
-	// LB_SERVER = "LB::server"
-	// LB_METHOD = "LB::method"
-	//
-	// SESSION_DATA    = "SESSION::data"
-	// SESSION_PERSIST = "SESSION::persist"
-	//
-	// // F5 Event Contexts KEYWORDS
-	// // when <EVENT_CONTEXT> {}
-	// HTTP_REQUEST        = "HTTP_REQUEST"
-	// HTTP_RESPONSE       = "HTTP_RESPONSE"
-	// CLIENTSSL_HANDSHAKE = "CLIENTSSL_HANDSHAKE"
-	// SERVERSSL_HANDSHAKE = "SERVERSSL_HANDSHAKE"
-	// LB_SELECTED         = "LB_SELECTED"
-	// LB_FAILED           = "LB_FAILED"
-	// TCP_REQUEST         = "TCP_REQUEST"
-	//
-	// // F5 COMMANDS
-	// STARTS_WITH = "starts_with"
-	// WHEN        = "WHEN"
-	// THEN        = "THEN"
+	// F5 iRules SPECIFIC TOKENS
+	HTTP_COMMAND  = "HTTP_COMMAND"
+	HTTP_URI      = "HTTP::uri"
+	HTTP_METHOD   = "HTTP::method"
+	HTTP_HOST     = "HTTP::host"
+	HTTP_PATH     = "HTTP::path"
+	HTTP_QUERY    = "HTTP::query"
+	HTTP_HEADER   = "HTTP::header"
+	HTTP_REDIRECT = "HTTP::redirect"
+
+	SSL_CIPHER      = "SSL::cipher"
+	SSL_CIPHER_BITS = "SSL::cipher_bits"
+
+	IP_ADDRESS     = "IP_ADDRESS"
+	IP_CLIENT_ADDR = "IP::client_addr"
+	IP_SERVER_ADDR = "IP::server_addr"
+
+	LB_SERVER = "LB::server"
+	LB_METHOD = "LB::method"
+
+	SESSION_DATA    = "SESSION::data"
+	SESSION_PERSIST = "SESSION::persist"
+
+	// F5 Event Contexts KEYWORDS - when <EVENT_CONTEXT> {}
+	HTTP_REQUEST        = "HTTP_REQUEST"
+	HTTP_RESPOND        = "HTTP_RESPOND"
+	CLIENTSSL_HANDSHAKE = "CLIENTSSL_HANDSHAKE"
+	SERVERSSL_HANDSHAKE = "SERVERSSL_HANDSHAKE"
+	LB_SELECTED         = "LB_SELECTED"
+	LB_FAILED           = "LB_FAILED"
+	TCP_REQUEST         = "TCP_REQUEST"
+	CLIENT_ACCEPTED     = "CLIENT_ACCEPTED"
+	SERVER_CONNECTED    = "SERVER_CONNECTED"
+
+	// iRule-specific keywords
+	STARTS_WITH = "starts_with"
+	ENDS_WITH   = "ends_with"
+	WHEN        = "when"
+	THEN        = "then"
+	CONTAINS    = "contains"
+	MATCH       = "match"
+	MATCHES     = "matches"
+
+	// Additional control structures
+	SWITCH  = "switch"
+	CASE    = "case"
+	DEFAULT = "default"
+
+	// Additional operators
+	AND = "&&"
+	OR  = "||"
+
+	// iRule-specific commands
+	LOG  = "log"
+	POOL = "pool"
 )
 
 var keywords = map[string]TokenType{
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
-	"true":   TRUE,
-	"false":  FALSE,
-	"proc":   FUNCTION,
-	"set":    SET,
-	"expr":   EXPR,
-	// "HTTP_REQUEST":   HTTP_REQUEST,
-	// "HTTP_RESPONSE":  HTTP_RESPONSE,
-	// "HTTP::uri":      HTTP_URI,
-	// "HTTP::method":   HTTP_METHOD,
-	// "HTTP::host":     HTTP_HOST,
-	// "HTTP::path":     HTTP_PATH,
-	// "HTTP::query":    HTTP_QUERY,
-	// "HTTP::header":   HTTP_HEADER,
-	// "HTTP::redirect": HTTP_REDIRECT,
-	//
-	// "SSL::cipher":      SSL_CIPHER,
-	// "SSL::cipher_bits": SSL_CIPHER_BITS,
-	//
-	// "IP::client_addr": IP_CLIENT_ADDR,
-	// "IP::server_addr": IP_SERVER_ADDR,
-	//
-	// "LB::server": LB_SERVER,
-	// "LB::method": LB_METHOD,
-	//
-	// "SESSION::data":    SESSION_DATA,
-	// "SESSION::persist": SESSION_PERSIST,
-	//
-	// // F5 Event Contexts KEYWORDS
-	// // when <EVENT_CONTEXT> {}
-	// "CLIENTSSL_HANDSHAKE": CLIENTSSL_HANDSHAKE,
-	// "SERVERSSL_HANDSHAKE": SERVERSSL_HANDSHAKE,
-	// "LB_SELECTED":         LB_SELECTED,
-	// "LB_FAILED":           LB_FAILED,
-	// "TCP_REQUEST":         TCP_REQUEST,
-	//
-	// // F5 COMMANDS
-	// "starts_with": STARTS_WITH,
-	// "WHEN":        WHEN,
-	// "then":        THEN,
+	// F5 iRules Keywords
+	"when":        WHEN,
+	"then":        THEN,
+	"if":          IF,
+	"else":        ELSE,
+	"return":      RETURN,
+	"true":        TRUE,
+	"false":       FALSE,
+	"starts_with": STARTS_WITH,
+	"set":         SET,
+	"contains":    CONTAINS,
+	"match":       MATCH,
+	"elseif":      ELSEIF,
+	"switch":      SWITCH,
+	"case":        CASE,
+	"default":     DEFAULT,
+	"array":       ARRAY,
+	"matches":     MATCHES,
+	"ends_with":   ENDS_WITH,
+	"equals":      EQ,
+	"eq":          EQ,
+
+	// F5 Event Contexts
+	"HTTP_REQUEST":        HTTP_REQUEST,
+	"HTTP_RESPOND":        HTTP_RESPOND,
+	"CLIENTSSL_HANDSHAKE": CLIENTSSL_HANDSHAKE,
+	"SERVERSSL_HANDSHAKE": SERVERSSL_HANDSHAKE,
+	"LB_SELECTED":         LB_SELECTED,
+	"LB_FAILED":           LB_FAILED,
+	"TCP_REQUEST":         TCP_REQUEST,
+	"IP_CLIENT_ADDR":      IP_CLIENT_ADDR,
 }
 
 func LookupIdent(ident string) TokenType {

@@ -1,0 +1,5 @@
+if {[HTTP::uri] contains "example"} {
+  if {some_condition} {
+    return 403
+  }
+}

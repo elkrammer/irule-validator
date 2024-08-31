@@ -1,0 +1,5 @@
+if { [HTTP::uri] starts_with "/api" } {
+  pool api_pool
+} else {
+  pool default_pool
+}

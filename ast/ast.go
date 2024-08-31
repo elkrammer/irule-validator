@@ -78,11 +78,11 @@ func (i *Identifier) TokenLiteral() string {
 
 // SET Statement
 type SetStatement struct {
-	Token      token.Token
-	Name       *Identifier
-	Index      Expression
-	Value      Expression
-	IsArraySet bool
+	Token token.Token
+	Name  Expression
+	// Name  *Identifier
+	// Index Expression
+	Value Expression
 }
 
 func (ls *SetStatement) statementNode()       {}
@@ -94,11 +94,11 @@ func (ls *SetStatement) String() string {
 	out.WriteString(ls.TokenLiteral() + " ")
 	out.WriteString(ls.Name.String())
 
-	if ls.Index != nil {
-		out.WriteString("(")
-		out.WriteString(ls.Index.String())
-		out.WriteString(")")
-	}
+	// if ls.Index != nil {
+	// 	out.WriteString("(")
+	// 	out.WriteString(ls.Index.String())
+	// 	out.WriteString(")")
+	// }
 
 	if ls.Value != nil {
 		out.WriteString(" ")
@@ -125,7 +125,6 @@ func (rs *ReturnStatement) String() string {
 		out.WriteString(rs.ReturnValue.String())
 	}
 
-	// out.WriteString(";")
 	return out.String()
 }
 
@@ -147,11 +146,11 @@ func (es *ExpressionStatement) String() string {
 // Numbers
 type NumberLiteral struct {
 	Token token.Token
-	Value float64
+	Value int64
 }
 
 func (il *NumberLiteral) expressionNode()      {}
-func (nl *NumberLiteral) TokenLiteral() string { return fmt.Sprintf("%f", nl.Value) }
+func (nl *NumberLiteral) TokenLiteral() string { return fmt.Sprintf("%d", nl.Value) }
 func (il *NumberLiteral) String() string       { return il.Token.Literal }
 
 // PREFIXES
@@ -270,32 +269,57 @@ func (ie *IfExpression) String() string {
 	return out.String()
 }
 
-// FUNCTION LITERALS
-type FunctionLiteral struct {
-	Token      token.Token // the 'proc' token
-	Name       *Identifier
-	Parameters []*Identifier
-	Body       *BlockStatement
+type IfStatement struct {
+	Token       token.Token
+	Condition   Expression
+	Consequence *BlockStatement
+	Alternative *BlockStatement
 }
 
-func (fl *FunctionLiteral) expressionNode()      {}
-func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
-func (fl *FunctionLiteral) String() string {
+func (is *IfStatement) statementNode()       {}
+func (is *IfStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *IfStatement) String() string {
 	var out bytes.Buffer
 
-	params := []string{}
-	for _, p := range fl.Parameters {
-		params = append(params, p.String())
-	}
+	out.WriteString("if ")
+	out.WriteString(is.Condition.String())
+	out.WriteString(" ")
+	out.WriteString(is.Consequence.String())
 
-	out.WriteString(fl.TokenLiteral())
-	out.WriteString("(")
-	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(")")
-	out.WriteString(fl.Body.String())
+	if is.Alternative != nil {
+		out.WriteString(" else ")
+		out.WriteString(is.Alternative.String())
+	}
 
 	return out.String()
 }
+
+// FUNCTION LITERALS
+// type FunctionLiteral struct {
+// 	Token      token.Token // the 'proc' token
+// 	Name       *Identifier
+// 	Parameters []*Identifier
+// 	Body       *BlockStatement
+// }
+//
+// func (fl *FunctionLiteral) expressionNode()      {}
+// func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
+// func (fl *FunctionLiteral) String() string {
+// 	var out bytes.Buffer
+//
+// 	params := []string{}
+// 	for _, p := range fl.Parameters {
+// 		params = append(params, p.String())
+// 	}
+//
+// 	out.WriteString(fl.TokenLiteral())
+// 	out.WriteString("(")
+// 	out.WriteString(strings.Join(params, ", "))
+// 	out.WriteString(")")
+// 	out.WriteString(fl.Body.String())
+//
+// 	return out.String()
+// }
 
 // HASH LITERALS
 type HashLiteral struct {
@@ -385,15 +409,15 @@ func (ce *CallExpression) String() string {
 	return out.String()
 }
 
-// 'expr'
-type ExprExpression struct {
-	Token      token.Token // The 'expr' token
-	Expression Expression  // The expression after 'expr'
-}
-
-func (ee *ExprExpression) expressionNode()      {}
-func (ee *ExprExpression) TokenLiteral() string { return ee.Token.Literal }
-func (ee *ExprExpression) String() string       { return "expr " + ee.Expression.String() }
+// // 'expr'
+// type ExprExpression struct {
+// 	Token      token.Token // The 'expr' token
+// 	Expression Expression  // The expression after 'expr'
+// }
+//
+// func (ee *ExprExpression) expressionNode()      {}
+// func (ee *ExprExpression) TokenLiteral() string { return ee.Token.Literal }
+// func (ee *ExprExpression) String() string       { return "expr " + ee.Expression.String() }
 
 type ParenthesizedExpression struct {
 	Expression Expression
@@ -428,33 +452,33 @@ func (al *ArrayLiteral) String() string {
 	return out.String()
 }
 
-type ArrayOperation struct {
-	Token   token.Token
-	Command string     // e.g., "set", "get", "exists", etc.
-	Name    Expression // Array name
-	Index   Expression // Array index (optional, can be nil)
-	Value   Expression // For set operations (optional, can be nil)
-}
-
-func (ao *ArrayOperation) expressionNode()      {}
-func (ao *ArrayOperation) TokenLiteral() string { return ao.Token.Literal }
-func (ao *ArrayOperation) String() string {
-	var out bytes.Buffer
-	out.WriteString("array ")
-	out.WriteString(ao.Command)
-	out.WriteString(" ")
-	out.WriteString(ao.Name.String())
-	if ao.Index != nil {
-		out.WriteString("(")
-		out.WriteString(ao.Index.String())
-		out.WriteString(")")
-	}
-	if ao.Value != nil {
-		out.WriteString(" ")
-		out.WriteString(ao.Value.String())
-	}
-	return out.String()
-}
+// type ArrayOperation struct {
+// 	Token   token.Token
+// 	Command string     // e.g., "set", "get", "exists", etc.
+// 	Name    Expression // Array name
+// 	Index   Expression // Array index (optional, can be nil)
+// 	Value   Expression // For set operations (optional, can be nil)
+// }
+//
+// func (ao *ArrayOperation) expressionNode()      {}
+// func (ao *ArrayOperation) TokenLiteral() string { return ao.Token.Literal }
+// func (ao *ArrayOperation) String() string {
+// 	var out bytes.Buffer
+// 	out.WriteString("array ")
+// 	out.WriteString(ao.Command)
+// 	out.WriteString(" ")
+// 	out.WriteString(ao.Name.String())
+// 	if ao.Index != nil {
+// 		out.WriteString("(")
+// 		out.WriteString(ao.Index.String())
+// 		out.WriteString(")")
+// 	}
+// 	if ao.Value != nil {
+// 		out.WriteString(" ")
+// 		out.WriteString(ao.Value.String())
+// 	}
+// 	return out.String()
+// }
 
 // CommandSubstitution represents a command substitution in TCL, enclosed in square brackets
 type CommandSubstitution struct {
@@ -471,3 +495,147 @@ func (cs *CommandSubstitution) String() string {
 	out.WriteString("]")
 	return out.String()
 }
+
+// WHEN EXPRESSION
+type WhenExpression struct {
+	Token token.Token // the `when` token
+	Event Expression  // typically an identifier like HTTP_REQUEST
+	Block *BlockStatement
+}
+
+func (we *WhenExpression) expressionNode()      {}
+func (we *WhenExpression) TokenLiteral() string { return we.Token.Literal }
+func (we *WhenExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("when ")
+	out.WriteString(we.Event.String())
+	out.WriteString(" ")
+	out.WriteString(we.Block.String())
+	return out.String()
+}
+
+// HTTP URI EXPRESSION
+type HttpUriExpression struct {
+	Token  token.Token // the 'HTTP_URI' token
+	Method *Identifier
+}
+
+func (hue *HttpUriExpression) expressionNode()      {}
+func (hue *HttpUriExpression) TokenLiteral() string { return hue.Token.Literal }
+func (hue *HttpUriExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("HTTP::uri")
+	if hue.Method != nil {
+		out.WriteString(" ")
+		out.WriteString(hue.Method.String())
+	}
+	return out.String()
+}
+
+type IRuleNode struct {
+	When       *WhenNode
+	Statements []Statement
+}
+
+type WhenNode struct {
+	Event      string
+	Statements []Statement
+}
+
+type HttpExpression struct {
+	Token    token.Token // The '[' token
+	Command  *Identifier // The HTTP command (e.g., HTTP::uri)
+	Method   *Identifier // Optional method (e.g., path, host)
+	Argument Expression
+}
+
+func (he *HttpExpression) expressionNode()      {}
+func (he *HttpExpression) TokenLiteral() string { return he.Token.Literal }
+func (he *HttpExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(he.Command.String())
+	if he.Method != nil {
+		out.WriteString(" ")
+		out.WriteString(he.Method.String())
+	}
+	out.WriteString("]")
+	return out.String()
+}
+
+type BracketExpression struct {
+	Token      token.Token
+	Expression Expression
+}
+
+func (be *BracketExpression) expressionNode()      {}
+func (be *BracketExpression) TokenLiteral() string { return be.Token.Literal }
+func (be *BracketExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(be.Expression.String())
+	out.WriteString("]")
+	return out.String()
+}
+
+type SwitchStatement struct {
+	Token   token.Token // the 'switch' token
+	Value   Expression
+	Cases   []*CaseStatement
+	Default *CaseStatement
+}
+
+func (ss *SwitchStatement) expressionNode()      {}
+func (ls *SwitchStatement) statementNode()       {}
+func (ss *SwitchStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *SwitchStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("switch ")
+	out.WriteString(ss.Value.String())
+	out.WriteString(" {\n")
+	for _, c := range ss.Cases {
+		out.WriteString(c.String())
+	}
+	if ss.Default != nil {
+		out.WriteString("default ")
+		out.WriteString(ss.Default.String())
+	}
+	out.WriteString("}\n")
+
+	return out.String()
+}
+
+type CaseStatement struct {
+	Token       token.Token // the 'case' token
+	Value       Expression
+	Consequence *BlockStatement
+}
+
+func (cs *CaseStatement) expressionNode()      {}
+func (cs *CaseStatement) TokenLiteral() string { return cs.Token.Literal }
+func (cs *CaseStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(cs.Value.String())
+	out.WriteString(" ")
+	out.WriteString(cs.Consequence.String())
+	out.WriteString("\n")
+	return out.String()
+}
+
+type IpExpression struct {
+	Token    token.Token // The token associated with this expression
+	Function string      // The specific IP function (e.g., "client_addr" or "server_addr")
+}
+
+func (ie *IpExpression) expressionNode()      {}
+func (ie *IpExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IpExpression) String() string       { return "IP::" + ie.Function }
+
+type IpAddressLiteral struct {
+	Token token.Token
+	Value string
+}
+
+func (ip *IpAddressLiteral) expressionNode()      {}
+func (ip *IpAddressLiteral) TokenLiteral() string { return ip.Token.Literal }
+func (ip *IpAddressLiteral) String() string       { return ip.Value }
