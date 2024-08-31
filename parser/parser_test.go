@@ -470,14 +470,11 @@ func testHttpUriExpression(t *testing.T, exp *ast.InfixExpression, expectedName 
 }
 
 func testSetStatementWithHttpUri(t *testing.T, s ast.Statement, expectedName string, expectedPath string) bool {
-	// fmt.Println("DEBUG: Entering testSetStatementWithHttpUri")
-
 	setStmt, ok := s.(*ast.SetStatement)
 	if !ok {
 		t.Errorf("s not *ast.SetStatement. got=%T", s)
 		return false
 	}
-	// fmt.Printf("DEBUG: SetStatement: %+v\n", setStmt)
 
 	outerInfix, ok := setStmt.Name.(*ast.InfixExpression)
 	if !ok {
@@ -784,18 +781,18 @@ func TestComplexExpressions(t *testing.T) {
 			expectedStatements: 1,
 			checkFunc:          checkComplexCondition,
 		},
-		// {
-		// 	input: `if { ([HTTP::uri] starts_with "/api") && ([HTTP::method] equals "POST") } {
-		//                       set content_type [HTTP::header "Content-Type"]
-		//                       if { $content_type contains "application/json" } {
-		//                           pool api_json_pool
-		//                       } else {
-		//                           HTTP::respond 415 content "Unsupported Media Type"
-		//                       }
-		//                   }`,
-		// 	expectedStatements: 1,
-		// 	checkFunc:          checkNestedIfWithHttpCommands,
-		// },
+		{
+			input: `if { ([HTTP::uri] starts_with "/api") && ([HTTP::method] equals "POST") } {
+		                      set content_type [HTTP::header "Content-Type"]
+		                      if { $content_type contains "application/json" } {
+		                          pool api_json_pool
+		                      } else {
+		                          HTTP::respond 415 content "Unsupported Media Type"
+		                      }
+		                  }`,
+			expectedStatements: 1,
+			checkFunc:          checkNestedIfWithHttpCommands,
+		},
 	}
 
 	for _, tt := range tests {
@@ -836,7 +833,10 @@ func checkComplexCondition(t *testing.T, stmt ast.Statement) {
 	checkHttpHeaderExpression(t, infixExpr.Right)
 }
 
-func checkHttpExpression(t *testing.T, expr ast.Expression, command, operator, value string) {
+func checkHttpExpression(t *testing.T, expr ast.Expression, leftValue, operator, rightValue string) {
+	t.Logf("checkHttpExpression Start\n")
+	t.Logf("checkHttpExpression infixExpr: %v\n", expr)
+
 	infixExpr, ok := expr.(*ast.InfixExpression)
 	if !ok {
 		t.Fatalf("expr not *ast.InfixExpression. got=%T", expr)
@@ -846,23 +846,39 @@ func checkHttpExpression(t *testing.T, expr ast.Expression, command, operator, v
 		t.Errorf("operator is not '%s'. got=%q", operator, infixExpr.Operator)
 	}
 
-	httpExpr, ok := infixExpr.Left.(*ast.HttpExpression)
-	if !ok {
-		t.Fatalf("left expr not *ast.HttpExpression. got=%T", infixExpr.Left)
+	// Check left side
+	var httpExpr *ast.HttpExpression
+	switch left := infixExpr.Left.(type) {
+	case *ast.HttpExpression:
+		httpExpr = left
+	case *ast.ArrayLiteral:
+		if len(left.Elements) != 1 {
+			t.Fatalf("ArrayLiteral doesn't have exactly one element. got=%d", len(left.Elements))
+		}
+		httpExpr, ok = left.Elements[0].(*ast.HttpExpression)
+		if !ok {
+			t.Fatalf("array element not *ast.HttpExpression. got=%T", left.Elements[0])
+		}
+	default:
+		t.Fatalf("left expr not *ast.HttpExpression or *ast.ArrayLiteral. got=%T", infixExpr.Left)
 	}
 
-	if httpExpr.Command.Value != command {
-		t.Errorf("command is not %s. got=%q", command, httpExpr.Command.Value)
+	if httpExpr.Command.Value != leftValue {
+		t.Errorf("left value is not %s. got=%q", leftValue, httpExpr.Command.Value)
 	}
 
+	// Check right side
 	stringLiteral, ok := infixExpr.Right.(*ast.StringLiteral)
 	if !ok {
 		t.Fatalf("right expr not *ast.StringLiteral. got=%T", infixExpr.Right)
 	}
 
-	if stringLiteral.Value != value {
-		t.Errorf("value is not '%s'. got=%q", value, stringLiteral.Value)
+	if stringLiteral.Value != rightValue {
+		t.Errorf("right value is not '%s'. got=%q", rightValue, stringLiteral.Value)
 	}
+
+	t.Logf("DEBUG: checkHttpExpression End\n")
+
 }
 
 func checkHttpHeaderExpression(t *testing.T, expr ast.Expression) {
@@ -913,16 +929,16 @@ func checkNestedIfWithHttpCommands(t *testing.T, stmt ast.Statement) {
 
 	// Check the consequence (body) of the outer if
 	blockStmt := ifStmt.Consequence
-	// if !ok {
-	// 	t.Fatalf("if consequence is not *ast.BlockStatement. got=%T", ifStmt.Consequence)
-	// }
-
 	if len(blockStmt.Statements) != 2 {
 		t.Fatalf("block doesn't contain 2 statements. got=%d", len(blockStmt.Statements))
 	}
 
 	// Check the set statement
-	checkSetStatement(t, blockStmt.Statements[0])
+	setStmt, ok := blockStmt.Statements[0].(*ast.SetStatement)
+	if !ok {
+		t.Fatalf("first statement is not *ast.SetStatement. got=%T", blockStmt.Statements[0])
+	}
+	checkSetStatement(t, setStmt)
 
 	// Check the nested if statement
 	nestedIf, ok := blockStmt.Statements[1].(*ast.IfStatement)
@@ -939,6 +955,44 @@ func checkNestedIfWithHttpCommands(t *testing.T, stmt ast.Statement) {
 	checkHttpRespond(t, nestedIf.Alternative.Statements[0])
 }
 
+// func checkNestedIfWithHttpCommands(t *testing.T, stmt ast.Statement) {
+// 	ifStmt, ok := stmt.(*ast.IfStatement)
+// 	if !ok {
+// 		t.Fatalf("stmt not *ast.IfStatement. got=%T", stmt)
+// 	}
+//
+// 	// Check the outer if condition
+// 	checkComplexHttpCondition(t, ifStmt.Condition)
+//
+// 	// Check the consequence (body) of the outer if
+// 	blockStmt := ifStmt.Consequence
+// 	// if !ok {
+// 	// 	t.Fatalf("if consequence is not *ast.BlockStatement. got=%T", ifStmt.Consequence)
+// 	// }
+//
+// 	if len(blockStmt.Statements) != 2 {
+// 		t.Fatalf("block doesn't contain 2 statements. got=%d", len(blockStmt.Statements))
+// 	}
+//
+// 	// Check the set statement
+// 	checkSetStatement(t, blockStmt.Statements[0])
+//
+// 	// Check the nested if statement
+// 	nestedIf, ok := blockStmt.Statements[1].(*ast.IfStatement)
+// 	if !ok {
+// 		t.Fatalf("second statement is not *ast.IfStatement. got=%T", blockStmt.Statements[1])
+// 	}
+//
+// 	t.Logf("nestedIf: %v", nestedIf)
+// 	checkHttpExpression(t, nestedIf.Condition, "$content_type", "contains", "application/json")
+//
+// 	// Check the consequence of the nested if
+// 	checkPoolCommand(t, nestedIf.Consequence.Statements[0])
+//
+// 	// Check the alternative of the nested if
+// 	checkHttpRespond(t, nestedIf.Alternative.Statements[0])
+// }
+
 func checkComplexHttpCondition(t *testing.T, expr ast.Expression) {
 	infixExpr, ok := expr.(*ast.InfixExpression)
 	if !ok {
@@ -953,60 +1007,41 @@ func checkComplexHttpCondition(t *testing.T, expr ast.Expression) {
 	checkHttpExpression(t, infixExpr.Right, "HTTP::method", "equals", "POST")
 }
 
-func checkSetStatement(t *testing.T, stmt ast.Statement) {
-	exprStmt, ok := stmt.(*ast.ExpressionStatement)
+func checkSetStatement(t *testing.T, stmt *ast.SetStatement) {
+	if stmt.Name.String() != "content_type" {
+		t.Errorf("variable name is not 'content_type'. got=%s", stmt.Name.String())
+	}
+
+	arrayLiteral, ok := stmt.Value.(*ast.ArrayLiteral)
 	if !ok {
-		t.Fatalf("stmt not *ast.ExpressionStatement. got=%T", stmt)
+		t.Fatalf("set value is not *ast.ArrayLiteral. got=%T", stmt.Value)
 	}
 
-	callExpr, ok := exprStmt.Expression.(*ast.CallExpression)
+	if len(arrayLiteral.Elements) != 1 {
+		t.Fatalf("ArrayLiteral doesn't have exactly one element. got=%d", len(arrayLiteral.Elements))
+	}
+
+	httpExpr, ok := arrayLiteral.Elements[0].(*ast.HttpExpression)
 	if !ok {
-		t.Fatalf("expr not *ast.CallExpression. got=%T", exprStmt.Expression)
+		t.Fatalf("array element not *ast.HttpExpression. got=%T", arrayLiteral.Elements[0])
 	}
 
-	if callExpr.Function.String() != "set" {
-		t.Errorf("function is not 'set'. got=%s", callExpr.Function.String())
+	if httpExpr.Command.Value != "HTTP::header" {
+		t.Errorf("function is not 'HTTP::header'. got=%s", httpExpr.Command.Value)
 	}
 
-	if callExpr.Function.String() != "HTTP::header" {
-		t.Errorf("function is not 'HTTP::header'. got=%s", callExpr.Function.String())
+	if httpExpr.Argument == nil {
+		t.Fatalf("HTTP::header has no argument")
 	}
 
-	if len(callExpr.Arguments) != 2 {
-		t.Fatalf("wrong number of arguments. got=%d, want=2", len(callExpr.Arguments))
-	}
-
-	varName, ok := callExpr.Arguments[0].(*ast.Identifier)
+	arg, ok := httpExpr.Argument.(*ast.StringLiteral)
 	if !ok {
-		t.Fatalf("first argument not *ast.Identifier. got=%T", callExpr.Arguments[0])
-	}
-
-	if varName.Value != "content_type" {
-		t.Errorf("variable name is not 'content_type'. got=%s", varName.Value)
-	}
-
-	valueExpr, ok := callExpr.Arguments[1].(*ast.CallExpression)
-	if !ok {
-		t.Fatalf("second argument not *ast.CallExpression. got=%T", callExpr.Arguments[1])
-	}
-
-	if valueExpr.Function.String() != "HTTP::header" {
-		t.Errorf("function is not 'HTTP::header'. got=%s", valueExpr.Function.String())
-	}
-
-	if len(valueExpr.Arguments) != 1 {
-		t.Fatalf("wrong number of arguments in HTTP::header. got=%d, want=1", len(valueExpr.Arguments))
-	}
-
-	arg, ok := valueExpr.Arguments[0].(*ast.StringLiteral)
-	if !ok {
-		t.Fatalf("argument not *ast.StringLiteral. got=%T", valueExpr.Arguments[0])
+		t.Fatalf("argument not *ast.StringLiteral. got=%T", httpExpr.Argument)
 	}
 
 	if arg.Value != "Content-Type" {
 		t.Errorf("argument value is not 'Content-Type'. got=%s", arg.Value)
 	}
-
 }
 
 func checkSwitchStatement(t *testing.T, stmt ast.Statement) {

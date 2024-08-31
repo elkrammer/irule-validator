@@ -770,6 +770,12 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 
 	array := &ast.ArrayLiteral{Token: p.curToken}
 
+	// Check if we have double brackets
+	doubleBracket := p.peekTokenIs(token.LBRACKET)
+	if doubleBracket {
+		p.nextToken() // Consume the second '['
+	}
+
 	// Check if the next token is an HTTP-related token
 	if p.peekTokenIs(token.HTTP_URI) || p.peekTokenIs(token.HTTP_METHOD) || p.peekTokenIs(token.HTTP_HEADER) {
 		p.nextToken() // Move to the HTTP token
@@ -778,12 +784,22 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			array.Elements = []ast.Expression{httpExpr}
 		}
 
-		// Expect the closing bracket
+		// Expect the closing brackets
 		if !p.expectPeek(token.RBRACKET) {
 			return nil
 		}
+		if doubleBracket {
+			if !p.expectPeek(token.RBRACKET) {
+				return nil
+			}
+		}
 	} else {
 		array.Elements = p.parseExpressionList(token.RBRACKET)
+		if doubleBracket {
+			if !p.expectPeek(token.RBRACKET) {
+				return nil
+			}
+		}
 	}
 
 	if config.DebugMode {
@@ -924,8 +940,11 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	}
 	expr := &ast.HttpExpression{Token: p.curToken}
 
-	// Check if we're starting with a '['
+	// Check if we're starting with a '[' or '[['
 	if p.curTokenIs(token.LBRACKET) {
+		if p.peekTokenIs(token.LBRACKET) {
+			p.nextToken() // consume second '['
+		}
 		p.nextToken() // consume '['
 	}
 
@@ -946,11 +965,14 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 		}
 	}
 
-	// If we started with '[', expect a closing ']'
+	// If we started with '[' or '[[', expect closing ']' or ']]'
 	if p.curToken.Type == token.LBRACKET {
 		if !p.expectPeek(token.RBRACKET) {
 			p.errors = append(p.errors, fmt.Sprintf("Expected closing bracket after HTTP command, got %s", p.peekToken.Type))
 			return nil
+		}
+		if p.peekTokenIs(token.RBRACKET) {
+			p.nextToken() // consume second ']'
 		}
 	}
 
