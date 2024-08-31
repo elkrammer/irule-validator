@@ -201,10 +201,7 @@ func (l *Lexer) NextToken() token.Token {
 	default:
 		// Check for number
 		if isDigit(l.ch) || (l.ch == '-' && isDigit(l.peekChar())) {
-			tok.Type = token.NUMBER
-			tok.Literal = l.readNumber()
-			// fmt.Printf("NextToken: Identified number = '%s'\n", tok.Literal)
-			return tok
+			return l.readNumberOrIpAddress()
 		}
 
 		// Check for identifier
@@ -357,4 +354,51 @@ func (l *Lexer) peekWord() string {
 	l.ch = l.input[position]
 	// fmt.Printf("DEBUG: peekWord result: %s\n", word)
 	return word
+}
+
+func (l *Lexer) readNumberOrIpAddress() token.Token {
+	startPosition := l.position
+	isNegative := l.ch == '-'
+	if isNegative {
+		l.readChar()
+	}
+
+	for isDigit(l.ch) {
+		l.readChar()
+	}
+
+	if l.ch == '.' {
+		return l.readIpAddress(startPosition)
+	}
+
+	return token.Token{
+		Type:    token.NUMBER,
+		Literal: l.input[startPosition:l.position],
+	}
+}
+
+func (l *Lexer) readIpAddress(startPosition int) token.Token {
+	dotCount := 0
+	for isDigit(l.ch) || l.ch == '.' {
+		if l.ch == '.' {
+			dotCount++
+			if dotCount > 3 {
+				break
+			}
+		}
+		l.readChar()
+	}
+
+	if dotCount == 3 {
+		return token.Token{
+			Type:    token.IP_ADDRESS,
+			Literal: l.input[startPosition:l.position],
+		}
+	}
+
+	// If it's not a valid IP address, treat it as a number
+	return token.Token{
+		Type:    token.NUMBER,
+		Literal: l.input[startPosition:l.position],
+	}
 }

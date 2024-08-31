@@ -94,6 +94,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.HTTP_URI, p.parseHttpCommand)
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
+	p.registerPrefix(token.IP_CLIENT_ADDR, p.parseIpExpression)
+	p.registerPrefix(token.IP_SERVER_ADDR, p.parseIpExpression)
+	p.registerPrefix(token.IP_ADDRESS, p.parseIpAddressLiteral)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
@@ -1101,4 +1104,24 @@ func (p *Parser) parseDefaultCase() *ast.CaseStatement {
 		fmt.Printf("DEBUG: End parseDefaultCase\n")
 	}
 	return defaultCase
+}
+
+func (p *Parser) parseIpExpression() ast.Expression {
+	expression := &ast.IpExpression{Token: p.curToken}
+
+	switch p.curToken.Type {
+	case token.IP_CLIENT_ADDR:
+		expression.Function = "client_addr"
+	case token.IP_SERVER_ADDR:
+		expression.Function = "server_addr"
+	default:
+		p.errors = append(p.errors, fmt.Sprintf("Unexpected IP token: %s", p.curToken.Literal))
+		return nil
+	}
+
+	return expression
+}
+
+func (p *Parser) parseIpAddressLiteral() ast.Expression {
+	return &ast.IpAddressLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }

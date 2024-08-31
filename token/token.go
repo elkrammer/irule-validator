@@ -68,6 +68,7 @@ const (
 	SSL_CIPHER      = "SSL::cipher"
 	SSL_CIPHER_BITS = "SSL::cipher_bits"
 
+	IP_ADDRESS     = "IP_ADDRESS"
 	IP_CLIENT_ADDR = "IP::client_addr"
 	IP_SERVER_ADDR = "IP::server_addr"
 
@@ -142,6 +143,7 @@ var keywords = map[string]TokenType{
 	"LB_SELECTED":         LB_SELECTED,
 	"LB_FAILED":           LB_FAILED,
 	"TCP_REQUEST":         TCP_REQUEST,
+	"IP_CLIENT_ADDR":      IP_CLIENT_ADDR,
 }
 
 func LookupIdent(ident string) TokenType {

@@ -292,37 +292,26 @@ func testNumberLiteral(t *testing.T, nl ast.Expression, value int64) bool {
 
 func testStringOrIdentifierLiteral(t *testing.T, exp ast.Expression, value string) bool {
 	switch v := exp.(type) {
-	case *ast.StringLiteral:
-		if v.Value != value {
-			t.Errorf("StringLiteral.Value not %s. got=%s", value, v.Value)
-			return false
-		}
-	case *ast.Identifier:
-		if v.Value != value {
-			t.Errorf("Identifier.Value not %s. got=%s", value, v.Value)
-			return false
-		}
-	case *ast.InfixExpression:
-		// Handle the case for /new/path
-		return testPath(t, v, value)
-
 	case *ast.ArrayLiteral:
 		if len(v.Elements) != 1 {
 			t.Errorf("ArrayLiteral does not contain 1 element. got=%d", len(v.Elements))
 			return false
 		}
-		httpExp, ok := v.Elements[0].(*ast.HttpExpression)
-		if !ok {
-			t.Errorf("ArrayLiteral element is not HttpExpression. got=%T", v.Elements[0])
+		switch elem := v.Elements[0].(type) {
+		case *ast.HttpExpression:
+			if elem.String() != value {
+				t.Errorf("HttpExpression.String() not %q. got=%q", value, elem.String())
+				return false
+			}
+		case *ast.IpExpression:
+			if elem.String() != value {
+				t.Errorf("IpExpression.String() not %q. got=%q", value, elem.String())
+				return false
+			}
+		default:
+			t.Errorf("ArrayLiteral element is not HttpExpression or IpExpression. got=%T", elem)
 			return false
 		}
-		if httpExp.String() != value {
-			t.Errorf("HttpExpression.String() not %q. got=%q", value, httpExp.String())
-			return false
-		}
-	default:
-		t.Errorf("exp not *ast.StringLiteral or *ast.Identifier. got=%T", exp)
-		return false
 	}
 	return true
 }
@@ -501,8 +490,8 @@ func TestInfixExpressions(t *testing.T) {
 		{"false == false", false, "==", false},
 		{"[HTTP::uri] contains \"admin\"", "[HTTP::uri]", "contains", "admin"},
 		{"$static::max_connections > 100", "$static::max_connections", ">", 100},
-		// {"[IP::client_addr] equals 10.0.0.1", "IP::client_addr", "equals", "10.0.0.1"},
-		// {"[HTTP::header User-Agent] starts_with \"Mozilla\"", "HTTP::header User-Agent", "starts_with", "Mozilla"},
+		{"[IP::client_addr] equals 10.0.0.1", "IP::client_addr", "equals", "10.0.0.1"},
+		{"[HTTP::header User-Agent] starts_with \"Mozilla\"", "HTTP::header User-Agent", "starts_with", "Mozilla"},
 		// {"[HTTP::status] == 200", "HTTP::status", "==", 200},
 		// {"[TCP::local_port] != 443", "TCP::local_port", "!=", 443},
 		// {"$current_users <= $max_users", "$current_users", "<=", "$max_users"},

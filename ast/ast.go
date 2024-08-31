@@ -621,3 +621,21 @@ func (cs *CaseStatement) String() string {
 	out.WriteString("\n")
 	return out.String()
 }
+
+type IpExpression struct {
+	Token    token.Token // The token associated with this expression
+	Function string      // The specific IP function (e.g., "client_addr" or "server_addr")
+}
+
+func (ie *IpExpression) expressionNode()      {}
+func (ie *IpExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IpExpression) String() string       { return "IP::" + ie.Function }
+
+type IpAddressLiteral struct {
+	Token token.Token
+	Value string
+}
+
+func (ip *IpAddressLiteral) expressionNode()      {}
+func (ip *IpAddressLiteral) TokenLiteral() string { return ip.Token.Literal }
+func (ip *IpAddressLiteral) String() string       { return ip.Value }
