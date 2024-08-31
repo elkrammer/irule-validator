@@ -41,14 +41,6 @@ func (l *Lexer) readChar() {
 	l.readPosition += 1
 }
 
-func (l *Lexer) rewind() {
-	if l.readPosition > 0 {
-		l.position--
-		l.readPosition--
-		l.ch = l.input[l.readPosition-1]
-	}
-}
-
 func newToken(tokenType token.TokenType, ch byte) token.Token {
 	return token.Token{Type: tokenType, Literal: string(ch)}
 }

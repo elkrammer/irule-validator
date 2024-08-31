@@ -184,6 +184,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 	case token.IF:
 		stmt = p.parseIfStatement()
+	case token.ELSE:
+		stmt = p.parseIfStatement()
 	case token.LBRACE:
 		stmt = p.parseBlockStatement()
 	case token.SWITCH:
@@ -237,7 +239,7 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	stmt.Name = p.parseExpression(LOWEST)
 
 	if stmt.Name == nil {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseSetStatement: Expected a name for set statement"))
+		p.errors = append(p.errors, "ERROR: parseSetStatement: Expected a name for set statement")
 		return nil
 	}
 
@@ -262,65 +264,6 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 	return stmt
 }
-
-func (p *Parser) parseSetTarget() ast.Expression {
-	if p.curTokenIs(token.IDENT) {
-		return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	} else if p.curTokenIs(token.LBRACKET) {
-		return p.parseBracketExpression()
-	} else {
-		p.peekError(token.IDENT)
-		return nil
-	}
-}
-
-func (p *Parser) parseBracketExpression() ast.Expression {
-	expr := &ast.BracketExpression{Token: p.curToken}
-
-	p.nextToken() // Move past '['
-
-	expr.Expression = p.parseExpression(LOWEST)
-
-	if !p.expectPeek(token.RBRACKET) {
-		return nil
-	}
-
-	return expr
-}
-
-// func (p *Parser) parseSetStatement() *ast.SetStatement {
-// 	stmt := &ast.SetStatement{Token: p.curToken}
-//
-// 	p.nextToken()
-//
-// 	if config.DebugMode {
-// 		fmt.Printf("DEBUG: parseSetStatement Start\n")
-// 	}
-//
-// 	if !p.expectPeek(token.IDENT) {
-// 		fmt.Printf("DEBUG: parseSetStatement - Expected IDENT, got: %+v\n", p.curToken)
-// 		p.errors = append(p.errors, fmt.Sprintf("Expected next token to be IDENT, got %s instead", p.peekToken.Type))
-// 		return nil
-// 	}
-//
-// 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-//
-// 	if !p.peekTokenIs(token.EOF) {
-// 		p.nextToken() // Move to the value
-// 		stmt.Value = p.parseExpression(LOWEST)
-// 	}
-//
-// 	// Consume any remaining tokens until EOF or semicolon
-// 	for !p.curTokenIs(token.EOF) && !p.curTokenIs(token.SEMICOLON) {
-// 		p.nextToken()
-// 	}
-//
-// 	if config.DebugMode {
-// 		fmt.Printf("DEBUG: parseSetStatement End: set %s(%v) %v\n", stmt.Name.Value, stmt.Index, stmt.Value)
-// 	}
-//
-// 	return stmt
-// }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	if config.DebugMode {
@@ -484,82 +427,6 @@ func (p *Parser) parseBoolean() ast.Expression {
 
 func (p *Parser) parseStringLiteral() ast.Expression {
 	return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
-}
-
-func (p *Parser) parseIfExpression() *ast.IfStatement {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseIfExpression Start, current token: %s\n", p.curToken.Type)
-	}
-
-	stmt := &ast.IfStatement{Token: p.curToken}
-
-	// expect and consume opening brace
-	if !p.expectPeek(token.LBRACE) {
-		return nil
-	}
-
-	p.nextToken()
-
-	condition := p.parseExpression(LOWEST)
-
-	// Check if the next token is 'contains'
-	if p.peekTokenIs(token.CONTAINS) {
-		p.nextToken() // Move to 'contains'
-		containsExp := &ast.InfixExpression{
-			Token:    p.curToken,
-			Left:     condition,
-			Operator: p.curToken.Literal,
-		}
-		p.nextToken() // Move past 'contains'
-		containsExp.Right = p.parseExpression(LOWEST)
-		condition = containsExp
-	}
-
-	stmt.Condition = condition
-
-	// expect and consume closing brace
-	if !p.expectPeek(token.RBRACE) {
-		return nil
-	}
-
-	// expect and consume opening brace for consequence block
-	if !p.expectPeek(token.LBRACE) {
-		return nil
-	}
-
-	stmt.Consequence = p.parseBlockStatement()
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Finished parseifexpression\n")
-	}
-
-	return stmt
-}
-
-func (p *Parser) parseIfCondition() ast.Expression {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Parsing if condition, current token: %s\n", p.curToken.Type)
-	}
-
-	var condition ast.Expression
-
-	if p.curTokenIs(token.LBRACKET) {
-		condition = p.parseHttpExpression()
-	} else {
-		condition = p.parseExpression(LOWEST)
-	}
-
-	if p.peekTokenIs(token.CONTAINS) || p.peekTokenIs(token.EQ) || p.peekTokenIs(token.NOT_EQ) {
-		p.nextToken()
-		condition = &ast.InfixExpression{
-			Token:    p.curToken,
-			Left:     condition,
-			Operator: p.curToken.Literal,
-			Right:    p.parseExpression(LOWEST),
-		}
-	}
-
-	return condition
 }
 
 func (p *Parser) parseGroupedExpression() ast.Expression {
@@ -773,6 +640,15 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 
 	p.nextToken() // Move past the opening bracket
 
+	// Check if it's an HTTP command
+	// if p.curTokenIs(token.HTTP_URI) || p.curTokenIs(token.HTTP_METHOD) || p.curTokenIs(token.HTTP_HEADER) {
+	// 	httpExpr := p.parseHttpCommand()
+	// 	if httpExpr != nil {
+	// 		list = append(list, httpExpr)
+	// 	}
+	// 	return list
+	// }
+
 	// Parse expressions until encountering the end token
 	list = append(list, p.parseExpression(LOWEST))
 
@@ -780,7 +656,9 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 		p.nextToken() // Consume the comma
 		p.nextToken() // Move to the next expression
 		list = append(list, p.parseExpression(LOWEST))
-		fmt.Printf("DEBUG: parseExpressionList loop. list = %v\n", list)
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseExpressionList loop. list = %v\n", list)
+		}
 	}
 
 	// Ensure that the list is terminated with the end token
@@ -836,45 +714,6 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	return expression
 }
 
-func (p *Parser) parseParenthesizedExpression() ast.Expression {
-	p.nextToken() // Consume the opening parenthesis '('
-
-	expr := p.parseExpression(LOWEST)
-	if expr == nil {
-		return nil
-	}
-
-	if !p.expectPeek(token.RPAREN) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseParenthesizedExpression - Expected end, got %s\n", p.curToken.Type)
-		}
-		return nil
-	}
-
-	p.nextToken() // Consume the closing parenthesis ')'
-	return &ast.ParenthesizedExpression{Expression: expr}
-}
-
-func (p *Parser) parseBinaryExpression(precedence int, left ast.Expression) ast.Expression {
-	op := p.curToken
-
-	for !p.peekTokenIs(token.SEMICOLON) && precedence < p.peekPrecedence() {
-		p.nextToken()
-		right := p.parseExpression(p.peekPrecedence())
-		if right == nil {
-			return nil
-		}
-		left = &ast.InfixExpression{
-			Token:    op,
-			Left:     left,
-			Operator: op.Literal,
-			Right:    right,
-		}
-	}
-
-	return left
-}
-
 func (p *Parser) parseSetExpression() ast.Expression {
 	stmt := &ast.SetStatement{Token: p.curToken}
 
@@ -915,8 +754,18 @@ func (p *Parser) parseSetExpression() ast.Expression {
 }
 
 func (p *Parser) parseArrayLiteral() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseArrayLiteral Start\n")
+	}
+	// if p.peekTokenIs(token.HTTP_URI) || p.peekTokenIs(token.HTTP_METHOD) || p.peekTokenIs(token.HTTP_HEADER) {
+	// 	return p.parseHttpCommand()
+	// }
+
 	array := &ast.ArrayLiteral{Token: p.curToken}
 	array.Elements = p.parseExpressionList(token.RBRACKET)
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseArrayLiteral End. Array: %s\n", array)
+	}
 	return array
 }
 
@@ -943,58 +792,6 @@ func (p *Parser) parseVariableOrArrayAccess() ast.Expression {
 	}
 
 	return varExp
-}
-
-func (p *Parser) parseHttpRequestEvent() ast.Expression {
-	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-}
-
-func (p *Parser) parseHttpUri() ast.Expression {
-	expression := &ast.HttpUriExpression{Token: p.curToken}
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Parsing HTTP::URI expression\n")
-	}
-
-	if !p.expectPeek(token.IDENT) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseHttpRequestEvent - Expected IDENT, got %s\n", p.curToken.Type)
-		}
-		return nil
-	}
-
-	expression.Method = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	// Handle the closing bracket
-	if !p.expectPeek(token.RBRACKET) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseHttpRequestEvent - Expected RBRACKET, got %s\n", p.curToken.Type)
-		}
-		return nil
-	}
-
-	return expression
-}
-
-func (p *Parser) parseContainsExpression(left ast.Expression) ast.Expression {
-	expression := &ast.InfixExpression{
-		Token:    p.curToken,
-		Operator: p.curToken.Literal,
-		Left:     left,
-	}
-
-	if config.DebugMode {
-		fmt.Printf("Start parseContainsExpression: %T\n", expression)
-	}
-
-	precedence := p.curPrecedence()
-	p.nextToken()
-	expression.Right = p.parseExpression(precedence)
-
-	if config.DebugMode {
-		fmt.Printf("End parseContainsExpression\n")
-	}
-
-	return expression
 }
 
 func (p *Parser) ParseIRule() *ast.IRuleNode {
@@ -1045,46 +842,6 @@ func (p *Parser) parseWhenNode() *ast.WhenNode {
 		fmt.Printf("DEBUG: End parseWhenNode\n")
 	}
 	return when
-}
-
-func (p *Parser) parseHttpExpression() ast.Expression {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Start ParseHttpExpression\n")
-	}
-
-	expr := &ast.HttpExpression{Token: p.curToken}
-
-	p.nextToken() // consume '['
-	if !p.curTokenIs(token.HTTP_URI) && !p.curTokenIs(token.HTTP_METHOD) && !p.curTokenIs(token.HTTP_HEADER) {
-		p.errors = append(p.errors, fmt.Sprintf("Expected HTTP command, got %s", p.curToken.Type))
-		return nil
-	}
-
-	expr.Command = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	// Check for arguments
-	if p.peekTokenIs(token.STRING) {
-		p.nextToken()
-		expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
-	}
-
-	// if p.peekTokenIs(token.IDENT) {
-	// 	p.nextToken()
-	// 	expr.Method = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	// }
-
-	if !p.expectPeek(token.RBRACKET) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseHttpExpression - Expected RBRACKET, got %s\n", p.curToken.Type)
-		}
-		return nil
-	}
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: End ParseHttpExpression\n")
-	}
-
-	return expr
 }
 
 func (p *Parser) parseBlockStatements() []ast.Statement {
@@ -1229,20 +986,6 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 	}
 
 	return expr
-}
-
-func (p *Parser) parseBlockContents() []ast.Statement {
-	statements := []ast.Statement{}
-
-	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
-		stmt := p.parseStatement()
-		if stmt != nil {
-			statements = append(statements, stmt)
-		}
-		p.nextToken()
-	}
-
-	return statements
 }
 
 func (p *Parser) parsePoolStatement() *ast.ExpressionStatement {
