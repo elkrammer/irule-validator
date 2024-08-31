@@ -825,10 +825,6 @@ func checkComplexCondition(t *testing.T, stmt ast.Statement) {
 		t.Errorf("operator is not '&&'. got=%q", infixExpr.Operator)
 	}
 
-	// t.Logf("Top-level expression: %T", exprStmt.Expression)
-	// t.Logf("Left expression type: %T", infixExpr.Left)
-	// t.Logf("Right expression type: %T", infixExpr.Right)
-
 	checkHttpExpression(t, infixExpr.Left, "HTTP::uri", "contains", "admin")
 	checkHttpHeaderExpression(t, infixExpr.Right)
 }
@@ -860,6 +856,7 @@ func checkHttpExpression(t *testing.T, expr ast.Expression, leftValue, operator,
 			t.Fatalf("array element not *ast.HttpExpression. got=%T", left.Elements[0])
 		}
 	default:
+		t.Logf("value of failed expr=%v\n", infixExpr)
 		t.Fatalf("left expr not *ast.HttpExpression or *ast.ArrayLiteral. got=%T", infixExpr.Left)
 	}
 
@@ -946,7 +943,8 @@ func checkNestedIfWithHttpCommands(t *testing.T, stmt ast.Statement) {
 		t.Fatalf("second statement is not *ast.IfStatement. got=%T", blockStmt.Statements[1])
 	}
 
-	checkHttpExpression(t, nestedIf.Condition, "$content_type", "contains", "application/json")
+	// Check the condition of the nested if (variable comparison)
+	checkVariableComparison(t, nestedIf.Condition, "$content_type", "contains", "application/json")
 
 	// Check the consequence of the nested if
 	checkPoolCommand(t, nestedIf.Consequence.Statements[0])
@@ -954,44 +952,6 @@ func checkNestedIfWithHttpCommands(t *testing.T, stmt ast.Statement) {
 	// Check the alternative of the nested if
 	checkHttpRespond(t, nestedIf.Alternative.Statements[0])
 }
-
-// func checkNestedIfWithHttpCommands(t *testing.T, stmt ast.Statement) {
-// 	ifStmt, ok := stmt.(*ast.IfStatement)
-// 	if !ok {
-// 		t.Fatalf("stmt not *ast.IfStatement. got=%T", stmt)
-// 	}
-//
-// 	// Check the outer if condition
-// 	checkComplexHttpCondition(t, ifStmt.Condition)
-//
-// 	// Check the consequence (body) of the outer if
-// 	blockStmt := ifStmt.Consequence
-// 	// if !ok {
-// 	// 	t.Fatalf("if consequence is not *ast.BlockStatement. got=%T", ifStmt.Consequence)
-// 	// }
-//
-// 	if len(blockStmt.Statements) != 2 {
-// 		t.Fatalf("block doesn't contain 2 statements. got=%d", len(blockStmt.Statements))
-// 	}
-//
-// 	// Check the set statement
-// 	checkSetStatement(t, blockStmt.Statements[0])
-//
-// 	// Check the nested if statement
-// 	nestedIf, ok := blockStmt.Statements[1].(*ast.IfStatement)
-// 	if !ok {
-// 		t.Fatalf("second statement is not *ast.IfStatement. got=%T", blockStmt.Statements[1])
-// 	}
-//
-// 	t.Logf("nestedIf: %v", nestedIf)
-// 	checkHttpExpression(t, nestedIf.Condition, "$content_type", "contains", "application/json")
-//
-// 	// Check the consequence of the nested if
-// 	checkPoolCommand(t, nestedIf.Consequence.Statements[0])
-//
-// 	// Check the alternative of the nested if
-// 	checkHttpRespond(t, nestedIf.Alternative.Statements[0])
-// }
 
 func checkComplexHttpCondition(t *testing.T, expr ast.Expression) {
 	infixExpr, ok := expr.(*ast.InfixExpression)
@@ -1062,4 +1022,40 @@ func checkSwitchStatement(t *testing.T, stmt ast.Statement) {
 	if switchStmt.Default == nil {
 		t.Fatalf("switchExpr.Default is nil")
 	}
+}
+
+func checkVariableComparison(t *testing.T, expr ast.Expression, leftValue, operator, rightValue string) {
+	t.Logf("checkVariableComparison Start\n")
+	t.Logf("checkVariableComparison infixExpr: %v\n", expr)
+
+	infixExpr, ok := expr.(*ast.InfixExpression)
+	if !ok {
+		t.Fatalf("expr not *ast.InfixExpression. got=%T", expr)
+	}
+
+	if infixExpr.Operator != operator {
+		t.Errorf("operator is not '%s'. got=%q", operator, infixExpr.Operator)
+	}
+
+	// Check left side (variable)
+	identifier, ok := infixExpr.Left.(*ast.Identifier)
+	if !ok {
+		t.Fatalf("left expr not *ast.Identifier. got=%T", infixExpr.Left)
+	}
+
+	if identifier.Value != leftValue {
+		t.Errorf("left value is not %s. got=%q", leftValue, identifier.Value)
+	}
+
+	// Check right side
+	stringLiteral, ok := infixExpr.Right.(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("right expr not *ast.StringLiteral. got=%T", infixExpr.Right)
+	}
+
+	if stringLiteral.Value != rightValue {
+		t.Errorf("right value is not '%s'. got=%q", rightValue, stringLiteral.Value)
+	}
+
+	t.Logf("DEBUG: checkVariableComparison End\n")
 }
