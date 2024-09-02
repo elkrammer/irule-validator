@@ -6,20 +6,7 @@ go test ./lexer
 go test ./parser
 
 # Get a list of all files in the test-data directory
-# test_files=(test-data/*)
-test_files=(
-  "complex.irule"
-  "complex2.irule"
-  "header.irule"
-  "headers.irule"
-  "hello.tcl"
-  "http-to-https.irule"
-  "if-else.irule"
-  "if.irule"
-  "load-balancing.irule"
-  "set.irule"
-  "switch.irule"
-)
+test_files=(test-data/*)
 
 # Calculate the length of the longest test file name
 max_length=0
@@ -31,15 +18,9 @@ for test_file_path in "${test_files[@]}"; do
 done
 
 # Iterate over each test file and run the validator
-for test_file in "${test_files[@]}"; do
-  result=$(./irule-validator "test-data/$test_file")
+for test_file_path in "${test_files[@]}"; do
+  test_file=$(basename "$test_file_path")
+  result=$(./irule-validator "$test_file_path")
   # Pad the test file name with spaces to align the output
   printf "%-${max_length}s: %s\n" "$test_file" "$result"
 done
-
-# for test_file_path in "${test_files[@]}"; do
-#   test_file=$(basename "$test_file_path")
-#   result=$(./irule-validator "$test_file_path")
-#   # Pad the test file name with spaces to align the output
-#   printf "%-${max_length}s: %s\n" "$test_file" "$result"
-# done

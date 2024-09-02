@@ -1,0 +1,10 @@
+when HTTP_REQUEST { 
+    if { [string tolower [HTTP::uri]] starts_with "/api" } {
+        HTTP::host "api.at.a-very-long.url.com"
+        pool api
+    }
+    else {
+        HTTP::host "web.at.aanother-very-long.url.com"
+        pool web
+    }
+}

@@ -81,6 +81,8 @@ const (
 
 	SSL_CIPHER      = "SSL::cipher"
 	SSL_CIPHER_BITS = "SSL::cipher_bits"
+	SSL_CLIENTHELLO = "SSL::clienthello"
+	SSL_SERVERHELLO = "SSL::serverhello"
 
 	IP_ADDRESS     = "IP_ADDRESS"
 	IP_CLIENT_ADDR = "IP::client_addr"
@@ -99,17 +101,8 @@ const (
 	LB_SELECT   = "LB::select"
 	LB_RESELECT = "LB::reselect"
 	LB_DETACH   = "LB::detach"
-
-	// Server-related
-	LB_SERVER      = "LB::server"
-	LB_SERVER_ADDR = "LB::server addr"
-	LB_SERVER_PORT = "LB::server port"
-
-	// Pool-related
-	LB_POOL         = "LB::pool"
-	LB_POOL_NAME    = "LB::pool name"
-	LB_POOL_MEMBER  = "LB::pool member"
-	LB_POOL_MEMBERS = "LB::pool members"
+	LB_SERVER   = "LB::server"
+	LB_POOL     = "LB::pool"
 
 	// Status and health
 	LB_STATUS = "LB::status"
@@ -133,6 +126,13 @@ const (
 
 	SESSION_DATA    = "SESSION::data"
 	SESSION_PERSIST = "SESSION::persist"
+
+	TCP_RESPONSE  = "TCP::RESPONSE"
+	USER_REQUEST  = "USER::request"
+	USER_RESPONSE = "USER::response"
+	RULE_INIT     = "RULE_INIT"
+	DNS_REQUEST   = "DNS_REQUEST"
+	DNS_RESPONSE  = "DNS_RESPONSE"
 
 	// F5 Event Contexts KEYWORDS - when <EVENT_CONTEXT> {}
 	CLIENTSSL_HANDSHAKE = "CLIENTSSL_HANDSHAKE"
