@@ -128,7 +128,7 @@ when HTTP_REQUEST {
 		{token.LBRACKET, "["},
 		{token.IP_CLIENT_ADDR, "IP::client_addr"},
 		{token.RBRACKET, "]"},
-		{token.EQ, "=="},
+		{token.EQ, "eq"},
 		{token.STRING, "internal_network"},
 		{token.RBRACKET, "]"},
 		{token.RBRACE, "}"},
