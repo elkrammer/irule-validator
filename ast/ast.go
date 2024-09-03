@@ -641,7 +641,7 @@ func (ip *IpAddressLiteral) TokenLiteral() string { return ip.Token.Literal }
 func (ip *IpAddressLiteral) String() string       { return ip.Value }
 
 type LoadBalancerExpression struct {
-	Token    token.Token // The '[' token
+	Token    token.Token // The 'LB' token
 	Command  *Identifier // The Load Balancer command (e.g., LB::select)
 	Method   *Identifier // Optional method or subcommand
 	Argument Expression
@@ -658,5 +658,29 @@ func (lbe *LoadBalancerExpression) String() string {
 		out.WriteString(lbe.Method.String())
 	}
 	out.WriteString("]")
+	return out.String()
+}
+
+type SSLExpression struct {
+	Token    token.Token // The 'SSL' token
+	Command  *Identifier // The SSL command (e.g., SSL::cert)
+	Method   *Identifier // Optional method or subcommand
+	Argument Expression
+}
+
+func (se *SSLExpression) expressionNode()      {}
+func (se *SSLExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SSLExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("SSL::")
+	out.WriteString(se.Command.String())
+	if se.Method != nil {
+		out.WriteString(" ")
+		out.WriteString(se.Method.String())
+	}
+	if se.Argument != nil {
+		out.WriteString(" ")
+		out.WriteString(se.Argument.String())
+	}
 	return out.String()
 }

@@ -28,32 +28,34 @@ var HttpKeywords = map[string]token.TokenType{
 }
 
 var LbKeywords = map[string]token.TokenType{
-	"LB_SELECTED":      token.LB_SELECTED,
-	"LB_FAILED":        token.LB_FAILED,
-	"LB_QUEUED":        token.LB_QUEUED,
-	"LB_COMPLETED":     token.LB_COMPLETED,
-	"LB::mode":         token.LB_MODE,
-	"LB::select":       token.LB_SELECT,
-	"LB::reselect":     token.LB_RESELECT,
-	"LB::detach":       token.LB_DETACH,
-	"LB::server":       token.LB_SERVER,
-	"LB::server addr":  token.LB_SERVER_ADDR,
-	"LB::server port":  token.LB_SERVER_PORT,
-	"LB::pool":         token.LB_POOL,
-	"LB::pool name":    token.LB_POOL_NAME,
-	"LB::pool member":  token.LB_POOL_MEMBER,
-	"LB::pool members": token.LB_POOL_MEMBERS,
-	"LB::status":       token.LB_STATUS,
-	"LB::alive":        token.LB_ALIVE,
-	"LB::persist":      token.LB_PERSIST,
-	"LB::method":       token.LB_METHOD,
-	"LB::score":        token.LB_SCORE,
-	"LB::priority":     token.LB_PRIORITY,
-	"LB::connect":      token.LB_CONNECT,
-	"LB::bias":         token.LB_BIAS,
-	"LB::snat":         token.LB_SNAT,
-	"LB::limit":        token.LB_LIMIT,
-	"LB::class":        token.LB_CLASS,
+	"LB_SELECTED":  token.LB_SELECTED,
+	"LB_FAILED":    token.LB_FAILED,
+	"LB_QUEUED":    token.LB_QUEUED,
+	"LB_COMPLETED": token.LB_COMPLETED,
+	"LB::mode":     token.LB_MODE,
+	"LB::select":   token.LB_SELECT,
+	"LB::reselect": token.LB_RESELECT,
+	"LB::detach":   token.LB_DETACH,
+	"LB::server":   token.LB_SERVER,
+	"LB::pool":     token.LB_POOL,
+	"LB::status":   token.LB_STATUS,
+	"LB::alive":    token.LB_ALIVE,
+	"LB::persist":  token.LB_PERSIST,
+	"LB::method":   token.LB_METHOD,
+	"LB::score":    token.LB_SCORE,
+	"LB::priority": token.LB_PRIORITY,
+	"LB::connect":  token.LB_CONNECT,
+	"LB::bias":     token.LB_BIAS,
+	"LB::snat":     token.LB_SNAT,
+	"LB::limit":    token.LB_LIMIT,
+	"LB::class":    token.LB_CLASS,
+}
+
+var SSLKeywords = map[string]token.TokenType{
+	"SSL::cipher":      token.SSL_CIPHER,
+	"SSL::cipher_bits": token.SSL_CIPHER_BITS,
+	"SSL::clienthello": token.SSL_CLIENTHELLO,
+	"SSL::serverhello": token.SSL_SERVERHELLO,
 }
 
 func New(input string) *Lexer {
@@ -90,8 +92,6 @@ func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 
 	l.skipWhitespace()
-
-	// fmt.Printf("[Lexer] NextToken: Current char = '%c'\n", l.ch)
 
 	// skip single line comments
 	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
@@ -204,6 +204,15 @@ func (l *Lexer) NextToken() token.Token {
 	case 'L':
 		peekedWord := l.peekWord()
 		if tokenType, isLBKeyword := LbKeywords[peekedWord]; isLBKeyword {
+			l.readIdentifier() // consume the word
+			return token.Token{Type: tokenType, Literal: peekedWord}
+		}
+
+		identifier := l.readIdentifier()
+		return token.Token{Type: token.IDENT, Literal: identifier}
+	case 'S':
+		peekedWord := l.peekWord()
+		if tokenType, isSSLKeyword := SSLKeywords[peekedWord]; isSSLKeyword {
 			l.readIdentifier() // consume the word
 			return token.Token{Type: tokenType, Literal: peekedWord}
 		}
