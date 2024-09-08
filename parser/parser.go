@@ -152,9 +152,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
 	p.registerInfix(token.EQ, p.parseInfixExpression)
-	p.registerInfix(token.GT, p.parseInfixExpression)
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.GT, p.parseInfixExpression)
 	p.registerInfix(token.LT, p.parseInfixExpression)
 	p.registerInfix(token.MINUS, p.parseInfixExpression)
 	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
@@ -1240,14 +1240,36 @@ func (p *Parser) parseLoadBalancerCommand() ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Start parseLoadBalancerCommand\n")
 	}
+
 	command := &ast.LoadBalancerExpression{Token: p.curToken}
 	var commandParts []string
 
-	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
-		commandParts = append(commandParts, p.curToken.Literal)
-		p.nextToken()
+	for !p.curTokenIs(token.RBRACKET) && !p.curTokenIs(token.EOF) {
+		if p.curTokenIs(token.LBRACKET) {
+			// Handle nested command
+			p.nextToken() // consume '['
+			nestedCommand := p.parseLoadBalancerCommand()
+			if nestedExpr, ok := nestedCommand.(*ast.LoadBalancerExpression); ok {
+				commandParts = append(commandParts, "["+nestedExpr.Command.Value+"]")
+			}
+		} else {
+			commandParts = append(commandParts, p.curToken.Literal)
+		}
+
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseLoadBalancerCommand Adding to command %s\n", p.curToken.Literal)
+		}
+
+		// Stop parsing if we encounter an 'if' statement or other control structures
+		if p.peekTokenIs(token.IF) || p.peekTokenIs(token.LBRACE) {
+			break
+		}
+
+		p.nextToken()
+
+		// Break if we've reached the end of this command
+		if p.curTokenIs(token.RBRACKET) {
+			break
 		}
 	}
 

@@ -3,5 +3,8 @@ when LB_SELECTED {
     # Perform custom logic for server selection
     set server_priority 10
     LB::priority $server_priority
+    if {[active_members [LB::server pool]] < 2} {
+      log local0. "Warning: Less than 2 active members in pool"
+    }
   }
 }
