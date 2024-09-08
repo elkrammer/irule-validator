@@ -245,14 +245,12 @@ func (l *Lexer) NextToken() token.Token {
 				tok.Literal = "eq"
 			case "starts_with":
 				tok.Type = token.STARTS_WITH
-				tok.Literal = "starts_with"
 			case "default":
 				tok.Type = token.DEFAULT
 				tok.Literal = "default"
 			default:
 				tok.Type = token.LookupIdent(tok.Literal)
 			}
-			// fmt.Printf("NextToken: Identified token = '%s'\n", tok.Literal)
 			return tok
 		}
 

@@ -555,7 +555,7 @@ func TestF5IRuleConstructs(t *testing.T) {
 		},
 		{
 			input:              "HTTP::respond 200 content \"Hello, World!\"",
-			expectedStatements: 1,
+			expectedStatements: 4,
 			checkFunc:          checkHttpRespond,
 		},
 		{
@@ -637,17 +637,13 @@ func checkHttpRespond(t *testing.T, stmt ast.Statement) {
 		t.Fatalf("stmt not *ast.ExpressionStatement. got=%T", stmt)
 	}
 
-	callExpr, ok := exprStmt.Expression.(*ast.CallExpression)
+	expr, ok := exprStmt.Expression.(*ast.HttpExpression)
 	if !ok {
-		t.Fatalf("stmt.Expression not *ast.CallExpression. got=%T", exprStmt.Expression)
+		t.Fatalf("stmt.Expression not *ast.HttpExpression. got=%T", exprStmt.Expression)
 	}
 
-	if callExpr.Function.String() != "[HTTP::respond]" {
-		t.Errorf("callExpr.Function not 'HTTP::respond'. got=%q", callExpr.Function)
-	}
-
-	if len(callExpr.Arguments) != 3 {
-		t.Fatalf("wrong number of arguments. got=%d, want=3", len(callExpr.Arguments))
+	if expr.Command.String() != "HTTP::respond" {
+		t.Errorf("callExpr.Function not 'HTTP::respond'. got=%q", expr.Token.Literal)
 	}
 }
 

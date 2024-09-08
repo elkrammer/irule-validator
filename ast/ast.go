@@ -684,3 +684,22 @@ func (se *SSLExpression) String() string {
 	}
 	return out.String()
 }
+
+type StringOperation struct {
+	Token     token.Token // The 'string' token
+	Function  string      // The string function (e.g., "tolower")
+	Operation string      // The operation (e.g., "tolower")
+	Argument  Expression  // The argument to the string operation
+}
+
+func (so *StringOperation) expressionNode()      {}
+func (so *StringOperation) TokenLiteral() string { return so.Token.Literal }
+func (so *StringOperation) String() string {
+	var out bytes.Buffer
+	out.WriteString(so.Function)
+	out.WriteString(" ")
+	out.WriteString(so.Operation)
+	out.WriteString(" ")
+	out.WriteString(so.Argument.String())
+	return out.String()
+}

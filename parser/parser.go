@@ -246,9 +246,6 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		stmt = p.parseReturnStatement()
 	case token.IDENT:
-		if p.curToken.Literal == "pool" {
-			return p.parsePoolStatement()
-		}
 		return p.parseExpressionStatement()
 	case token.WHEN:
 		stmt = &ast.ExpressionStatement{
@@ -350,13 +347,10 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	}
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
-	leftExp := p.parseExpression(LOWEST)
-
-	// Check if this might be a function call
-	if p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.NUMBER) {
-		stmt.Expression = p.parseCallExpression(leftExp)
+	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "pool" {
+		stmt.Expression = p.parsePoolStatement()
 	} else {
-		stmt.Expression = leftExp
+		stmt.Expression = p.parseExpression(LOWEST)
 	}
 
 	if config.DebugMode {
@@ -379,6 +373,10 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		fmt.Printf("DEBUG: parseExpression Start - Current token: %s, Precedence: %d\n", p.curToken.Type, precedence)
 	}
 
+	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
+		return p.parseStringOperation()
+	}
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		if config.DebugMode {
@@ -386,16 +384,14 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		}
 
 		// Handle closing braces and brackets gracefully
-		if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.RBRACKET) {
-			return nil
-		}
-		if p.curTokenIs(token.EOF) {
+		if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.RBRACKET) || p.curTokenIs(token.EOF) {
 			return nil
 		}
 
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
+
 	leftExp := prefix()
 
 	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) && precedence < p.peekPrecedence() {
@@ -406,24 +402,18 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
-			if p.peekTokenIs(token.STARTS_WITH) || p.peekTokenIs(token.EQ) || p.peekTokenIs(token.CONTAINS) {
-				fmt.Printf("DEBUG: parseExpression - handling STARTS_WITH or EQ  or CONTAINS token \n")
-				p.nextToken()
-				leftExp = p.parseInfixExpression(leftExp)
-			} else {
-				// Check if we've reached the end of the expression
-				if p.peekTokenIs(token.RBRACE) || p.peekTokenIs(token.RBRACKET) {
-					break
-				}
-				return leftExp
+			// Check if we've reached the end of the expression
+			if p.peekTokenIs(token.RBRACE) || p.peekTokenIs(token.RBRACKET) {
+				break
 			}
-		} else {
-			p.nextToken()
-			if config.DebugMode {
-				fmt.Printf("DEBUG: Parsing infix expression, operator: %s\n", p.curToken.Literal)
-			}
-			leftExp = infix(leftExp)
+			return leftExp
 		}
+
+		p.nextToken()
+		if config.DebugMode {
+			fmt.Printf("DEBUG: Parsing infix expression, operator: %s\n", p.curToken.Literal)
+		}
+		leftExp = infix(leftExp)
 	}
 
 	if config.DebugMode {
@@ -690,15 +680,22 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 	p.nextToken() // Move past the opening bracket
 
 	// Parse expressions until encountering the end token
-	list = append(list, p.parseExpression(LOWEST))
-
-	for p.peekTokenIs(token.COMMA) {
-		p.nextToken() // Consume the comma
-		p.nextToken() // Move to the next expression
-		list = append(list, p.parseExpression(LOWEST))
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseExpressionList loop. list = %v\n", list)
+	for !p.curTokenIs(end) && !p.curTokenIs(token.EOF) {
+		expr := p.parseExpression(LOWEST)
+		if expr != nil {
+			list = append(list, expr)
 		}
+
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken() // Consume the comma
+		} else if !p.peekTokenIs(end) {
+			if config.DebugMode {
+				fmt.Printf("ERROR: parseExpressionList - Expected comma or end, got %s\n", p.peekToken.Type)
+			}
+			return nil
+		}
+
+		p.nextToken() // Move to the next token
 	}
 
 	// Ensure that the list is terminated with the end token
@@ -741,6 +738,9 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 }
 
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseInfixExpression Start - Operator: %s\n", p.curToken.Literal)
+	}
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
@@ -750,6 +750,10 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	precedence := p.curPrecedence()
 	p.nextToken()
 	expression.Right = p.parseExpression(precedence)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseInfixExpression End - Operator: %s\n", expression.Operator)
+	}
 
 	return expression
 }
@@ -799,79 +803,64 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	}
 
 	array := &ast.ArrayLiteral{Token: p.curToken}
+	array.Elements = []ast.Expression{}
 
-	// Check if we have double brackets
-	doubleBracket := p.peekTokenIs(token.LBRACKET)
-	if doubleBracket {
-		p.nextToken() // Consume the second '['
-	}
+	p.nextToken() // Move past the opening bracket
 
-	// Check if the next token is an HTTP-related token
-	if p.isHttpKeyword(p.peekToken.Type) {
-		p.nextToken() // Move to the HTTP token
-		httpExpr := p.parseHttpCommand()
-		if httpExpr != nil {
-			array.Elements = []ast.Expression{httpExpr}
-		}
-
-		// Expect the closing brackets
-		if !p.expectPeek(token.RBRACKET) {
-			p.errors = append(p.errors, "ERROR: parseArrayLiteral was expecting RBRACKET")
-			return nil
-		}
-		if doubleBracket {
-			if !p.expectPeek(token.RBRACKET) {
-				p.errors = append(p.errors, "ERROR: parseArrayLiteral double bracket was expecting RBRACKET")
-				return nil
-			}
-		}
-	} else if p.isLbKeyword(p.peekToken.Type) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseArrayLiteral parsing Load Balancer statement!\n")
-		}
-		// p.nextToken() // Move to the LB token
-		lbExpr := p.parseLoadBalancerCommand()
-		if lbExpr != nil {
-			array.Elements = []ast.Expression{lbExpr}
-		}
-
-		if config.DebugMode {
-			fmt.Printf("DEBUG: After LB command in parseArrayLiteral, current: %s, peek: %s\n",
-				p.curToken.Type, p.peekToken.Type)
-		}
-	} else if p.isSSLKeyword(p.peekToken.Type) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseArrayLiteral parsing SSL statement!\n")
-		}
-
+	if p.isSSLKeyword(p.curToken.Type) {
 		sslExpr := p.parseSSLCommand()
 		if sslExpr != nil {
-			array.Elements = []ast.Expression{sslExpr}
+			array.Elements = append(array.Elements, sslExpr)
 		}
-
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseArrayLiteral - Got past parseSSLCommand, current: %s, peek: %s\n", p.curToken.Type, p.peekToken.Type)
+	} else if p.isLbKeyword(p.curToken.Type) {
+		lbExpr := p.parseLoadBalancerCommand()
+		if lbExpr != nil {
+			array.Elements = append(array.Elements, lbExpr)
+		}
+	} else if p.isHttpKeyword(p.curToken.Type) {
+		httpExpr := p.parseHttpCommand()
+		if httpExpr != nil {
+			array.Elements = append(array.Elements, httpExpr)
+		}
+	} else if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
+		stringOp := p.parseStringOperation()
+		if stringOp != nil {
+			array.Elements = append(array.Elements, stringOp)
 		}
 	} else {
-		if p.peekTokenIs(token.IDENT) {
-			p.errors = append(p.errors, fmt.Sprintf("ERROR: Unexpected identifier '%s' in array. Expected HTTP, LB, or SSL command.", p.peekToken.Literal))
-			return nil
+		expr := p.parseExpression(LOWEST)
+		if expr != nil {
+			array.Elements = append(array.Elements, expr)
 		}
-		array.Elements = p.parseExpressionList(token.RBRACKET)
-		if doubleBracket {
-			if !p.expectPeek(token.RBRACKET) {
-				if config.DebugMode {
-					fmt.Printf("ERROR: parseLoadBalancerCommand double bracket Expected RBRACKET, got %s\n", p.peekToken.Type)
-				}
-				return nil
-			}
-		}
+	}
+
+	if !p.expectPeek(token.RBRACKET) {
+		p.errors = append(p.errors, "Expected closing bracket in array literal")
+		return nil
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseArrayLiteral End. Array: %s\n", array)
+		fmt.Printf("DEBUG: parseArrayLiteral End. Array: %v\n", array)
 	}
 	return array
+}
+
+func (p *Parser) parseSSLCommand() ast.Expression {
+	command := &ast.SSLExpression{Token: p.curToken}
+	var commandParts []string
+
+	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
+		commandParts = append(commandParts, p.curToken.Literal)
+		p.nextToken()
+	}
+
+	command.Command = &ast.Identifier{Token: command.Token, Value: strings.Join(commandParts, " ")}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSSLCommand Command: %s\n", command.Command.Value)
+	}
+
+	return command
 }
 
 func (p *Parser) parseVariableOrArrayAccess() ast.Expression {
@@ -1115,32 +1104,6 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 	return expr
 }
 
-func (p *Parser) parsePoolStatement() *ast.ExpressionStatement {
-	stmt := &ast.ExpressionStatement{Token: p.curToken}
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parsePoolStatement Start\n")
-	}
-
-	callExpr := &ast.CallExpression{
-		Token:    p.curToken,
-		Function: &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
-	}
-
-	if !p.expectPeek(token.IDENT) {
-		p.errors = append(p.errors, "ERROR: parsePoolStatement Expected IDENT")
-		return nil
-	}
-
-	argument := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	callExpr.Arguments = append(callExpr.Arguments, argument)
-
-	stmt.Expression = callExpr
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parsePoolStatement END\n")
-	}
-	return stmt
-}
-
 func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Start parseSwitchStatement\n")
@@ -1280,47 +1243,21 @@ func (p *Parser) parseLoadBalancerCommand() ast.Expression {
 	command := &ast.LoadBalancerExpression{Token: p.curToken}
 	var commandParts []string
 
-	// Check if the command starts with an opening bracket
-	if p.curTokenIs(token.LBRACKET) {
-		// Parse the command until the closing bracket
-		for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
-			p.nextToken()
-			if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.LBRACE) {
-				break
-			}
-			commandParts = append(commandParts, p.curToken.Literal)
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseLoadBalancerCommand Adding to command %s\n", p.curToken.Literal)
-			}
-		}
-
-		// Expect the closing bracket after parsing the command
-		if !p.expectPeek(token.RBRACKET) {
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseLoadBalancerCommand Expected RBRACKET, got %s\n", p.peekToken.Type)
-			}
-			return nil
-		}
-	} else {
-		// Parse the command without brackets
-		for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) {
-			commandParts = append(commandParts, p.curToken.Literal)
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseLoadBalancerCommand Adding to command %s\n", p.curToken.Literal)
-			}
-			p.nextToken()
+	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
+		commandParts = append(commandParts, p.curToken.Literal)
+		p.nextToken()
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseLoadBalancerCommand Adding to command %s\n", p.curToken.Literal)
 		}
 	}
 
 	// Combine all parts into a single command string
-	command.Command = &ast.Identifier{Token: p.curToken, Value: strings.Join(commandParts, " ")}
-	if config.DebugMode {
-		fmt.Printf("DEBUG:  parseLoadBalancerCommand Command: %v\n", command.Command.Value)
-	}
+	command.Command = &ast.Identifier{Token: command.Token, Value: strings.Join(commandParts, " ")}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: End parseLoadBalancerCommand. Current token: %s, Next token: %s\n", p.curToken.Type, p.peekToken.Type)
+		fmt.Printf("DEBUG: parseLoadBalancerCommand End. Command: %v\n", command.Command.Value)
 	}
+
 	return command
 }
 
@@ -1363,47 +1300,85 @@ func (p *Parser) isValidWhenEvent(t token.TokenType) bool {
 	return false
 }
 
-func (p *Parser) parseSSLCommand() ast.Expression {
+func (p *Parser) parseStringOperation() ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseSSLCommand Start\n")
-		fmt.Printf("DEBUG: parseSSLCommand Current token: %+v\n", p.curToken)
-		fmt.Printf("DEBUG: parseSSLCommand Peek token: %+v\n", p.peekToken)
-	}
-	command := &ast.SSLExpression{Token: p.curToken}
-	var commandParts []string
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseSSLCommand Token=%+v\n", command.Token)
+		fmt.Printf("DEBUG: parseStringOperation Start. Current token: %v\n", p.curToken.Literal)
 	}
 
-	// Consume the opening bracket if we're not already on it
-	if p.curTokenIs(token.LBRACKET) {
-		p.nextToken()
+	stringOp := &ast.StringOperation{
+		Token:    p.curToken,
+		Function: p.curToken.Literal,
 	}
 
-	// Parse the command until the closing bracket
-	for !p.curTokenIs(token.RBRACKET) && !p.curTokenIs(token.EOF) {
-		commandParts = append(commandParts, p.curToken.Literal)
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseSSLCommand Adding to command %s\n", p.curToken.Literal)
-		}
-		p.nextToken()
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+	stringOp.Operation = p.curToken.Literal
+
+	if !p.expectPeek(token.LBRACKET) {
+		return nil
+	}
+	p.nextToken()
+
+	if p.isHttpKeyword(p.curToken.Type) {
+		stringOp.Argument = p.parseHttpCommand()
+	} else {
+		stringOp.Argument = p.parseExpression(LOWEST)
 	}
 
-	// Expect the closing bracket
-	if !p.curTokenIs(token.RBRACKET) {
-		p.errors = append(p.errors, fmt.Sprintf("parseSSLCommand Expected ], got %s instead", p.curToken.Literal))
+	if !p.expectPeek(token.RBRACKET) {
 		return nil
 	}
 
-	// Combine all parts into a single command string
-	command.Command = &ast.Identifier{Token: p.curToken, Value: strings.Join(commandParts, " ")}
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseSSLCommand Command: %v\n", command.Command.Value)
-		fmt.Printf("DEBUG: parseSSLCommand END. Current token: %s, Next token: %s\n", p.curToken.Type, p.peekToken.Type)
+		fmt.Printf("DEBUG: parseStringOperation End. Result: %v\n", stringOp)
 	}
 
-	// Check if the command starts with an opening bracket
+	return stringOp
+}
 
-	return command
+func (p *Parser) parseStartsWith(left ast.Expression) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStartsWith Start. Left expression: %v\n", left)
+	}
+
+	expression := &ast.InfixExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+
+	precedence := p.curPrecedence()
+	p.nextToken()
+	expression.Right = p.parseExpression(precedence)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStartsWith End. Result: %v\n", expression)
+	}
+
+	return expression
+}
+
+func (p *Parser) parsePoolStatement() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parsePoolStatement Start\n")
+	}
+
+	poolStmt := &ast.CallExpression{
+		Token:    p.curToken,
+		Function: &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+	}
+
+	if !p.expectPeek(token.IDENT) {
+		p.errors = append(p.errors, "ERROR: parsePoolStatement Expected IDENT")
+		return nil
+	}
+
+	argument := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	poolStmt.Arguments = append(poolStmt.Arguments, argument)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parsePoolStatement END\n")
+	}
+	return poolStmt
 }
