@@ -1,0 +1,14 @@
+when HTTP_REQUEST {
+    # Extract the URI path
+    set uri_path [string tolower [HTTP::path]]
+
+    # Check if the host header contains a specific string
+    if {[string contains "example.com" [HTTP::host]]} {
+        log local0. "Request from example.com"
+
+        # Nested expression to check if the URI contains "/api"
+        if {[string match "/api*" $uri_path]} {
+            log local0. "API request"
+        }
+    }
+}
