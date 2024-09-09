@@ -563,6 +563,9 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseBlockStatement loop. Current token: %s\n", p.curToken.Literal)
+		}
 		stmt := p.parseStatement()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
@@ -799,7 +802,7 @@ func (p *Parser) parseSetExpression() ast.Expression {
 
 func (p *Parser) parseArrayLiteral() ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseArrayLiteral Start\n")
+		fmt.Printf("DEBUG: parseArrayLiteral Start. Current token: %s\n", p.curToken.Literal)
 	}
 
 	array := &ast.ArrayLiteral{Token: p.curToken}
@@ -850,8 +853,19 @@ func (p *Parser) parseSSLCommand() ast.Expression {
 	var commandParts []string
 
 	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseArrayLiteral loop. Current token: %s\n", p.curToken.Literal)
+		}
 		commandParts = append(commandParts, p.curToken.Literal)
 		p.nextToken()
+	}
+
+	if !p.curTokenIs(token.RBRACKET) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseArrayLiteral Error: Expected ], got %s\n", p.curToken.Literal)
+		}
+		p.errors = append(p.errors, "Expected closing bracket in array literal")
+		return nil
 	}
 
 	command.Command = &ast.Identifier{Token: command.Token, Value: strings.Join(commandParts, " ")}
@@ -1333,6 +1347,9 @@ func (p *Parser) parseStringOperation() ast.Expression {
 	}
 
 	if !p.expectPeek(token.IDENT) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseStringOperation Error: Expected IDENT, got %s\n", p.peekToken.Literal)
+		}
 		return nil
 	}
 	stringOp.Operation = p.curToken.Literal
