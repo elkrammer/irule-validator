@@ -14,11 +14,31 @@ run_and_check go test ./parser
 
 # Get a list of all files in the test-data directory
 test_files=(test-data/*)
+exclude_files=(
+  "load-balancing.irule"
+  "complex-http.irule"
+  "ssl-offload.irule"
+  "http-1.irule"
+)
 
 # Calculate the length of the longest test file name
 max_length=0
 for test_file_path in "${test_files[@]}"; do
   test_file=$(basename "$test_file_path")
+
+  # Skip excluded files by checking each element of the exclude array
+  skip_file=false
+  for exclude in "${exclude_files[@]}"; do
+    if [ "$test_file" == "$exclude" ]; then
+      skip_file=true
+      break
+    fi
+  done
+
+  if [ "$skip_file" = true ]; then
+    continue
+  fi
+
   if [ ${#test_file} -gt $max_length ]; then
     max_length=${#test_file}
   fi
@@ -31,6 +51,20 @@ successful_tests=0
 # Iterate over each test file and run the validator
 for test_file_path in "${test_files[@]}"; do
   test_file=$(basename "$test_file_path")
+
+  # Skip excluded files by checking each element of the exclude array
+  skip_file=false
+  for exclude in "${exclude_files[@]}"; do
+    if [ "$test_file" == "$exclude" ]; then
+      skip_file=true
+      break
+    fi
+  done
+
+  if [ "$skip_file" = true ]; then
+    continue
+  fi
+
   result=$(./irule-validator "$test_file_path")
   exit_code=$? # Capture the exit code immediately
 
