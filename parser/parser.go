@@ -161,7 +161,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.PLUS, p.parseInfixExpression)
 	p.registerInfix(token.SLASH, p.parseInfixExpression)
 	p.registerInfix(token.STARTS_WITH, p.parseInfixExpression)
-	p.registerInfix(token.ENDS_WITH, p.parseInfixExpression)
+	p.registerInfix(token.EndS_WITH, p.parseInfixExpression)
 	p.registerInfix(token.MATCHES, p.parseInfixExpression)
 	p.registerInfix(token.AND, p.parseInfixExpression)
 	p.registerInfix(token.OR, p.parseInfixExpression)
@@ -271,7 +271,7 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStatement END - Parsed: %T\n", stmt)
+		fmt.Printf("DEBUG: parseStatement End - Parsed: %T\n", stmt)
 	}
 	return stmt
 }
@@ -362,7 +362,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpressionStatement END, expression type: %T\n", stmt.Expression)
+		fmt.Printf("DEBUG: parseExpressionStatement End, expression type: %T\n", stmt.Expression)
 	}
 
 	return stmt
@@ -417,7 +417,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpression END, result type: %T\n", leftExp)
+		fmt.Printf("DEBUG: parseExpression End, result type: %T\n", leftExp)
 	}
 
 	return leftExp
@@ -592,7 +592,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseBlockStatement END, statements: %d\n", len(block.Statements))
+		fmt.Printf("DEBUG: parseBlockStatement End, statements: %d\n", len(block.Statements))
 	}
 
 	return block
@@ -938,7 +938,7 @@ func (p *Parser) ParseIRule() *ast.IRuleNode {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: ParseIRule END\n")
+		fmt.Printf("DEBUG: ParseIRule End\n")
 	}
 	return irule
 }
@@ -967,7 +967,7 @@ func (p *Parser) parseWhenNode() *ast.WhenNode {
 	when.Statements = p.parseBlockStatements()
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseWhenNode END\n")
+		fmt.Printf("DEBUG: parseWhenNode End\n")
 	}
 	return when
 }
@@ -1044,7 +1044,7 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseHttpCommand END\n")
+		fmt.Printf("DEBUG: parseHttpCommand End\n")
 	}
 	return expr
 }
@@ -1101,7 +1101,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseIfStatement END\n")
+		fmt.Printf("DEBUG: parseIfStatement End\n")
 	}
 
 	return stmt
@@ -1132,7 +1132,7 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 	expr.Block = p.parseBlockStatement()
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseWhenExpression END\n")
+		fmt.Printf("DEBUG: parseWhenExpression End\n")
 	}
 
 	return expr
@@ -1465,7 +1465,7 @@ func (p *Parser) parsePoolStatement() ast.Expression {
 	poolStmt.Arguments = append(poolStmt.Arguments, argument)
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parsePoolStatement END\n")
+		fmt.Printf("DEBUG: parsePoolStatement End\n")
 	}
 	return poolStmt
 }
