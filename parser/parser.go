@@ -838,7 +838,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	}
 
 	if !p.expectPeek(token.RBRACKET) {
-		p.errors = append(p.errors, "Expected closing bracket in array literal")
+		p.errors = append(p.errors, "ERROR: parseArrayLiteral - Expected closing bracket")
 		return nil
 	}
 
@@ -1354,19 +1354,24 @@ func (p *Parser) parseStringOperation() ast.Expression {
 	}
 	stringOp.Operation = p.curToken.Literal
 
-	if !p.expectPeek(token.LBRACKET) {
-		return nil
-	}
+	// Parse the first argument
 	p.nextToken()
+	stringOp.Argument = p.parseExpression(LOWEST)
 
-	if p.isHttpKeyword(p.curToken.Type) {
-		stringOp.Argument = p.parseHttpCommand()
-	} else {
-		stringOp.Argument = p.parseExpression(LOWEST)
-	}
+	// Check if there's a second argument (for operations like 'contains' or 'starts_with')
+	if p.peekTokenIs(token.IDENT) && (p.peekToken.Literal == "contains" || p.peekToken.Literal == "starts_with") {
+		p.nextToken() // Move to the operator
+		operator := p.curToken.Literal
+		p.nextToken() // Move to the second argument
+		secondArg := p.parseExpression(LOWEST)
 
-	if !p.expectPeek(token.RBRACKET) {
-		return nil
+		// Combine both arguments into a single expression
+		stringOp.Argument = &ast.InfixExpression{
+			Token:    token.Token{Type: token.IDENT, Literal: operator},
+			Left:     stringOp.Argument,
+			Operator: operator,
+			Right:    secondArg,
+		}
 	}
 
 	if config.DebugMode {
