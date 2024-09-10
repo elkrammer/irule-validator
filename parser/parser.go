@@ -826,9 +826,9 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			array.Elements = append(array.Elements, httpExpr)
 		}
 	} else if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
-		stringOp := p.parseStringOperation()
-		if stringOp != nil {
-			array.Elements = append(array.Elements, stringOp)
+		expr := p.parseStringOperation()
+		if expr != nil {
+			array.Elements = append(array.Elements, expr)
 		}
 	} else {
 		expr := p.parseExpression(LOWEST)
@@ -1346,32 +1346,42 @@ func (p *Parser) parseStringOperation() ast.Expression {
 		Function: p.curToken.Literal,
 	}
 
-	if !p.expectPeek(token.IDENT) {
+	// Expect the operation (tolower, contains, starts_with, etc.)
+	if !p.expectPeek(token.IDENT) && !p.peekTokenIs(token.CONTAINS) && !p.peekTokenIs(token.STARTS_WITH) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseStringOperation Error: Expected IDENT, got %s\n", p.peekToken.Literal)
+			fmt.Printf("DEBUG: parseStringOperation Error: Expected IDENT, CONTAINS, or STARTS_WITH, got %s\n", p.peekToken.Literal)
 		}
 		return nil
 	}
+	p.nextToken()
 	stringOp.Operation = p.curToken.Literal
 
-	// Parse the first argument
-	p.nextToken()
-	stringOp.Argument = p.parseExpression(LOWEST)
-
-	// Check if there's a second argument (for operations like 'contains' or 'starts_with')
-	if p.peekTokenIs(token.IDENT) && (p.peekToken.Literal == "contains" || p.peekToken.Literal == "starts_with") {
-		p.nextToken() // Move to the operator
-		operator := p.curToken.Literal
-		p.nextToken() // Move to the second argument
-		secondArg := p.parseExpression(LOWEST)
-
-		// Combine both arguments into a single expression
-		stringOp.Argument = &ast.InfixExpression{
-			Token:    token.Token{Type: token.IDENT, Literal: operator},
-			Left:     stringOp.Argument,
-			Operator: operator,
-			Right:    secondArg,
+	// Parse arguments
+	args := []ast.Expression{}
+	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
+		p.nextToken()
+		arg := p.parseExpression(LOWEST)
+		if arg != nil {
+			args = append(args, arg)
 		}
+	}
+
+	if len(args) == 1 {
+		stringOp.Argument = args[0]
+	} else if len(args) == 2 {
+		stringOp.Argument = &ast.InfixExpression{
+			Token:    p.curToken,
+			Left:     args[0],
+			Operator: stringOp.Operation,
+			Right:    args[1],
+		}
+	} else {
+		p.errors = append(p.errors, fmt.Sprintf("Expected 1 or 2 arguments for string operation, got %d", len(args)))
+		return nil
+	}
+
+	if !p.expectPeek(token.RBRACKET) {
+		return nil
 	}
 
 	if config.DebugMode {
