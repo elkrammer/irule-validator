@@ -1367,12 +1367,16 @@ func (p *Parser) parseStringOperation() ast.Expression {
 	}
 
 	// Check for the operation (contains, starts_with, tolower, etc.)
-	if !p.expectPeek(token.IDENT) && !p.expectPeek(token.CONTAINS) && !p.expectPeek(token.STARTS_WITH) {
+	if !p.expectPeek(token.IDENT) &&
+		!p.expectPeek(token.CONTAINS) &&
+		!p.expectPeek(token.STARTS_WITH) &&
+		!p.expectPeek(token.MATCH) {
 		if config.DebugMode {
 			fmt.Printf("ERROR: parseStringOperation Error: Expected IDENT, CONTAINS, or STARTS_WITH, got %s\n", p.peekToken.Literal)
 		}
 		return nil
 	}
+
 	stringOp.Operation = p.curToken.Literal
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringOperation - Operation: %s\n", stringOp.Operation)
@@ -1394,7 +1398,7 @@ func (p *Parser) parseStringOperation() ast.Expression {
 
 	// Handle different operations
 	switch stringOp.Operation {
-	case "tolower", "toupper":
+	case "tolower", "toupper", "match":
 		if len(args) != 1 {
 			if config.DebugMode {
 				fmt.Printf("DEBUG: parseStringOperation Error: %s operation expects 1 argument, got %d\n", stringOp.Operation, len(args))
