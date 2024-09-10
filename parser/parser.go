@@ -1366,17 +1366,10 @@ func (p *Parser) parseStringOperation() ast.Expression {
 		Function: p.curToken.Literal,
 	}
 
-	// Check for the operation (contains, starts_with, tolower, etc.)
-	if !p.expectPeek(token.IDENT) &&
-		!p.expectPeek(token.CONTAINS) &&
-		!p.expectPeek(token.STARTS_WITH) &&
-		!p.expectPeek(token.MATCH) {
-		if config.DebugMode {
-			fmt.Printf("ERROR: parseStringOperation Error: Expected IDENT, CONTAINS, or STARTS_WITH, got %s\n", p.peekToken.Literal)
-		}
-		return nil
-	}
+	// Check for the operation (contains, starts_with, tolower, match, etc.)
+	p.nextToken() // Move to the operation token
 
+	// Accept any token type for the operation
 	stringOp.Operation = p.curToken.Literal
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringOperation - Operation: %s\n", stringOp.Operation)
@@ -1384,7 +1377,7 @@ func (p *Parser) parseStringOperation() ast.Expression {
 
 	// Parse arguments
 	var args []ast.Expression
-	for p.peekTokenIs(token.LBRACKET) || p.peekTokenIs(token.STRING) {
+	for p.peekTokenIs(token.LBRACKET) || p.peekTokenIs(token.STRING) || p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.DOLLAR) {
 		p.nextToken()
 		arg := p.parseExpression(LOWEST)
 		if arg == nil {
@@ -1396,25 +1389,25 @@ func (p *Parser) parseStringOperation() ast.Expression {
 		args = append(args, arg)
 	}
 
-	// Handle different operations
-	switch stringOp.Operation {
-	case "tolower", "toupper", "match":
-		if len(args) != 1 {
+	stringOp.Arguments = args
+
+	// Validate number of arguments
+	expectedArgs := map[string]int{
+		"tolower":     1,
+		"toupper":     1,
+		"match":       2,
+		"contains":    2,
+		"starts_with": 2,
+	}
+
+	if expected, ok := expectedArgs[stringOp.Operation]; ok {
+		if len(args) != expected {
 			if config.DebugMode {
-				fmt.Printf("DEBUG: parseStringOperation Error: %s operation expects 1 argument, got %d\n", stringOp.Operation, len(args))
+				fmt.Printf("DEBUG: parseStringOperation Error: %s operation expects %d argument(s), got %d\n", stringOp.Operation, expected, len(args))
 			}
 			return nil
 		}
-		stringOp.Arguments = args
-	case "contains", "starts_with":
-		if len(args) != 2 {
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseStringOperation Error: %s operation expects 2 arguments, got %d\n", stringOp.Operation, len(args))
-			}
-			return nil
-		}
-		stringOp.Arguments = args
-	default:
+	} else {
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseStringOperation Error: Unknown string operation %s\n", stringOp.Operation)
 		}
