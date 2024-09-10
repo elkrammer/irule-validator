@@ -810,40 +810,60 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 
 	p.nextToken() // Move past the opening bracket
 
-	if p.isSSLKeyword(p.curToken.Type) {
-		sslExpr := p.parseSSLCommand()
-		if sslExpr != nil {
-			array.Elements = append(array.Elements, sslExpr)
+	// Handle nested array or expression
+	for !p.curTokenIs(token.RBRACKET) && !p.curTokenIs(token.EOF) {
+		var expr ast.Expression
+
+		if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
+			expr = p.parseStringOperation()
+		} else if p.curTokenIs(token.LBRACKET) {
+			expr = p.parseArrayLiteral() // Handle nested array
+		} else if p.isHttpKeyword(p.curToken.Type) {
+			expr = p.parseHttpCommand()
+		} else if p.isSSLKeyword(p.curToken.Type) {
+			expr = p.parseSSLCommand()
+		} else if p.isLbKeyword(p.curToken.Type) {
+			expr = p.parseLoadBalancerCommand()
+		} else {
+			expr = p.parseExpression(LOWEST)
 		}
-	} else if p.isLbKeyword(p.curToken.Type) {
-		lbExpr := p.parseLoadBalancerCommand()
-		if lbExpr != nil {
-			array.Elements = append(array.Elements, lbExpr)
-		}
-	} else if p.isHttpKeyword(p.curToken.Type) {
-		httpExpr := p.parseHttpCommand()
-		if httpExpr != nil {
-			array.Elements = append(array.Elements, httpExpr)
-		}
-	} else if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
-		expr := p.parseStringOperation()
+
 		if expr != nil {
 			array.Elements = append(array.Elements, expr)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseArrayLiteral - Added element: %T\n", expr)
+			}
+		} else {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseArrayLiteral Error - Failed to parse element\n")
+			}
+			return nil
 		}
-	} else {
-		expr := p.parseExpression(LOWEST)
-		if expr != nil {
-			array.Elements = append(array.Elements, expr)
+
+		// Break if we've reached the end of the array
+		if p.peekTokenIs(token.RBRACKET) {
+			break
+		}
+
+		// Move to next token if it's not the closing bracket
+		if !p.curTokenIs(token.RBRACKET) {
+			p.nextToken()
 		}
 	}
 
 	if !p.expectPeek(token.RBRACKET) {
-		p.errors = append(p.errors, "ERROR: parseArrayLiteral - Expected closing bracket")
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseArrayLiteral - Expected closing bracket, got %s", p.curToken.Literal))
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseArrayLiteral Error - Expected closing bracket, got %s\n", p.curToken.Literal)
+		}
 		return nil
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseArrayLiteral End. Array: %v\n", array)
+		fmt.Printf("DEBUG: parseArrayLiteral End. Array elements: %d\n", len(array.Elements))
+		for i, elem := range array.Elements {
+			fmt.Printf("DEBUG: parseArrayLiteral - Element %d: %T\n", i, elem)
+		}
 	}
 	return array
 }
@@ -1346,42 +1366,49 @@ func (p *Parser) parseStringOperation() ast.Expression {
 		Function: p.curToken.Literal,
 	}
 
-	// Expect the operation (tolower, contains, starts_with, etc.)
-	if !p.expectPeek(token.IDENT) && !p.peekTokenIs(token.CONTAINS) && !p.peekTokenIs(token.STARTS_WITH) {
+	// Check for the operation (contains, starts_with, etc.)
+	if !p.expectPeek(token.CONTAINS) && !p.expectPeek(token.STARTS_WITH) && !p.expectPeek(token.IDENT) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseStringOperation Error: Expected IDENT, CONTAINS, or STARTS_WITH, got %s\n", p.peekToken.Literal)
+			fmt.Printf("DEBUG: parseStringOperation Error: Expected CONTAINS, STARTS_WITH, or IDENT, got %s\n", p.peekToken.Literal)
 		}
 		return nil
 	}
-	p.nextToken()
 	stringOp.Operation = p.curToken.Literal
-
-	// Parse arguments
-	args := []ast.Expression{}
-	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
-		p.nextToken()
-		arg := p.parseExpression(LOWEST)
-		if arg != nil {
-			args = append(args, arg)
-		}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringOperation - Operation: %s\n", stringOp.Operation)
 	}
 
-	if len(args) == 1 {
-		stringOp.Argument = args[0]
-	} else if len(args) == 2 {
-		stringOp.Argument = &ast.InfixExpression{
-			Token:    p.curToken,
-			Left:     args[0],
-			Operator: stringOp.Operation,
-			Right:    args[1],
+	// Parse the first argument
+	p.nextToken()
+	firstArg := p.parseExpression(LOWEST)
+	if firstArg == nil {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseStringOperation Error: Failed to parse first argument\n")
 		}
-	} else {
-		p.errors = append(p.errors, fmt.Sprintf("Expected 1 or 2 arguments for string operation, got %d", len(args)))
 		return nil
 	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringOperation - First argument: %v\n", firstArg)
+	}
 
-	if !p.expectPeek(token.RBRACKET) {
+	// Parse the second argument
+	p.nextToken()
+	secondArg := p.parseExpression(LOWEST)
+	if secondArg == nil {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseStringOperation Error: Failed to parse second argument\n")
+		}
 		return nil
+	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringOperation - Second argument: %v\n", secondArg)
+	}
+
+	stringOp.Argument = &ast.InfixExpression{
+		Token:    token.Token{Type: token.IDENT, Literal: stringOp.Operation},
+		Left:     firstArg,
+		Operator: stringOp.Operation,
+		Right:    secondArg,
 	}
 
 	if config.DebugMode {
@@ -1390,6 +1417,77 @@ func (p *Parser) parseStringOperation() ast.Expression {
 
 	return stringOp
 }
+
+// func (p *Parser) parseStringOperation() ast.Expression {
+// 	if config.DebugMode {
+// 		fmt.Printf("DEBUG: parseStringOperation Start. Current token: %v\n", p.curToken.Literal)
+// 	}
+//
+// 	stringOp := &ast.StringOperation{
+// 		Token:    p.curToken,
+// 		Function: p.curToken.Literal,
+// 	}
+//
+// 	if !p.expectPeek(token.IDENT) && !p.peekTokenIs(token.CONTAINS) && !p.peekTokenIs(token.STARTS_WITH) {
+// 		if config.DebugMode {
+// 			fmt.Printf("DEBUG: parseStringOperation Error: Expected IDENT, CONTAINS, or STARTS_WITH, got %s\n", p.peekToken.Literal)
+// 		}
+// 		return nil
+// 	}
+// 	p.nextToken()
+// 	stringOp.Operation = p.curToken.Literal
+// 	if config.DebugMode {
+// 		fmt.Printf("DEBUG: parseStringOperation - Operation: %s\n", stringOp.Operation)
+// 	}
+//
+// 	// Parse the first argument
+// 	p.nextToken()
+// 	firstArg := p.parseExpression(LOWEST)
+// 	if firstArg == nil {
+// 		if config.DebugMode {
+// 			fmt.Printf("DEBUG: parseStringOperation Error: Failed to parse first argument\n")
+// 		}
+// 		return nil
+// 	}
+// 	if config.DebugMode {
+// 		fmt.Printf("DEBUG: parseStringOperation - First argument: %v\n", firstArg)
+// 	}
+//
+// 	// Check if there's a second operation (like starts_with)
+// 	if p.peekTokenIs(token.STARTS_WITH) || p.peekTokenIs(token.CONTAINS) {
+// 		p.nextToken()
+// 		secondOp := p.curToken.Literal
+// 		p.nextToken()
+// 		secondArg := p.parseExpression(LOWEST)
+// 		if secondArg == nil {
+// 			if config.DebugMode {
+// 				fmt.Printf("DEBUG: parseStringOperation Error: Failed to parse second argument\n")
+// 			}
+// 			return nil
+// 		}
+// 		if config.DebugMode {
+// 			fmt.Printf("DEBUG: parseStringOperation - Second operation: %s, Second argument: %v\n", secondOp, secondArg)
+// 		}
+//
+// 		// Create a nested InfixExpression
+// 		innerInfix := &ast.InfixExpression{
+// 			Token:    token.Token{Type: token.IDENT, Literal: secondOp},
+// 			Left:     firstArg,
+// 			Operator: secondOp,
+// 			Right:    secondArg,
+// 		}
+//
+// 		stringOp.Argument = innerInfix
+// 	} else {
+// 		stringOp.Argument = firstArg
+// 	}
+//
+// 	if config.DebugMode {
+// 		fmt.Printf("DEBUG: parseStringOperation End. Result: %v\n", stringOp)
+// 	}
+//
+// 	return stringOp
+// }
 
 func (p *Parser) parseStartsWith(left ast.Expression) ast.Expression {
 	if config.DebugMode {
