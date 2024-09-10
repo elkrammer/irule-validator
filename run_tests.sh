@@ -16,9 +16,7 @@ run_and_check go test ./parser
 test_files=(test-data/*)
 exclude_files=(
   "load-balancing.irule"
-  "complex-http.irule"
   "ssl-offload.irule"
-  "http-1.irule"
 )
 
 # Calculate the length of the longest test file name
