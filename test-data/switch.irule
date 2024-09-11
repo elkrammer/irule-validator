@@ -1,5 +1,10 @@
 switch -glob [HTTP::uri] {
   "/images/*" { pool image_pool }
   "/videos/*" { pool video_pool }
+  "/api*" {
+    set uri [string map -nocase {"/api" "/"} [HTTP::uri]]
+    HTTP::uri $uri
+    HTTP::host "api.google.com"
+  }
   default { pool default_pool }
 }
