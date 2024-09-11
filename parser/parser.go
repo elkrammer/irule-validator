@@ -835,7 +835,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			}
 		} else {
 			if config.DebugMode {
-				fmt.Printf("DEBUG: parseArrayLiteral Error - Failed to parse element\n")
+				fmt.Printf("ERROR: parseArrayLiteral Error - Failed to parse element\n")
 			}
 			return nil
 		}
@@ -869,23 +869,18 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 }
 
 func (p *Parser) parseSSLCommand() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSSLCommand Start. Current token: %s\n", p.curToken.Literal)
+	}
 	command := &ast.SSLExpression{Token: p.curToken}
 	var commandParts []string
 
 	for !p.peekTokenIs(token.RBRACKET) && !p.peekTokenIs(token.EOF) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseArrayLiteral loop. Current token: %s\n", p.curToken.Literal)
+			fmt.Printf("DEBUG: parseSSLCommand loop. Current token: %s\n", p.curToken.Literal)
 		}
 		commandParts = append(commandParts, p.curToken.Literal)
 		p.nextToken()
-	}
-
-	if !p.curTokenIs(token.RBRACKET) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseArrayLiteral Error: Expected ], got %s\n", p.curToken.Literal)
-		}
-		p.errors = append(p.errors, "Expected closing bracket in array literal")
-		return nil
 	}
 
 	command.Command = &ast.Identifier{Token: command.Token, Value: strings.Join(commandParts, " ")}
