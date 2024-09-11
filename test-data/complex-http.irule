@@ -1,0 +1,30 @@
+when HTTP_REQUEST {
+    # Extract the URI path
+    set uri_path [string tolower [HTTP::path]]
+
+    # Check if the host header contains a specific string
+    if {[string contains "example.com" [HTTP::host]]} {
+        log local0. "Request from example.com"
+
+        # Nested expression to check if the URI contains "/api"
+        if {[string match "/api*" $uri_path]} {
+            log local0. "API request"
+        }
+    }
+
+#    # Perform routing based on the URI path using switch
+#    switch -glob $uri_path {
+#        "/api*" {
+#            log local0. "Routing /api to internal IP 10.0.0.1"
+#            # Redirect to internal IP address
+#            HTTP::redirect "http://10.0.0.1[HTTP::uri]"
+#        }
+#        "/healthcheck" {
+#            log local0. "Routing /healthcheck to external domain health.example.com"
+#            HTTP::redirect "https://health.example.com"
+#        }
+#        default {
+#            log local0. "Default request, no action taken"
+#        }
+#    }
+}

@@ -245,6 +245,8 @@ func (l *Lexer) NextToken() token.Token {
 				tok.Literal = "eq"
 			case "starts_with":
 				tok.Type = token.STARTS_WITH
+			case "contains":
+				tok.Type = token.CONTAINS
 			case "default":
 				tok.Type = token.DEFAULT
 				tok.Literal = "default"

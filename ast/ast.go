@@ -686,10 +686,10 @@ func (se *SSLExpression) String() string {
 }
 
 type StringOperation struct {
-	Token     token.Token // The 'string' token
-	Function  string      // The string function (e.g., "tolower")
-	Operation string      // The operation (e.g., "tolower")
-	Argument  Expression  // The argument to the string operation
+	Token     token.Token  // The 'string' token
+	Function  string       // The string function (e.g., "tolower")
+	Operation string       // The operation (e.g., "tolower")
+	Arguments []Expression // The argument to the string operation
 }
 
 func (so *StringOperation) expressionNode()      {}
@@ -699,7 +699,11 @@ func (so *StringOperation) String() string {
 	out.WriteString(so.Function)
 	out.WriteString(" ")
 	out.WriteString(so.Operation)
-	out.WriteString(" ")
-	out.WriteString(so.Argument.String())
+
+	for _, arg := range so.Arguments {
+		out.WriteString(" ")
+		out.WriteString(arg.String())
+	}
+
 	return out.String()
 }
