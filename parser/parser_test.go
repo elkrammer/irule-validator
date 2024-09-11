@@ -582,7 +582,7 @@ func TestF5IRuleConstructs(t *testing.T) {
 		                  default { pool default_pool }
 		              }
 		          `,
-			expectedStatements: 2,
+			expectedStatements: 1,
 			checkFunc:          checkSwitchStatement,
 		},
 	}

@@ -205,7 +205,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
 		} else {
-			fmt.Printf("Failed to parse statement at token: %+v\n", p.curToken) // Debug print
+			fmt.Printf("ERROR: Failed to parse statement at token: %+v\n", p.curToken)
 		}
 
 		p.nextToken()
@@ -313,6 +313,9 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 	// Parse the target (can be an identifier or an expression)
 	stmt.Name = p.parseExpression(LOWEST)
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseSetStatement Statement Name: %v.\n", stmt.Name)
+	}
 
 	if stmt.Name == nil {
 		p.errors = append(p.errors, "ERROR: parseSetStatement: Expected a name for set statement")
@@ -323,6 +326,9 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	if !p.peekTokenIs(token.EOF) {
 		p.nextToken() // Move to the value
 		stmt.Value = p.parseExpression(LOWEST)
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseSetStatement Statement Value: %v.\n", stmt.Value)
+		}
 	}
 
 	// Consume any remaining tokens until EOF or semicolon
@@ -573,7 +579,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 				fmt.Printf("DEBUG: parseBlockStatement: Added statement to block, type: %T\n", stmt)
 			}
 		} else if config.DebugMode {
-			fmt.Printf("DEBUG: Failed to parse statement at token: %+v\n", p.curToken)
+			fmt.Printf("ERROR: Failed to parse statement at token: %+v\n", p.curToken)
 		}
 
 		p.nextToken()
@@ -666,53 +672,6 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 	}
 
 	return hash
-}
-
-func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpressionList Start\n")
-	}
-	list := []ast.Expression{}
-
-	// If the next token is the end token, return an empty list
-	if p.peekTokenIs(end) {
-		p.nextToken() // Consume the end token
-		return list
-	}
-
-	p.nextToken() // Move past the opening bracket
-
-	// Parse expressions until encountering the end token
-	for !p.curTokenIs(end) && !p.curTokenIs(token.EOF) {
-		expr := p.parseExpression(LOWEST)
-		if expr != nil {
-			list = append(list, expr)
-		}
-
-		if p.peekTokenIs(token.COMMA) {
-			p.nextToken() // Consume the comma
-		} else if !p.peekTokenIs(end) {
-			if config.DebugMode {
-				fmt.Printf("ERROR: parseExpressionList - Expected comma or end, got %s\n", p.peekToken.Type)
-			}
-			return nil
-		}
-
-		p.nextToken() // Move to the next token
-	}
-
-	// Ensure that the list is terminated with the end token
-	if !p.expectPeek(end) {
-		if config.DebugMode {
-			fmt.Printf("ERROR: parseExpressionList - Expected end, got %s\n", p.curToken.Type)
-		}
-		return nil
-	}
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpressionList End\n")
-	}
-	return list
 }
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
@@ -835,7 +794,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			}
 		} else {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseArrayLiteral Error - Failed to parse element\n")
+				fmt.Printf("ERROR: parseArrayLiteral - Failed to parse element %T\n", expr)
 			}
 			return nil
 		}
@@ -1174,8 +1133,15 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 				}
 			}
 		} else {
+			return nil // Error occurred in parsing case statement
 			// Skip any unexpected tokens
+			// p.nextToken()
+		}
+
+		// Ensure we're moving forward after each case
+		if p.peekTokenIs(token.RBRACE) {
 			p.nextToken()
+			break
 		}
 	}
 
@@ -1352,90 +1318,59 @@ func (p *Parser) isValidWhenEvent(t token.TokenType) bool {
 }
 
 func (p *Parser) parseStringOperation() ast.Expression {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStringOperation Start. Current token: %v\n", p.curToken.Literal)
-	}
+	stringOp := &ast.StringOperation{Token: p.curToken}
 
-	stringOp := &ast.StringOperation{
-		Token:    p.curToken,
-		Function: p.curToken.Literal,
-	}
-
-	// Check for the operation (contains, starts_with, tolower, match, etc.)
-	p.nextToken() // Move to the operation token
-
-	// Accept any token type for the operation
+	p.nextToken() // Move past 'string'
 	stringOp.Operation = p.curToken.Literal
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStringOperation - Operation: %s\n", stringOp.Operation)
-	}
 
-	// Parse arguments
 	var args []ast.Expression
-	for p.peekTokenIs(token.LBRACKET) || p.peekTokenIs(token.STRING) || p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.DOLLAR) {
+	for p.peekToken.Type != token.RBRACKET && p.peekToken.Type != token.EOF {
 		p.nextToken()
-		arg := p.parseExpression(LOWEST)
-		if arg == nil {
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseStringOperation Error: Failed to parse argument\n")
+		if p.curTokenIs(token.MINUS) && p.peekTokenIs(token.IDENT) {
+			args = append(args, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal + p.peekToken.Literal})
+			p.nextToken() // Skip the identifier after '-'
+		} else if p.curTokenIs(token.LBRACE) {
+			mapArg := p.parseMapArgument()
+			if mapArg != nil {
+				args = append(args, mapArg)
 			}
-			return nil
+		} else {
+			arg := p.parseExpression(LOWEST)
+			if arg != nil {
+				args = append(args, arg)
+			}
 		}
-		args = append(args, arg)
 	}
 
 	stringOp.Arguments = args
-
-	// Validate number of arguments
-	expectedArgs := map[string]int{
-		"tolower":     1,
-		"toupper":     1,
-		"match":       2,
-		"contains":    2,
-		"starts_with": 2,
-	}
-
-	if expected, ok := expectedArgs[stringOp.Operation]; ok {
-		if len(args) != expected {
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseStringOperation Error: %s operation expects %d argument(s), got %d\n", stringOp.Operation, expected, len(args))
-			}
-			return nil
-		}
-	} else {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseStringOperation Error: Unknown string operation %s\n", stringOp.Operation)
-		}
-		return nil
-	}
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStringOperation End. Result: %s %s %v\n", stringOp.Function, stringOp.Operation, stringOp.Arguments)
-	}
-
 	return stringOp
 }
 
-func (p *Parser) parseStartsWith(left ast.Expression) ast.Expression {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStartsWith Start. Left expression: %v\n", left)
+func (p *Parser) parseMapArgument() ast.Expression {
+	mapArg := &ast.MapLiteral{Token: p.curToken}
+	mapArg.Pairs = make(map[ast.Expression]ast.Expression)
+
+	for !p.peekTokenIs(token.RBRACE) {
+		p.nextToken() // Move to the key
+		key := p.parseExpression(LOWEST)
+
+		if !p.expectPeek(token.STRING) {
+			return nil
+		}
+
+		value := p.parseExpression(LOWEST)
+		mapArg.Pairs[key] = value
+
+		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+			return nil
+		}
 	}
 
-	expression := &ast.InfixExpression{
-		Token:    p.curToken,
-		Operator: p.curToken.Literal,
-		Left:     left,
+	if !p.expectPeek(token.RBRACE) {
+		return nil
 	}
 
-	precedence := p.curPrecedence()
-	p.nextToken()
-	expression.Right = p.parseExpression(precedence)
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStartsWith End. Result: %v\n", expression)
-	}
-
-	return expression
+	return mapArg
 }
 
 func (p *Parser) parsePoolStatement() ast.Expression {

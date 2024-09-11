@@ -74,14 +74,9 @@ func (i *Identifier) TokenLiteral() string {
 	return i.Value
 }
 
-// Statements
-
-// SET Statement
 type SetStatement struct {
 	Token token.Token
 	Name  Expression
-	// Name  *Identifier
-	// Index Expression
 	Value Expression
 }
 
@@ -93,12 +88,6 @@ func (ls *SetStatement) String() string {
 
 	out.WriteString(ls.TokenLiteral() + " ")
 	out.WriteString(ls.Name.String())
-
-	// if ls.Index != nil {
-	// 	out.WriteString("(")
-	// 	out.WriteString(ls.Index.String())
-	// 	out.WriteString(")")
-	// }
 
 	if ls.Value != nil {
 		out.WriteString(" ")
@@ -704,6 +693,29 @@ func (so *StringOperation) String() string {
 		out.WriteString(" ")
 		out.WriteString(arg.String())
 	}
+
+	return out.String()
+}
+
+// MapLiteral represents a map literal in the AST
+type MapLiteral struct {
+	Token token.Token // the token.LBRACE token
+	Pairs map[Expression]Expression
+}
+
+func (ml *MapLiteral) expressionNode()      {}
+func (ml *MapLiteral) TokenLiteral() string { return ml.Token.Literal }
+func (ml *MapLiteral) String() string {
+	var out bytes.Buffer
+
+	pairs := []string{}
+	for key, value := range ml.Pairs {
+		pairs = append(pairs, key.String()+" "+value.String())
+	}
+
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
 
 	return out.String()
 }
