@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -11,14 +10,13 @@ import (
 	"github.com/elkrammer/irule-validator/lexer"
 	"github.com/elkrammer/irule-validator/parser"
 	"github.com/elkrammer/irule-validator/repl"
+	"github.com/spf13/pflag"
 )
 
 func main() {
-	debug := flag.Bool("debug", false, "Run in debug mode")
-	flag.Parse()
-	config.DebugMode = *debug
+	config.SetupFlags()
+	args := pflag.Args()
 
-	args := flag.Args()
 	if len(args) == 0 {
 		repl.Start(os.Stdin, os.Stdout)
 		return
@@ -39,15 +37,17 @@ func main() {
 	l := lexer.New(string(content))
 	p := parser.New(l)
 
-	program := p.ParseProgram()
+	p.ParseProgram()
 	if len(p.Errors()) != 0 {
-		printParserErrors(os.Stdout, p.Errors())
-		fmt.Printf("❌ There were errors parsing this program\n")
+		if config.PrintErrors {
+			printParserErrors(os.Stdout, p.Errors())
+		}
+		fmt.Printf("❌ Errors parsing irule %v\n", filename)
 		os.Exit(1)
 	}
 
 	// You can add further processing of the parsed program here if needed
-	fmt.Printf("✅ Successfully parsed program with %d statements\n", len(program.Statements))
+	fmt.Printf("✅ Successfully parsed irule %v\n", filename)
 }
 
 func printParserErrors(out io.Writer, errors []string) {
