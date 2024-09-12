@@ -325,22 +325,23 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	// Parse the value
 	if !p.peekTokenIs(token.EOF) {
 		p.nextToken() // Move to the value
-		stmt.Value = p.parseExpression(LOWEST)
+
+		if p.curTokenIs(token.LBRACKET) {
+			stmt.Value = p.parseArrayLiteral()
+		} else {
+			stmt.Value = p.parseExpression(LOWEST)
+		}
+
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseSetStatement Statement Value: %v.\n", stmt.Value)
 		}
 	}
 
-	// Consume any remaining tokens until EOF or semicolon
-	// for !p.curTokenIs(token.EOF) && !p.curTokenIs(token.SEMICOLON) {
-	// 	p.nextToken()
-	// }
-
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Set statement name type: %T\n", stmt.Name)
-		fmt.Printf("DEBUG: Set statement name: %v\n", stmt.Name)
-		fmt.Printf("DEBUG: Set statement value type: %T\n", stmt.Value)
-		fmt.Printf("DEBUG: Set statement value: %v\n", stmt.Value)
+		fmt.Printf("DEBUG: parseSetStatement name type: %T\n", stmt.Name)
+		fmt.Printf("DEBUG: parseSetStatement statement name: %v\n", stmt.Name)
+		fmt.Printf("DEBUG: parseSetStatement value type: %T\n", stmt.Value)
+		fmt.Printf("DEBUG: parseSetStatement value: %v\n", stmt.Value)
 		fmt.Printf("DEBUG: parseSetStatement End\n")
 	}
 
@@ -388,6 +389,11 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		return p.parseClassCommand()
 	}
 
+	// check if it's a HTTP Command
+	if p.curTokenIs(token.IDENT) && strings.HasPrefix(p.curToken.Literal, "HTTP::") {
+		return p.parseHttpCommand()
+	}
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		if config.DebugMode {
@@ -422,13 +428,13 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 		p.nextToken()
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Parsing infix expression, operator: %s\n", p.curToken.Literal)
+			fmt.Printf("DEBUG: parseExpression Parsing infix expression, operator: %s\n", p.curToken.Literal)
 		}
 		leftExp = infix(leftExp)
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpression End, result type: %T\n", leftExp)
+		fmt.Printf("DEBUG: parseExpression End, result type: %T, value: %v\n", leftExp, leftExp)
 	}
 
 	return leftExp
@@ -956,61 +962,32 @@ func (p *Parser) parseBlockStatements() []ast.Statement {
 
 func (p *Parser) parseHttpCommand() ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseHttpCommand Start\n")
+		fmt.Printf("DEBUG: parseHttpCommand Start - Current Token: %s\n", p.curToken.Literal)
 	}
 	expr := &ast.HttpExpression{Token: p.curToken}
 
-	// Check if we're starting with a '[' or '[['
-	if p.curTokenIs(token.LBRACKET) {
-		if p.peekTokenIs(token.LBRACKET) {
-			p.nextToken() // consume second '['
+	fullCommand := p.curToken.Literal
+	_, isValid := lexer.HttpKeywords[fullCommand]
+
+	if !isValid {
+		p.errors = append(p.errors, fmt.Sprintf("Invalid HTTP command: %s", fullCommand))
+		if config.DebugMode {
+			fmt.Printf("ERROR: parseHttpCommand Invalid HTTP command detected: %s\n", fullCommand)
 		}
-		p.nextToken() // consume '['
+		return nil
 	}
 
-	// Parse the HTTP command (e.g., HTTP::header)
-	expr.Command = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if expr.Command.String() == "HTTP::header" {
-		// Parse the header name, which may contain multiple words
-		var headerParts []string
-		for p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.MINUS) || p.peekTokenIs(token.STRING) {
-			p.nextToken()
-			headerParts = append(headerParts, p.curToken.Literal)
-		}
-
-		if len(headerParts) > 0 {
-			headerName := strings.Join(headerParts, "")
-			expr.Argument = &ast.StringLiteral{
-				Token: token.Token{Type: token.STRING, Literal: headerName},
-				Value: headerName,
-			}
-			if config.DebugMode {
-				fmt.Printf("DEBUG: parseHttpCommand successfully parsed http::header arg %+v\n", expr.Argument)
-			}
-		}
-	}
-
-	// If we started with '[' or '[[', expect closing ']' or ']]'
-	if p.curToken.Type == token.LBRACKET {
-		if !p.expectPeek(token.RBRACKET) {
-			p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand: Expected closing bracket after HTTP command, got %s", p.peekToken.Type))
-			return nil
-		}
-		if p.peekTokenIs(token.RBRACKET) {
-			p.nextToken() // consume second ']'
-		}
-	}
+	expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseHttpCommand End\n")
+		fmt.Printf("DEBUG: parseHttpCommand End - Command: %s\n", fullCommand)
 	}
 	return expr
 }
 
 func (p *Parser) parseIfStatement() *ast.IfStatement {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseIfStatement Start\n")
+		fmt.Printf("DEBUG: parseIfStatement Start - curToken: %s\n", p.curToken.Literal)
 	}
 	stmt := &ast.IfStatement{Token: p.curToken}
 
@@ -1022,15 +999,12 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 
 	p.nextToken() // consume '{'
 
-	// Optionally consume '('
-	if p.peekTokenIs(token.LPAREN) {
-		p.nextToken()
-	}
-
+	// Parse the condition
 	stmt.Condition = p.parseExpression(LOWEST)
 
+	// Expect '}'
 	if !p.expectPeek(token.RBRACE) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement Condition Expected }, got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement: Expected }, got %s", p.curToken.Literal))
 		return nil
 	}
 
@@ -1052,15 +1026,8 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 		stmt.Alternative = p.parseBlockStatement()
 	}
 
-	// Handle EOF
-	if p.curTokenIs(token.EOF) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: Reached EOF while parsing if statement. Brace count: %d\n", p.braceCount)
-		}
-	}
-
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseIfStatement End\n")
+		fmt.Printf("DEBUG: parseIfStatement End - Condition: %T\n", stmt.Condition)
 	}
 
 	return stmt

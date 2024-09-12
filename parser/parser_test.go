@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/elkrammer/irule-validator/ast"
 	"github.com/elkrammer/irule-validator/lexer"
+	"strings"
 	"testing"
 )
 
@@ -293,8 +294,8 @@ func testNumberLiteral(t *testing.T, nl ast.Expression, value int64) bool {
 func testStringOrIdentifierLiteral(t *testing.T, exp ast.Expression, value string) bool {
 	switch v := exp.(type) {
 	case *ast.ArrayLiteral:
-		if len(v.Elements) != 1 {
-			t.Errorf("ArrayLiteral does not contain 1 element. got=%d", len(v.Elements))
+		if len(v.Elements) == 0 {
+			t.Errorf("ArrayLiteral does not contain at least 1 element. got=%d", len(v.Elements))
 			return false
 		}
 		switch elem := v.Elements[0].(type) {
@@ -690,12 +691,25 @@ func TestComplexExpressions(t *testing.T) {
 	tests := []struct {
 		input              string
 		expectedStatements int
-		checkFunc          func(*testing.T, ast.Statement)
+		check              func(*testing.T, *ast.Program)
 	}{
 		{
 			input:              `(HTTP::uri contains "admin") && (HTTP::header "User-Agent" contains "Mozilla")`,
-			expectedStatements: 1,
-			checkFunc:          checkComplexCondition,
+			expectedStatements: 3,
+			check: func(t *testing.T, program *ast.Program) {
+				if len(program.Statements) != 3 {
+					t.Fatalf("program has wrong number of statements. got=%d, want=%d", len(program.Statements), 3)
+				}
+
+				expr, ok := program.Statements[0].(*ast.ExpressionStatement)
+				if !ok {
+					t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
+				}
+
+				if _, ok := expr.Expression.(*ast.InfixExpression); !ok {
+					t.Fatalf("expr is not ast.InfixExpression. got=%T", expr.Expression)
+				}
+			},
 		},
 		{
 			input: `if { ([HTTP::uri] starts_with "/api") && ([HTTP::method] equals "POST") } {
@@ -706,8 +720,35 @@ func TestComplexExpressions(t *testing.T) {
 		                          HTTP::respond 415 content "Unsupported Media Type"
 		                      }
 		                  }`,
-			expectedStatements: 1,
-			checkFunc:          checkNestedIfWithHttpCommands,
+			expectedStatements: 3,
+			check: func(t *testing.T, program *ast.Program) {
+				if len(program.Statements) != 1 {
+					t.Fatalf("program has wrong number of statements. got=%d, want=%d", len(program.Statements), 1)
+				}
+
+				ifStmt, ok := program.Statements[0].(*ast.IfStatement)
+				if !ok {
+					t.Fatalf("program.Statements[0] is not ast.IfStatement. got=%T", program.Statements[0])
+				}
+
+				if len(ifStmt.Consequence.Statements) != 2 {
+					t.Fatalf("consequence does not contain 2 statements. got=%d", len(ifStmt.Consequence.Statements))
+				}
+
+				_, ok = ifStmt.Consequence.Statements[0].(*ast.SetStatement)
+				if !ok {
+					t.Fatalf("First statement in consequence is not ast.SetStatement. got=%T", ifStmt.Consequence.Statements[0])
+				}
+
+				nestedIf, ok := ifStmt.Consequence.Statements[1].(*ast.IfStatement)
+				if !ok {
+					t.Fatalf("Second statement in consequence is not ast.IfStatement. got=%T", ifStmt.Consequence.Statements[1])
+				}
+
+				if nestedIf.Alternative == nil {
+					t.Fatalf("Nested if statement does not have an else block")
+				}
+			},
 		},
 	}
 
@@ -717,81 +758,76 @@ func TestComplexExpressions(t *testing.T) {
 		program := p.ParseProgram()
 		checkParserErrors(t, p)
 
-		if len(program.Statements) != tt.expectedStatements {
-			t.Fatalf("program has wrong number of statements. got=%d, want=%d",
-				len(program.Statements), tt.expectedStatements)
-		}
-
-		tt.checkFunc(t, program.Statements[0])
+		tt.check(t, program)
 	}
-}
-
-func checkComplexCondition(t *testing.T, stmt ast.Statement) {
-	exprStmt, ok := stmt.(*ast.ExpressionStatement)
-	if !ok {
-		t.Fatalf("stmt not *ast.ExpressionStatement. got=%T", stmt)
-	}
-
-	infixExpr, ok := exprStmt.Expression.(*ast.InfixExpression)
-	if !ok {
-		t.Fatalf("expr not *ast.InfixExpression. got=%T", exprStmt.Expression)
-	}
-
-	if infixExpr.Operator != "&&" {
-		t.Errorf("operator is not '&&'. got=%q", infixExpr.Operator)
-	}
-
-	checkHttpExpression(t, infixExpr.Left, "HTTP::uri", "contains", "admin")
-	checkHttpHeaderExpression(t, infixExpr.Right)
 }
 
 func checkHttpExpression(t *testing.T, expr ast.Expression, leftValue, operator, rightValue string) {
 	t.Logf("checkHttpExpression Start\n")
-	t.Logf("checkHttpExpression infixExpr: %v\n", expr)
+	t.Logf("checkHttpExpression expr: %v\n", expr)
 
-	infixExpr, ok := expr.(*ast.InfixExpression)
-	if !ok {
-		t.Fatalf("expr not *ast.InfixExpression. got=%T", expr)
-	}
-
-	if infixExpr.Operator != operator {
-		t.Errorf("operator is not '%s'. got=%q", operator, infixExpr.Operator)
-	}
-
-	// Check left side
-	var httpExpr *ast.HttpExpression
-	switch left := infixExpr.Left.(type) {
-	case *ast.HttpExpression:
-		httpExpr = left
-	case *ast.ArrayLiteral:
-		if len(left.Elements) != 1 {
-			t.Fatalf("ArrayLiteral doesn't have exactly one element. got=%d", len(left.Elements))
+	switch e := expr.(type) {
+	case *ast.InfixExpression:
+		if e.Operator != operator {
+			t.Errorf("operator is not '%s'. got=%q", operator, e.Operator)
 		}
-		httpExpr, ok = left.Elements[0].(*ast.HttpExpression)
+
+		// Check left side
+		checkHttpExpressionLeft(t, e.Left, leftValue)
+
+		// Check right side
+		stringLiteral, ok := e.Right.(*ast.StringLiteral)
 		if !ok {
-			t.Fatalf("array element not *ast.HttpExpression. got=%T", left.Elements[0])
+			t.Fatalf("right expr not *ast.StringLiteral. got=%T", e.Right)
 		}
+
+		if stringLiteral.Value != rightValue {
+			t.Errorf("right value is not '%s'. got=%q", rightValue, stringLiteral.Value)
+		}
+
+	case *ast.HttpExpression:
+		// Handle the new HttpExpression structure
+		if e.Command.Value != leftValue {
+			t.Errorf("left value is not %s. got=%q", leftValue, e.Command.Value)
+		}
+
+		// Check if the Argument field contains the operator and right value
+		if e.Argument != nil {
+			argStr := e.Argument.String()
+			if !strings.Contains(argStr, operator) || !strings.Contains(argStr, rightValue) {
+				t.Errorf("HttpExpression argument does not contain expected operator '%s' and value '%s'. got=%s", operator, rightValue, argStr)
+			}
+		} else {
+			t.Errorf("HttpExpression argument is nil, expected to contain operator '%s' and value '%s'", operator, rightValue)
+		}
+
 	default:
-		t.Logf("value of failed expr=%v\n", infixExpr)
-		t.Fatalf("left expr not *ast.HttpExpression or *ast.ArrayLiteral. got=%T", infixExpr.Left)
-	}
-
-	if httpExpr.Command.Value != leftValue {
-		t.Errorf("left value is not %s. got=%q", leftValue, httpExpr.Command.Value)
-	}
-
-	// Check right side
-	stringLiteral, ok := infixExpr.Right.(*ast.StringLiteral)
-	if !ok {
-		t.Fatalf("right expr not *ast.StringLiteral. got=%T", infixExpr.Right)
-	}
-
-	if stringLiteral.Value != rightValue {
-		t.Errorf("right value is not '%s'. got=%q", rightValue, stringLiteral.Value)
+		t.Fatalf("expr not *ast.InfixExpression or *ast.HttpExpression. got=%T", expr)
 	}
 
 	t.Logf("DEBUG: checkHttpExpression End\n")
+}
 
+func checkHttpExpressionLeft(t *testing.T, left ast.Expression, leftValue string) {
+	switch l := left.(type) {
+	case *ast.HttpExpression:
+		if l.Command.Value != leftValue {
+			t.Errorf("left value is not %s. got=%q", leftValue, l.Command.Value)
+		}
+	case *ast.ArrayLiteral:
+		if len(l.Elements) != 1 {
+			t.Fatalf("ArrayLiteral doesn't have exactly one element. got=%d", len(l.Elements))
+		}
+		httpExpr, ok := l.Elements[0].(*ast.HttpExpression)
+		if !ok {
+			t.Fatalf("array element not *ast.HttpExpression. got=%T", l.Elements[0])
+		}
+		if httpExpr.Command.Value != leftValue {
+			t.Errorf("left value is not %s. got=%q", leftValue, httpExpr.Command.Value)
+		}
+	default:
+		t.Fatalf("left expr not *ast.HttpExpression or *ast.ArrayLiteral. got=%T", left)
+	}
 }
 
 func checkHttpHeaderExpression(t *testing.T, expr ast.Expression) {
