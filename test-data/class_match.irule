@@ -1,0 +1,6 @@
+when HTTP_REQUEST {
+    set host_header [HTTP::host]
+    if { [class match $host_header equals datagroup] } {
+      HTTP::respond 302 Location "https://site.com"
+    }
+}

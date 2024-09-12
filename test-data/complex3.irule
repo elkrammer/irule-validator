@@ -1,0 +1,82 @@
+when HTTP_REQUEST {
+    # Log the client IP and requested URI
+    log local0. "Client IP: [IP::client_addr], URI: [HTTP::uri]"
+
+    # Extract the host header
+    set host_header [HTTP::host]
+    log local0. "Host Header: $host_header"
+
+    # Check if the host is in a data group
+    if { [class match $host_header equals my_datagroup] } {
+        # Redirect to maintenance page if host is in maintenance list
+        log local0. "Host is in maintenance mode, redirecting..."
+        HTTP::respond 302 Location "http://maintenance.mysite.com"
+    } else {
+        log local0. "Host is not in maintenance mode, processing normally."
+
+        # Check for specific cookie presence
+        if { [HTTP::cookie exists "UserSession"] } {
+            set session_cookie [HTTP::cookie "UserSession"]
+            log local0. "UserSession cookie found: $session_cookie"
+
+            # Extract the token from the cookie
+            if { [string match {*-*} $session_cookie] } {
+                # Token-based routing logic
+                set token [lindex [split $session_cookie "-"] 0]
+                log local0. "Routing based on token: $token"
+
+                # Route based on the first part of the token (e.g., datacenter or customer)
+                switch -exact $token {
+                    "DC1" {
+                        pool datacenter1_pool
+                    }
+                    "DC2" {
+                        pool datacenter2_pool
+                    }
+                    default {
+                        log local0. "Unknown token, using default pool"
+                        pool default_pool
+                    }
+                }
+            } else {
+                log local0. "Invalid session token, using default pool"
+                pool default_pool
+            }
+        } else {
+            log local0. "No UserSession cookie, using default pool"
+            pool default_pool
+        }
+    }
+}
+
+when CLIENTSSL_HANDSHAKE {
+    # Check if the client certificate is valid (for mutual TLS)
+    if { [SSL::cert count] > 0 } {
+        log local0. "Client certificate detected"
+        set cert_subject [X509::subject [SSL::cert 0]]
+        log local0. "Client certificate subject: $cert_subject"
+
+        # Perform custom logic based on client certificate attributes
+        if { [string match "*OU=TrustedClient*" $cert_subject] } {
+            log local0. "Trusted client, allowing connection"
+            set ssl_accepted 1
+        } else {
+            log local0. "Untrusted client, rejecting connection"
+            reject
+        }
+    } else {
+        log local0. "No client certificate presented"
+        set ssl_accepted 0
+    }
+}
+
+when HTTP_RESPONSE {
+    # Modify response headers for cache control
+    HTTP::header remove "Cache-Control"
+    HTTP::header insert "Cache-Control" "no-cache, no-store, must-revalidate"
+    log local0. "Modified Cache-Control header in response"
+
+    # Insert custom header for troubleshooting
+    HTTP::header insert "X-Debug-ID" "debug12345"
+    log local0. "Inserted X-Debug-ID header in response"
+}

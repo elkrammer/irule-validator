@@ -970,7 +970,7 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	_, isValid := lexer.HttpKeywords[fullCommand]
 
 	if !isValid {
-		p.errors = append(p.errors, fmt.Sprintf("Invalid HTTP command: %s", fullCommand))
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand Invalid HTTP command: %s", fullCommand))
 		if config.DebugMode {
 			fmt.Printf("ERROR: parseHttpCommand Invalid HTTP command detected: %s\n", fullCommand)
 		}

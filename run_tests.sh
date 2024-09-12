@@ -14,7 +14,10 @@ run_and_check go test ./parser
 
 # Get a list of all files in the test-data directory
 test_files=(test-data/*)
-exclude_files=()
+exclude_files=(
+  "complex3.irule"
+  "class_match.irule"
+)
 
 # Initialize counters and arrays to store results
 total_tests=0
