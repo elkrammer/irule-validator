@@ -719,3 +719,28 @@ func (ml *MapLiteral) String() string {
 
 	return out.String()
 }
+
+type ClassCommand struct {
+	Token      token.Token
+	Subcommand string
+	Options    []Expression
+	Arguments  []Expression
+}
+
+func (cc *ClassCommand) expressionNode()      {}
+func (cc *ClassCommand) TokenLiteral() string { return cc.Token.Literal }
+func (cc *ClassCommand) String() string {
+	var out bytes.Buffer
+	out.WriteString("class ")
+	out.WriteString(cc.Subcommand)
+	for _, opt := range cc.Options {
+		out.WriteString(" [")
+		out.WriteString(opt.String())
+		out.WriteString("]")
+	}
+	for _, arg := range cc.Arguments {
+		out.WriteString(" ")
+		out.WriteString(arg.String())
+	}
+	return out.String()
+}

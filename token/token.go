@@ -149,6 +149,7 @@ const (
 	CONTAINS    = "contains"
 	MATCH       = "match"
 	MATCHES     = "matches"
+	CLASS       = "class"
 
 	// Additional control structures
 	SWITCH  = "switch"
@@ -176,16 +177,17 @@ var keywords = map[string]TokenType{
 	"starts_with": STARTS_WITH,
 	"set":         SET,
 	"contains":    CONTAINS,
-	"match":       MATCH,
 	"elseif":      ELSEIF,
 	"switch":      SWITCH,
 	"case":        CASE,
 	"default":     DEFAULT,
 	"array":       ARRAY,
+	"match":       MATCH,
 	"matches":     MATCHES,
 	"ends_with":   ENDS_WITH,
 	"equals":      EQ,
 	"eq":          EQ,
+	"class":       CLASS,
 
 	// F5 Event Contexts
 	"HTTP_REQUEST":        HTTP_REQUEST,

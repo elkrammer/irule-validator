@@ -383,6 +383,11 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		return p.parseStringOperation()
 	}
 
+	// Special case for 'class' commands
+	if p.curTokenIs(token.CLASS) {
+		return p.parseClassCommand()
+	}
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		if config.DebugMode {
@@ -1395,4 +1400,57 @@ func (p *Parser) parsePoolStatement() ast.Expression {
 		fmt.Printf("DEBUG: parsePoolStatement End\n")
 	}
 	return poolStmt
+}
+
+func (p *Parser) parseClassCommand() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseClassCommand Start - curToken: %v, peekToken: %v\n", p.curToken.Literal, p.peekToken.Literal)
+	}
+
+	expression := &ast.ClassCommand{
+		Token: p.curToken, // This should be the 'class' token
+	}
+
+	// Advance to the subcommand
+	if !p.expectPeek(token.MATCH) {
+		if config.DebugMode {
+			fmt.Printf("ERROR: parseClassCommand Expected 'match', got %v\n", p.curToken.Literal)
+		}
+		return nil
+	}
+	expression.Subcommand = p.curToken.Literal
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseClassCommand Subcommand: %v\n", expression.Subcommand)
+	}
+
+	return p.parseClassMatchOrSearch(expression)
+}
+
+func (p *Parser) parseClassMatchOrSearch(cmd *ast.ClassCommand) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseClassMatchOrSearch Start - curToken: %v (type: %v), peekToken: %v (type: %v)\n",
+			p.curToken.Literal, p.curToken.Type, p.peekToken.Literal, p.peekToken.Type)
+	}
+
+	// Parse item (should be a variable)
+	p.nextToken()
+	item := p.parseExpression(LOWEST)
+	cmd.Arguments = append(cmd.Arguments, item)
+
+	// Parse operator
+	p.nextToken()
+	operator := p.parseExpression(LOWEST)
+	cmd.Arguments = append(cmd.Arguments, operator)
+
+	// Parse class name
+	p.nextToken()
+	className := p.parseExpression(LOWEST)
+	cmd.Arguments = append(cmd.Arguments, className)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseClassMatchOrSearch End - Arguments: %v\n", cmd.Arguments)
+	}
+
+	return cmd
 }

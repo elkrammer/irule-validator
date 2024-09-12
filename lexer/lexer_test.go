@@ -123,7 +123,7 @@ when HTTP_REQUEST {
 		{token.ELSEIF, "elseif"},
 		{token.LBRACE, "{"},
 		{token.LBRACKET, "["},
-		{token.IDENT, "class"},
+		{token.CLASS, "class"},
 		{token.MATCH, "match"},
 		{token.LBRACKET, "["},
 		{token.IP_CLIENT_ADDR, "IP::client_addr"},
