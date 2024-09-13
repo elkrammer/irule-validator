@@ -411,6 +411,15 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 	leftExp := prefix()
 
+	// special handling for string literals
+	if stringLit, ok := leftExp.(*ast.StringLiteral); ok {
+		leftExp = p.parseStringLiteralContents(stringLit)
+		if leftExp == nil {
+			// Error occurred in parsing string contents
+			return nil
+		}
+	}
+
 	for !p.peekTokenIs(token.SEMICOLON) && !p.peekTokenIs(token.EOF) && precedence < p.peekPrecedence() {
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseExpression loop, current: %s, peek: %s, precedence: %d, peek precedence: %d\n",
@@ -1420,4 +1429,66 @@ func (p *Parser) parseClassMatchOrSearch(cmd *ast.ClassCommand) ast.Expression {
 	}
 
 	return cmd
+}
+
+func (p *Parser) parseStringLiteralContents(stringLit *ast.StringLiteral) ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringLiteralContents Start - Value: %s\n", stringLit.Value)
+	}
+
+	parts := []ast.Expression{}
+	value := stringLit.Value
+	start := 0
+	hasError := false
+
+	for i := 0; i < len(value); i++ {
+		if value[i] == '[' {
+			if i > start {
+				parts = append(parts, &ast.StringLiteral{Token: stringLit.Token, Value: value[start:i]})
+			}
+			start = i + 1
+			end := strings.IndexByte(value[start:], ']')
+			if end == -1 {
+				p.errors = append(p.errors, "ERROR: parseStringLiteralContents - Unterminated [ in string literal")
+				hasError = true
+				break
+			}
+			end += start
+			token := value[start:end]
+			if strings.Contains(token, "::") { // Check if it looks like an HTTP token
+				_, isValid := lexer.HttpKeywords[token]
+				if isValid {
+					parts = append(parts, &ast.HttpExpression{Token: stringLit.Token, Command: &ast.Identifier{Value: token}})
+				} else {
+					p.errors = append(p.errors, fmt.Sprintf("ERROR: parseStringLiteralContents - Invalid HTTP token in string: %s", token))
+					hasError = true
+				}
+			} else {
+				parts = append(parts, &ast.StringLiteral{Token: stringLit.Token, Value: "[" + token + "]"})
+			}
+			i = end
+			start = end + 1
+		}
+	}
+
+	if hasError {
+		if config.DebugMode {
+			fmt.Printf("ERROR: parseStringLiteralContents End - Error detected\n")
+		}
+		return nil
+	}
+
+	if start < len(value) {
+		parts = append(parts, &ast.StringLiteral{Token: stringLit.Token, Value: value[start:]})
+	}
+
+	if len(parts) == 1 {
+		return parts[0]
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringLiteralContents End - Parts: %d\n", len(parts))
+	}
+
+	return &ast.InterpolatedString{Token: stringLit.Token, Parts: parts}
 }

@@ -744,3 +744,22 @@ func (cc *ClassCommand) String() string {
 	}
 	return out.String()
 }
+
+// InterpolatedString represents a string that may contain embedded expressions
+type InterpolatedString struct {
+	Token token.Token // the token containing the string literal
+	Parts []Expression
+}
+
+func (is *InterpolatedString) expressionNode()      {}
+func (is *InterpolatedString) TokenLiteral() string { return is.Token.Literal }
+
+func (is *InterpolatedString) String() string {
+	var out bytes.Buffer
+
+	for _, part := range is.Parts {
+		out.WriteString(part.String())
+	}
+
+	return out.String()
+}
