@@ -230,12 +230,12 @@ func (l *Lexer) NextToken() token.Token {
 		}
 	default:
 		// Check for number
-		if isDigit(l.ch) || (l.ch == '-' && isDigit(l.peekChar())) {
+		if IsDigit(l.ch) || (l.ch == '-' && IsDigit(l.peekChar())) {
 			return l.readNumberOrIpAddress()
 		}
 
 		// Check for identifier
-		if isLetter(l.ch) {
+		if IsLetter(l.ch) {
 			tok.Literal = l.readIdentifier()
 			switch tok.Literal {
 			case "IP::client_addr":
@@ -247,6 +247,8 @@ func (l *Lexer) NextToken() token.Token {
 				tok.Type = token.STARTS_WITH
 			case "contains":
 				tok.Type = token.CONTAINS
+			case "foreach":
+				tok.Type = token.FOREACH
 			case "default":
 				tok.Type = token.DEFAULT
 				tok.Literal = "default"
@@ -271,17 +273,17 @@ func (l *Lexer) NextToken() token.Token {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' || l.ch == ':' || l.ch == '.' {
+	for IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '_' || l.ch == ':' || l.ch == '.' {
 		l.readChar()
 	}
 	return l.input[position:l.position]
 }
 
-func isLetter(ch byte) bool {
+func IsLetter(ch byte) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' || ch == ':' || ch == '.'
 }
 
-func isDigit(ch byte) bool {
+func IsDigit(ch byte) bool {
 	return '0' <= ch && ch <= '9'
 }
 
@@ -359,7 +361,7 @@ func (l *Lexer) readString() string {
 func (l *Lexer) readVariable() string {
 	position := l.position
 	l.readChar() // consume $
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' {
+	for IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '_' {
 		l.readChar()
 	}
 	return l.input[position:l.position]
@@ -367,7 +369,7 @@ func (l *Lexer) readVariable() string {
 
 func (l *Lexer) peekWord() string {
 	position := l.position
-	for isLetter(l.ch) || l.ch == ':' || l.ch == '_' {
+	for IsLetter(l.ch) || l.ch == ':' || l.ch == '_' {
 		l.readChar()
 	}
 	word := l.input[position:l.position]
@@ -385,7 +387,7 @@ func (l *Lexer) readNumberOrIpAddress() token.Token {
 		l.readChar()
 	}
 
-	for isDigit(l.ch) {
+	for IsDigit(l.ch) {
 		l.readChar()
 	}
 
@@ -401,7 +403,7 @@ func (l *Lexer) readNumberOrIpAddress() token.Token {
 
 func (l *Lexer) readIpAddress(startPosition int) token.Token {
 	dotCount := 0
-	for isDigit(l.ch) || l.ch == '.' {
+	for IsDigit(l.ch) || l.ch == '.' {
 		if l.ch == '.' {
 			dotCount++
 			if dotCount > 3 {

@@ -46,14 +46,16 @@ const (
 	RBRACKET = "]"
 
 	// KEYWORDS
-	IF     = "IF"
-	ELSE   = "ELSE"
-	ELSEIF = "ELSEIF"
-	RETURN = "RETURN"
-	TRUE   = "TRUE"
-	FALSE  = "FALSE"
-	ARRAY  = "ARRAY"
-	SET    = "SET"
+	IF      = "IF"
+	ELSE    = "ELSE"
+	ELSEIF  = "ELSEIF"
+	RETURN  = "RETURN"
+	TRUE    = "TRUE"
+	FALSE   = "FALSE"
+	ARRAY   = "ARRAY"
+	SET     = "SET"
+	FOREACH = "FOREACH"
+	IN      = "IN"
 
 	// HTTP TOKENS
 	HTTP_REQUEST  = "HTTP_REQUEST"
@@ -188,6 +190,8 @@ var keywords = map[string]TokenType{
 	"equals":      EQ,
 	"eq":          EQ,
 	"class":       CLASS,
+	"foreach":     FOREACH,
+	"in":          IN,
 
 	// F5 Event Contexts
 	"HTTP_REQUEST":        HTTP_REQUEST,

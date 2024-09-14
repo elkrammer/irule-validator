@@ -1,1 +1,12 @@
-[HTTP::header User-Agent] starts_with "Mozilla"
+when HTTP_REQUEST {
+  if { [HTTP::header "Host"] starts_with "uat" }  {
+    pool uat_pool
+  } else {
+    pool main_pool
+  }
+
+  foreach header {Server X-Powered-By} {
+    log local0. "Removing $header: [HTTP::header value $header]"
+    HTTP::header remove $header
+  }
+}

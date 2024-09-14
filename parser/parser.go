@@ -240,10 +240,9 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.SET:
 		stmt = p.parseSetStatement()
 		return stmt
+	case token.FOREACH:
+		return p.parseForEachStatement()
 	case token.RETURN:
-		if config.DebugMode {
-			fmt.Printf("DEBUG: Calling parseReturnStatement\n")
-		}
 		stmt = p.parseReturnStatement()
 	case token.IDENT:
 		return p.parseExpressionStatement()
@@ -392,6 +391,11 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	// check if it's a HTTP Command
 	if p.curTokenIs(token.IDENT) && strings.HasPrefix(p.curToken.Literal, "HTTP::") {
 		return p.parseHttpCommand()
+	}
+
+	// check if it's a list literal
+	if p.curTokenIs(token.LBRACE) {
+		return p.parseListLiteral()
 	}
 
 	prefix := p.prefixParseFns[p.curToken.Type]
@@ -1431,64 +1435,144 @@ func (p *Parser) parseClassMatchOrSearch(cmd *ast.ClassCommand) ast.Expression {
 	return cmd
 }
 
-func (p *Parser) parseStringLiteralContents(stringLit *ast.StringLiteral) ast.Expression {
+func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStringLiteralContents Start - Value: %s\n", stringLit.Value)
+		fmt.Printf("DEBUG: parseStringLiteralContents Start - Value: %s\n", s.Value)
 	}
 
 	parts := []ast.Expression{}
-	value := stringLit.Value
-	start := 0
-	hasError := false
+	currentPart := ""
+	inCommand := false
 
-	for i := 0; i < len(value); i++ {
-		if value[i] == '[' {
-			if i > start {
-				parts = append(parts, &ast.StringLiteral{Token: stringLit.Token, Value: value[start:i]})
+	for i := 0; i < len(s.Value); i++ {
+		if s.Value[i] == '[' && !inCommand {
+			if currentPart != "" {
+				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
+				currentPart = ""
 			}
-			start = i + 1
-			end := strings.IndexByte(value[start:], ']')
-			if end == -1 {
-				p.errors = append(p.errors, "ERROR: parseStringLiteralContents - Unterminated [ in string literal")
-				hasError = true
-				break
+			inCommand = true
+			commandStart := i + 1
+			for i < len(s.Value) && s.Value[i] != ']' {
+				i++
 			}
-			end += start
-			token := value[start:end]
-			if strings.Contains(token, "::") { // Check if it looks like an HTTP token
-				_, isValid := lexer.HttpKeywords[token]
-				if isValid {
-					parts = append(parts, &ast.HttpExpression{Token: stringLit.Token, Command: &ast.Identifier{Value: token}})
-				} else {
-					p.errors = append(p.errors, fmt.Sprintf("ERROR: parseStringLiteralContents - Invalid HTTP token in string: %s", token))
-					hasError = true
-				}
-			} else {
-				parts = append(parts, &ast.StringLiteral{Token: stringLit.Token, Value: "[" + token + "]"})
+			if i < len(s.Value) {
+				command := s.Value[commandStart:i]
+				parts = append(parts, &ast.HttpExpression{Token: s.Token, Command: &ast.Identifier{Token: s.Token, Value: command}})
 			}
-			i = end
-			start = end + 1
+			inCommand = false
+		} else if s.Value[i] == '$' && i+1 < len(s.Value) && !inCommand {
+			if currentPart != "" {
+				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
+				currentPart = ""
+			}
+			i++
+			identStart := i
+			for i < len(s.Value) && (lexer.IsLetter(s.Value[i]) || lexer.IsDigit(s.Value[i]) || s.Value[i] == '_') {
+				i++
+			}
+			identifier := s.Value[identStart:i]
+			parts = append(parts, &ast.Identifier{Token: s.Token, Value: identifier})
+			i-- // Step back as the loop will increment i
+		} else {
+			currentPart += string(s.Value[i])
 		}
 	}
 
-	if hasError {
-		if config.DebugMode {
-			fmt.Printf("ERROR: parseStringLiteralContents End - Error detected\n")
-		}
-		return nil
-	}
-
-	if start < len(value) {
-		parts = append(parts, &ast.StringLiteral{Token: stringLit.Token, Value: value[start:]})
+	if currentPart != "" {
+		parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
 	}
 
 	if len(parts) == 1 {
 		return parts[0]
 	}
-
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringLiteralContents End - Parts: %d\n", len(parts))
 	}
 
-	return &ast.InterpolatedString{Token: stringLit.Token, Parts: parts}
+	return &ast.InterpolatedString{Token: s.Token, Parts: parts}
+}
+
+func (p *Parser) parseForEachStatement() ast.Statement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseForEachStatement Start\n")
+	}
+	stmt := &ast.ForEachStatement{Token: p.curToken}
+
+	if !p.expectPeek(token.IDENT) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseForEachStatement Expected IDENT, got: %v\n", p.curToken.Literal)
+		}
+		return nil
+	}
+	stmt.Variable = p.curToken.Literal
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseForEachStatement Variable: %v\n", stmt.Variable)
+	}
+
+	p.nextToken() // Move to the list expression
+
+	// Parse the list expression
+	stmt.List = p.parseExpression(LOWEST)
+	if stmt.List == nil {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseForEachStatement Failed to parse list\n")
+		}
+		return nil
+	}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseForEachStatement List: %+v\n", stmt.List)
+	}
+
+	if !p.expectPeek(token.LBRACE) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseForEachStatement Expected LBRACE, got: %v\n", p.curToken.Literal)
+		}
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseForEachStatement Body: %+v\n", stmt.Body)
+		fmt.Printf("DEBUG: parseForEachStatement End, Final Statement: %+v\n", stmt)
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseListLiteral() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseListLiteral Start\n")
+	}
+	list := &ast.ListLiteral{Token: p.curToken}
+	list.Elements = []ast.Expression{}
+
+	p.nextToken() // Move past '{'
+
+	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		elem := p.parseExpression(LOWEST)
+		if elem != nil {
+			list.Elements = append(list.Elements, elem)
+		}
+
+		// If we're not at the end of the list, expect a space
+		if !p.peekTokenIs(token.RBRACE) {
+			if !p.expectPeek(token.IDENT) {
+				return nil
+			}
+		} else {
+			break
+		}
+	}
+
+	if !p.expectPeek(token.RBRACE) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseListLiteral Expected RBRACE but got %s\n", p.curToken.Type)
+		}
+		return nil
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseListLiteral End\n")
+	}
+	return list
 }

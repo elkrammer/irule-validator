@@ -367,9 +367,9 @@ func (al *ListLiteral) String() string {
 		elements = append(elements, el.String())
 	}
 
-	out.WriteString("[")
+	out.WriteString("{")
 	out.WriteString(strings.Join(elements, " "))
-	out.WriteString("]")
+	out.WriteString("}")
 
 	return out.String()
 }
@@ -753,12 +753,41 @@ type InterpolatedString struct {
 
 func (is *InterpolatedString) expressionNode()      {}
 func (is *InterpolatedString) TokenLiteral() string { return is.Token.Literal }
-
 func (is *InterpolatedString) String() string {
 	var out bytes.Buffer
 
 	for _, part := range is.Parts {
 		out.WriteString(part.String())
+	}
+
+	return out.String()
+}
+
+type ForEachStatement struct {
+	Token    token.Token // the 'foreach' token
+	Variable string
+	List     Expression
+	Body     *BlockStatement
+}
+
+func (fs *ForEachStatement) statementNode()       {}
+func (fs *ForEachStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *ForEachStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("foreach ")
+	out.WriteString(fs.Variable)
+	out.WriteString(" in ")
+	if fs.List != nil {
+		out.WriteString(fs.List.String())
+	} else {
+		out.WriteString("<nil>")
+	}
+	out.WriteString(" ")
+	if fs.Body != nil {
+		out.WriteString(fs.Body.String())
+	} else {
+		out.WriteString("<nil>")
 	}
 
 	return out.String()
