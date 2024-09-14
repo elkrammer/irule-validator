@@ -1119,8 +1119,6 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 			}
 		} else {
 			return nil // Error occurred in parsing case statement
-			// Skip any unexpected tokens
-			// p.nextToken()
 		}
 
 		// Ensure we're moving forward after each case
@@ -1303,10 +1301,16 @@ func (p *Parser) isValidWhenEvent(t token.TokenType) bool {
 }
 
 func (p *Parser) parseStringOperation() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringOperation Start\n")
+	}
 	stringOp := &ast.StringOperation{Token: p.curToken}
 
 	p.nextToken() // Move past 'string'
 	stringOp.Operation = p.curToken.Literal
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringOperation Operation: %v\n", stringOp.Operation)
+	}
 
 	var args []ast.Expression
 	for p.peekToken.Type != token.RBRACKET && p.peekToken.Type != token.EOF {
@@ -1328,10 +1332,17 @@ func (p *Parser) parseStringOperation() ast.Expression {
 	}
 
 	stringOp.Arguments = args
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseStringOperation Arguments: %v\n", stringOp.Arguments)
+		fmt.Printf("DEBUG: parseStringOperation End\n")
+	}
 	return stringOp
 }
 
 func (p *Parser) parseMapArgument() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseMapArgument Start\n")
+	}
 	mapArg := &ast.MapLiteral{Token: p.curToken}
 	mapArg.Pairs = make(map[ast.Expression]ast.Expression)
 
@@ -1340,6 +1351,9 @@ func (p *Parser) parseMapArgument() ast.Expression {
 		key := p.parseExpression(LOWEST)
 
 		if !p.expectPeek(token.STRING) {
+			if config.DebugMode {
+				fmt.Printf("ERROR: parseMapArgument expected STRING, got %v\n", p.curToken.Literal)
+			}
 			return nil
 		}
 
@@ -1347,12 +1361,19 @@ func (p *Parser) parseMapArgument() ast.Expression {
 		mapArg.Pairs[key] = value
 
 		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+			if config.DebugMode {
+				fmt.Printf("ERROR: parseMapArgument expected RBACE OR COMMA, got %v\n", p.curToken.Literal)
+			}
 			return nil
 		}
 	}
 
 	if !p.expectPeek(token.RBRACE) {
 		return nil
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseMapArgument End\n")
 	}
 
 	return mapArg
@@ -1500,7 +1521,7 @@ func (p *Parser) parseForEachStatement() ast.Statement {
 
 	if !p.expectPeek(token.IDENT) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseForEachStatement Expected IDENT, got: %v\n", p.curToken.Literal)
+			fmt.Printf("ERROR: parseForEachStatement Expected IDENT, got: %v\n", p.curToken.Literal)
 		}
 		return nil
 	}
@@ -1515,7 +1536,7 @@ func (p *Parser) parseForEachStatement() ast.Statement {
 	stmt.List = p.parseExpression(LOWEST)
 	if stmt.List == nil {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseForEachStatement Failed to parse list\n")
+			fmt.Printf("ERROR: parseForEachStatement Failed to parse list\n")
 		}
 		return nil
 	}
@@ -1525,7 +1546,7 @@ func (p *Parser) parseForEachStatement() ast.Statement {
 
 	if !p.expectPeek(token.LBRACE) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseForEachStatement Expected LBRACE, got: %v\n", p.curToken.Literal)
+			fmt.Printf("ERROR: parseForEachStatement Expected LBRACE, got: %v\n", p.curToken.Literal)
 		}
 		return nil
 	}
@@ -1557,6 +1578,9 @@ func (p *Parser) parseListLiteral() ast.Expression {
 		// If we're not at the end of the list, expect a space
 		if !p.peekTokenIs(token.RBRACE) {
 			if !p.expectPeek(token.IDENT) {
+				if config.DebugMode {
+					fmt.Printf("ERROR: parseListLiteral Expected IDENT but got %s\n", p.curToken.Type)
+				}
 				return nil
 			}
 		} else {
@@ -1566,7 +1590,7 @@ func (p *Parser) parseListLiteral() ast.Expression {
 
 	if !p.expectPeek(token.RBRACE) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseListLiteral Expected RBRACE but got %s\n", p.curToken.Type)
+			fmt.Printf("ERROR: parseListLiteral Expected RBRACE but got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
