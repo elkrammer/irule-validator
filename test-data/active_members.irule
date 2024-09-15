@@ -1,0 +1,14 @@
+when HTTP_REQUEST {
+    if {([HTTP::uri] contains "server1")&&([active_members http_pool_server1]>0)} {
+        pool http_pool_server1
+        return
+    }
+    elseif {([HTTP::uri] contains "server2")&&([active_members http_pool_server2]>0)} {
+        pool http_pool_server2
+        return
+    }
+    else{
+        pool Pools_Sorry
+        return
+    }
+}

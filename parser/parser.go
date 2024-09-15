@@ -113,6 +113,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.HTTP_RESPOND, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_URI, p.parseHttpCommand)
 	p.registerPrefix(token.HTTP_HOST, p.parseHttpCommand)
+	p.registerPrefix(token.HTTP_COOKIE, p.parseHttpCommand)
 
 	// load balancer commands
 	p.registerPrefix(token.LB_SELECTED, p.parseLoadBalancerCommand)
@@ -220,7 +221,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 	}
 
 	if p.braceCount != 0 {
-		p.errors = append(p.errors, fmt.Sprintf("Mismatched braces. Final brace count: %d", p.braceCount))
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: Program has mismatched braces. Final brace count: %d", p.braceCount))
 	}
 
 	if config.DebugMode {
@@ -589,7 +590,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	p.nextToken() // consume opening brace
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Entering block statement. Brace count: %d\n", p.braceCount)
+		fmt.Printf("DEBUG: parseBlockStatement Entering block statement. Brace count: %d\n", p.braceCount)
 	}
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
@@ -603,7 +604,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 				fmt.Printf("DEBUG: parseBlockStatement: Added statement to block, type: %T\n", stmt)
 			}
 		} else if config.DebugMode {
-			fmt.Printf("ERROR: Failed to parse statement at token: %+v\n", p.curToken)
+			fmt.Printf("ERROR: parseBlockStatement Failed to parse statement at token: %+v\n", p.curToken)
 		}
 
 		p.nextToken()
@@ -612,12 +613,12 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	if p.curTokenIs(token.RBRACE) {
 		p.braceCount--
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Exiting block statement. Brace count: %d\n", p.braceCount)
+			fmt.Printf("DEBUG: parseBlockStatement Exiting block statement. Brace count: %d\n", p.braceCount)
 		}
 	} else if p.curTokenIs(token.EOF) {
 		p.braceCount--
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Reached EOF while parsing block statement. Brace count: %d\n", p.braceCount)
+			fmt.Printf("DEBUG: parseBlockStatement Reached EOF while parsing block statement. Brace count: %d\n", p.braceCount)
 		}
 	}
 
@@ -629,7 +630,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
-	fmt.Printf("DEBUG: Parsing index expression\n")
+	fmt.Printf("DEBUG: parseIndexExpression - Start\n")
 
 	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
 
@@ -843,10 +844,10 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseArrayLiteral End. Array elements: %d\n", len(array.Elements))
 		for i, elem := range array.Elements {
 			fmt.Printf("DEBUG: parseArrayLiteral - Element %d: %T\n", i, elem)
 		}
+		fmt.Printf("DEBUG: parseArrayLiteral End. Array elements: %d\n", len(array.Elements))
 	}
 	return array
 }
@@ -878,7 +879,7 @@ func (p *Parser) parseSSLCommand() ast.Expression {
 func (p *Parser) parseVariableOrArrayAccess() ast.Expression {
 	p.nextToken() // consume '$'
 	if !p.curTokenIs(token.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("Expected identifier after $, got %s instead", p.curToken.Type))
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseVariableOrArrayAccess Expected identifier after $, got %s instead", p.curToken.Type))
 		return nil
 	}
 
@@ -1054,7 +1055,6 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 
 	// Check if the next token is a valid expression token
 	if p.isValidWhenEvent(token.TokenType(p.peekToken.Literal)) {
-		// if p.peekTokenIs(token.HTTP_REQUEST) || p.peekTokenIs(token.LB_SELECTED) {
 		p.nextToken() // Advance to the event token
 	} else {
 		p.errors = append(p.errors, "ERROR: parseWhenExpression - Expected HTTP_REQUEST or LB_SELECTED")
@@ -1104,7 +1104,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Switch loop - Current token: %s, Literal: %s\n", p.curToken.Type, p.curToken.Literal)
+			fmt.Printf("DEBUG: parseSwitchStatement Switch loop - Current token: %s, Literal: %s\n", p.curToken.Type, p.curToken.Literal)
 		}
 
 		if p.curTokenIs(token.DEFAULT) {
@@ -1114,7 +1114,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 			if caseStmt != nil {
 				switchStmt.Cases = append(switchStmt.Cases, caseStmt)
 				if config.DebugMode {
-					fmt.Printf("DEBUG: Added case, total cases: %d\n", len(switchStmt.Cases))
+					fmt.Printf("DEBUG: parseSwitchStatement Added case, total cases: %d\n", len(switchStmt.Cases))
 				}
 			}
 		} else {

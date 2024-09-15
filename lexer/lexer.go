@@ -19,6 +19,7 @@ var HttpKeywords = map[string]token.TokenType{
 	"HTTP_REQUEST":   token.HTTP_REQUEST,
 	"HTTP::uri":      token.HTTP_URI,
 	"HTTP::host":     token.HTTP_HOST,
+	"HTTP::cookie":   token.HTTP_COOKIE,
 	"HTTP::redirect": token.HTTP_REDIRECT,
 	"HTTP::header":   token.HTTP_HEADER,
 	"HTTP::respond":  token.HTTP_RESPOND,
