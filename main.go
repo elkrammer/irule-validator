@@ -39,7 +39,7 @@ func main() {
 
 	p.ParseProgram()
 	if len(p.Errors()) != 0 {
-		if config.PrintErrors {
+		if config.PrintErrors || config.DebugMode {
 			printParserErrors(os.Stdout, p.Errors())
 		}
 		fmt.Printf("❌ Errors parsing irule %v\n", filename)

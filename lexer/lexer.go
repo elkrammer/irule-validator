@@ -156,6 +156,9 @@ func (l *Lexer) NextToken() token.Token {
 	case '/':
 		tok = newToken(token.SLASH, l.ch)
 	case '-':
+		if l.isPartOfHeaderName() {
+			return l.readHeaderName()
+		}
 		tok = newToken(token.MINUS, l.ch)
 	case '&':
 		if l.peekChar() == '&' {
@@ -426,4 +429,17 @@ func (l *Lexer) readIpAddress(startPosition int) token.Token {
 		Type:    token.NUMBER,
 		Literal: l.input[startPosition:l.position],
 	}
+}
+
+func (l *Lexer) isPartOfHeaderName() bool {
+	// Check if the previous token was an identifier or part of a header name
+	return l.position > 0 && (IsLetter(l.input[l.position-1]) || l.input[l.position-1] == '-')
+}
+
+func (l *Lexer) readHeaderName() token.Token {
+	position := l.position
+	for l.position < len(l.input) && (IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '-') {
+		l.readChar()
+	}
+	return token.Token{Type: token.IDENT, Literal: l.input[position:l.position]}
 }

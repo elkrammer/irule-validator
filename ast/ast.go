@@ -66,6 +66,7 @@ type Identifier struct {
 	Token      token.Token
 	Value      string
 	IsVariable bool
+	IsKeyword  bool
 }
 
 func (i *Identifier) expressionNode() {}
@@ -73,6 +74,15 @@ func (i *Identifier) String() string  { return i.Value }
 func (i *Identifier) TokenLiteral() string {
 	return i.Value
 }
+
+type InvalidIdentifier struct {
+	Token token.Token
+	Value string
+}
+
+func (ii *InvalidIdentifier) expressionNode()      {}
+func (ii *InvalidIdentifier) TokenLiteral() string { return ii.Token.Literal }
+func (ii *InvalidIdentifier) String() string       { return ii.Value }
 
 type SetStatement struct {
 	Token token.Token

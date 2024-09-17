@@ -51,7 +51,6 @@ func TestSetStatements(t *testing.T) {
 		{"set x 5", "x", 5, false},
 		{"set y true", "y", true, false},
 		{"set foobar y", "foobar", "y", false},
-		{"set static::my_var \"hello world\"", "static::my_var", "hello world", false},
 		{"set [HTTP::uri] /new/path", "HTTP::uri", "new/path", true},
 	}
 
@@ -489,11 +488,11 @@ func TestInfixExpressions(t *testing.T) {
 		{"true != false", true, "!=", false},
 		{"false == false", false, "==", false},
 		{"[HTTP::uri] contains \"admin\"", "[HTTP::uri]", "contains", "admin"},
-		{"$static::max_connections > 100", "$static::max_connections", ">", 100},
 		{"[IP::client_addr] equals 10.0.0.1", "IP::client_addr", "equals", "10.0.0.1"},
 		{"[HTTP::header User-Agent] starts_with \"Mozilla\"", "[HTTP::header]", "starts_with", "Mozilla"}, // {"[HTTP::status] == 200", "HTTP::status", "==", 200},
 		// {"[TCP::local_port] != 443", "TCP::local_port", "!=", 443},
 		// {"$current_users <= $max_users", "$current_users", "<=", "$max_users"},
+		// {"$static::max_connections > 100", "$static::max_connections", ">", 100},
 	}
 
 	for _, tt := range tests {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/elkrammer/irule-validator/ast"
 	"github.com/elkrammer/irule-validator/config"
@@ -416,11 +417,27 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 	leftExp := prefix()
 
+	if invalidIdent, ok := leftExp.(*ast.InvalidIdentifier); ok {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseExpression: Invalid identifier used: %s", invalidIdent.Value))
+		return nil
+	}
+
+	// Handle multi-word identifiers with dashes
+	for p.peekTokenIs(token.MINUS) && isValidHeaderName(p.curToken.Literal+"-"+p.peekToken.Literal) {
+		p.nextToken() // consume the '-'
+		p.nextToken() // move to the next part of the identifier
+		leftExp = &ast.Identifier{
+			Token: p.curToken,
+			Value: leftExp.(*ast.Identifier).Value + "-" + p.curToken.Literal,
+		}
+	}
+
 	// special handling for string literals
 	if stringLit, ok := leftExp.(*ast.StringLiteral); ok {
 		leftExp = p.parseStringLiteralContents(stringLit)
 		if leftExp == nil {
 			// Error occurred in parsing string contents
+			p.errors = append(p.errors, fmt.Sprintf("Error ocurred parsing string contents"))
 			return nil
 		}
 	}
@@ -455,11 +472,33 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
-	return &ast.Identifier{
-		Token:      p.curToken,
-		Value:      p.curToken.Literal,
-		IsVariable: strings.HasPrefix(p.curToken.Literal, "$"),
+	value := p.curToken.Literal
+	isVariable := strings.HasPrefix(value, "$")
+
+	// Check for valid iRule identifiers (including those with periods)
+	if isValidIRuleIdentifier(value) || isValidHeaderName(value) {
+		return &ast.Identifier{Token: p.curToken, Value: value, IsVariable: isVariable}
 	}
+
+	// If it's not a valid identifier, mark it as invalid
+	if !isVariable { // Add this condition
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIdentifier - Invalid identifier: %s", value))
+	}
+
+	return &ast.Identifier{Token: p.curToken, Value: value, IsVariable: isVariable}
+}
+
+func isValidHeaderName(s string) bool {
+	// Remove leading dash if present
+	s = strings.TrimPrefix(s, "-")
+
+	parts := strings.Split(s, "-")
+	for _, part := range parts {
+		if !isValidSimpleIdentifier(part) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Parser) parseNumberLiteral() ast.Expression {
@@ -728,6 +767,14 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseInfixExpression Start - Operator: %s\n", p.curToken.Literal)
 	}
+
+	if left == nil {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseInfixExpression - Left expression is nil\n")
+		}
+		return nil
+	}
+
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
@@ -736,10 +783,33 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
 	precedence := p.curPrecedence()
 	p.nextToken()
+
+	if p.curTokenIs(token.EOF) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseInfixExpression - Reached EOF before parsing right expression\n")
+		}
+		return expression
+	}
+
 	expression.Right = p.parseExpression(precedence)
 
+	if expression.Right == nil {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseInfixExpression - Right expression is nil\n")
+		}
+		p.errors = append(p.errors, "ERROR: parseInfixExpression: Invalid right-hand side of infix expression")
+		return nil
+	}
+
+	if !isValidOperatorForTypes(expression.Operator, expression.Left, expression.Right) {
+		if config.DebugMode {
+			fmt.Printf("ERROR: parseInfixExpression: isValidOperatorForTypes FALSE for '%v'\n", expression)
+		}
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseInfixExpression: Invalid operator %s for types %T and %T", expression.Operator, expression.Left, expression.Right))
+	}
+
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseInfixExpression End - Operator: %s\n", expression.Operator)
+		fmt.Printf("DEBUG: parseInfixExpression End - Operator: %s, Left: %T, Right: %T\n", expression.Operator, expression.Left, expression.Right)
 	}
 
 	return expression
@@ -978,23 +1048,36 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseHttpCommand Start - Current Token: %s\n", p.curToken.Literal)
 	}
+
 	expr := &ast.HttpExpression{Token: p.curToken}
-
 	fullCommand := p.curToken.Literal
-	_, isValid := lexer.HttpKeywords[fullCommand]
 
-	if !isValid {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand Invalid HTTP command: %s", fullCommand))
+	// Check if it's a known HTTP command
+	if _, isValid := lexer.HttpKeywords[fullCommand]; isValid {
+		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
+	} else if fullCommand == "HTTP::header" {
+		// Handle HTTP::header specially
+		p.nextToken() // move past HTTP::header
+		if !p.expectPeek(token.STRING) {
+			return nil
+		}
+		headerName := p.curToken.Literal
+		expr.Command = &ast.Identifier{Token: p.curToken, Value: "HTTP::header"}
+		expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: headerName}
+	} else if isValidHeaderName(fullCommand) {
+		// Handle header names directly (without HTTP::header prefix)
+		expr.Command = &ast.Identifier{Token: p.curToken, Value: "HTTP::header"}
+		expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: fullCommand}
+	} else {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand Invalid HTTP command or header: %s", fullCommand))
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseHttpCommand Invalid HTTP command detected: %s\n", fullCommand)
+			fmt.Printf("ERROR: parseHttpCommand Invalid HTTP command or header detected: %s\n", fullCommand)
 		}
 		return nil
 	}
 
-	expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
-
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseHttpCommand End - Command: %s\n", fullCommand)
+		fmt.Printf("DEBUG: parseHttpCommand End - Command: %s, Argument: %v\n", expr.Command.Value, expr.Argument)
 	}
 	return expr
 }
@@ -1599,4 +1682,168 @@ func (p *Parser) parseListLiteral() ast.Expression {
 		fmt.Printf("DEBUG: parseListLiteral End\n")
 	}
 	return list
+}
+
+func isValidIRuleIdentifier(s string) bool {
+
+	// Variables starting with $ are valid
+	if strings.HasPrefix(s, "$") {
+		return isValidSimpleIdentifier(s[1:])
+	}
+
+	parts := strings.Split(s, "::")
+	if len(parts) > 2 {
+		if config.DebugMode {
+			fmt.Printf("ERROR: isValidIRuleIdentifier - Invalid parts : %v\n", parts)
+		}
+		return false
+	}
+
+	if len(parts) == 2 {
+		if !isValidNamespace(parts[0]) {
+			if config.DebugMode {
+				fmt.Printf("ERROR: isValidIRuleIdentifier - Invalid namespace : %v\n", parts[0])
+			}
+			return false
+		}
+		return isValidCommand(parts[0], parts[1])
+	}
+
+	// Single part identifier or header name
+	return isValidSimpleIdentifier(s) || isValidHeaderName(s)
+}
+
+func isValidNamespace(s string) bool {
+	return s == "HTTP" || s == "LB" || s == "SSL"
+}
+
+func isValidSimpleIdentifier(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	for i, r := range s {
+		if i == 0 {
+			if !unicode.IsLetter(r) && r != '_' {
+				return false
+			}
+		} else {
+			if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != '.' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func isValidOperatorForTypes(operator string, left, right ast.Expression) bool {
+	if left == nil || right == nil {
+		return true // Allow partial expressions during parsing
+	}
+
+	switch operator {
+	case "contains", "starts_with", "ends_with", "equals":
+		// These operators are valid for strings, HTTP expressions, array literals, and IP address literals
+		return (isStringType(left) || isHttpExpression(left) || isArrayLiteral(left) || isIpAddressLiteral(left)) &&
+			(isStringType(right) || isHttpExpression(right) || isArrayLiteral(right) || isIpAddressLiteral(right))
+	case "eq", "==", "!=":
+		// Equality operators are valid for most types
+		return true
+	case "<", ">", "<=", ">=":
+		// Comparison operators are valid for numbers and strings
+		return (isNumberType(left) && isNumberType(right)) || (isStringType(left) && isStringType(right))
+	case "+", "-", "*", "/":
+		// Arithmetic operators are valid for numbers, infix expressions, array literals, and identifiers
+		return (isNumberType(left) || isInfixExpression(left) || isArrayLiteral(left)) &&
+			(isNumberType(right) || isInfixExpression(right) || isIdentifier(right))
+	case "&&", "||":
+		// Logical operators are valid for boolean expressions and HTTP expressions
+		return isBooleanType(left) || isHttpExpression(left) || isInfixExpression(left) ||
+			isBooleanType(right) || isHttpExpression(right) || isInfixExpression(right)
+	default:
+		return true // Allow unknown operators to be handled elsewhere
+	}
+}
+
+func isIpAddressLiteral(expr ast.Expression) bool {
+	_, ok := expr.(*ast.IpAddressLiteral)
+	return ok
+}
+
+func isIdentifier(expr ast.Expression) bool {
+	_, ok := expr.(*ast.Identifier)
+	return ok
+}
+
+func isInfixExpression(expr ast.Expression) bool {
+	_, ok := expr.(*ast.InfixExpression)
+	return ok
+}
+
+func isHttpExpression(expr ast.Expression) bool {
+	_, ok := expr.(*ast.HttpExpression)
+	return ok
+}
+
+func isArrayLiteral(expr ast.Expression) bool {
+	_, ok := expr.(*ast.ArrayLiteral)
+	return ok
+}
+
+func isValidCommand(namespace, command string) bool {
+	fullCommand := namespace + "::" + command
+	switch namespace {
+	case "HTTP":
+		_, exists := lexer.HttpKeywords[fullCommand]
+		return exists
+	case "LB":
+		_, exists := lexer.LbKeywords[fullCommand]
+		return exists
+	case "SSL":
+		_, exists := lexer.SSLKeywords[fullCommand]
+		return exists
+	default:
+		return false
+	}
+}
+
+func isStringType(expr ast.Expression) bool {
+	switch e := expr.(type) {
+	case *ast.StringLiteral:
+		return true
+	case *ast.Identifier:
+		return e.IsVariable // Assume variables can be strings
+	case *ast.HttpExpression, *ast.LoadBalancerExpression, *ast.SSLExpression:
+		// Assuming these expressions return string values
+		return true
+	default:
+		return false
+	}
+}
+
+func isNumberType(expr ast.Expression) bool {
+	switch expr.(type) {
+	case *ast.NumberLiteral:
+		return true
+	case *ast.Identifier:
+		// You might want to add more sophisticated type checking for variables
+		return true
+	default:
+		return false
+	}
+}
+
+func isBooleanType(expr ast.Expression) bool {
+	switch expr.(type) {
+	case *ast.Boolean:
+		return true
+	case *ast.InfixExpression:
+		// Assuming comparison operations result in boolean values
+		return true
+	case *ast.Identifier:
+		// You might want to add more sophisticated type checking for variables
+		return true
+	default:
+		return false
+	}
 }
