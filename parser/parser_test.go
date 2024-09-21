@@ -693,9 +693,9 @@ func TestComplexExpressions(t *testing.T) {
 	}{
 		{
 			input:              `(HTTP::uri contains "admin") && (HTTP::header "User-Agent" contains "Mozilla")`,
-			expectedStatements: 3,
+			expectedStatements: 1,
 			check: func(t *testing.T, program *ast.Program) {
-				if len(program.Statements) != 3 {
+				if len(program.Statements) != 1 {
 					t.Fatalf("program has wrong number of statements. got=%d, want=%d", len(program.Statements), 3)
 				}
 
@@ -718,7 +718,7 @@ func TestComplexExpressions(t *testing.T) {
 		                          HTTP::respond 415 content "Unsupported Media Type"
 		                      }
 		                  }`,
-			expectedStatements: 3,
+			expectedStatements: 1,
 			check: func(t *testing.T, program *ast.Program) {
 				if len(program.Statements) != 1 {
 					t.Fatalf("program has wrong number of statements. got=%d, want=%d", len(program.Statements), 1)

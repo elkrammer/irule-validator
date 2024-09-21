@@ -43,7 +43,7 @@ for test_file_path in "${test_files[@]}"; do
     continue
   fi
 
-  result=$(./irule-validator "$test_file_path")
+  result=$(./irule-validator -p "$test_file_path")
   exit_code=$? # Capture the exit code immediately
 
   # Store the output in appropriate array based on success or failure

@@ -2,5 +2,5 @@ when HTTP_RESPONSE {
     set cookieName "mycountry"
     set country "[whereis [IP::client_addr] country]"
     HTTP::cookie insert name ${cookieName} value ${country} path "/"  domain  "example.com"
-    HTTP::cookie  expires ${cookieName} 100
+    HTTP::cookie expires ${cookieName} 100
 }

@@ -53,10 +53,16 @@ var LbKeywords = map[string]token.TokenType{
 }
 
 var SSLKeywords = map[string]token.TokenType{
-	"SSL::cipher":      token.SSL_CIPHER,
-	"SSL::cipher_bits": token.SSL_CIPHER_BITS,
-	"SSL::clienthello": token.SSL_CLIENTHELLO,
-	"SSL::serverhello": token.SSL_SERVERHELLO,
+	"SSL::cipher":         token.SSL_CIPHER,
+	"SSL::cipher_bits":    token.SSL_CIPHER_BITS,
+	"SSL::clienthello":    token.SSL_CLIENTHELLO,
+	"SSL::serverhello":    token.SSL_SERVERHELLO,
+	"SSL::cert":           token.SSL_CERT,
+	"SSL::verify_result":  token.SSL_VERIFY_RESULT,
+	"SSL::sessionid":      token.SSL_SESSIONID,
+	"SSL::renegotiate":    token.SSL_RENEGOTIATE,
+	"SSL::sessionvalid":   token.SSL_SESSIONVALID,
+	"SSL::sessionupdates": token.SSL_SESSIONUPDATES,
 }
 
 func New(input string) *Lexer {
@@ -277,7 +283,7 @@ func (l *Lexer) NextToken() token.Token {
 
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '_' || l.ch == ':' || l.ch == '.' {
+	for IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '_' || l.ch == ':' || l.ch == '.' || l.ch == '-' {
 		l.readChar()
 	}
 	return l.input[position:l.position]

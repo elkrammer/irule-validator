@@ -1,0 +1,23 @@
+when HTTP_REQUEST {
+    # Extract User-Agent from HTTP headers
+    set user_agent [HTTP::header "User-Agent"]
+
+    # Check if the User-Agent contains "MSIE" (for Internet Explorer) or "Edge"
+    if { ($user_agent contains "MSIE") || ($user_agent contains "Edge") } {
+        # Create a cookie called "evil"
+        HTTP::cookie insert name "evil" value "true"
+
+        # Redirect to hell.com
+        HTTP::respond 302 Location "http://hell.com"
+    }
+    # Check if the User-Agent contains "Chrome"
+    elseif { $user_agent contains "Chrome" } {
+        # Redirect to website-full-of-ads.com
+        HTTP::respond 302 Location "http://website-full-of-ads.com"
+    }
+    # Check if the User-Agent contains "Firefox"
+    elseif { $user_agent contains "Firefox" } {
+        # Allow the user to proceed and redirect to website.com
+        HTTP::respond 302 Location "http://website.com"
+    }
+}

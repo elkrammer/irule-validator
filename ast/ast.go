@@ -363,7 +363,7 @@ func (ie *IndexExpression) String() string {
 }
 
 type ListLiteral struct {
-	Token    token.Token // the '[' token
+	Token    token.Token // the '{' token
 	Elements []Expression
 }
 
@@ -579,6 +579,7 @@ func (be *BracketExpression) String() string {
 
 type SwitchStatement struct {
 	Token   token.Token // the 'switch' token
+	Options []string
 	Value   Expression
 	Cases   []*CaseStatement
 	Default *CaseStatement
