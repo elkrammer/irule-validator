@@ -4,7 +4,10 @@ switch -glob [HTTP::uri] {
   "/api*" {
     set uri [string map -nocase {"/api" "/"} [HTTP::uri]]
     HTTP::uri $uri
+  }
+  "/healthcheck" {
     HTTP::host "api.google.com"
+    node 10.0.0.1 443
   }
   default { pool default_pool }
 }

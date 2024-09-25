@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -75,13 +76,15 @@ type Parser struct {
 	prefixParseFns map[token.TokenType]prefixParseFn
 	infixParseFns  map[token.TokenType]infixParseFn
 
-	braceCount int
+	braceCount        int
+	declaredVariables map[string]bool
 }
 
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
-		l:      l,
-		errors: []string{},
+		l:                 l,
+		errors:            []string{},
+		declaredVariables: make(map[string]bool),
 	}
 	// read two tokens so curToken and peekToken are both set
 	p.nextToken()
@@ -96,8 +99,6 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LBRACE, p.parseHashLiteral)
 	p.registerPrefix(token.LBRACKET, p.parseArrayLiteral)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
-	p.registerPrefix(token.RBRACKET, p.parseArrayLiteral)
-	p.registerPrefix(token.RPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.NUMBER, p.parseNumberLiteral)
 	p.registerPrefix(token.SET, p.parseSetExpression)
@@ -144,6 +145,12 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.SSL_CIPHER_BITS, p.parseSSLCommand)
 	p.registerPrefix(token.SSL_CLIENTHELLO, p.parseSSLCommand)
 	p.registerPrefix(token.SSL_SERVERHELLO, p.parseSSLCommand)
+	p.registerPrefix(token.SSL_CERT, p.parseSSLCommand)
+	p.registerPrefix(token.SSL_VERIFY_RESULT, p.parseSSLCommand)
+	p.registerPrefix(token.SSL_SESSIONID, p.parseSSLCommand)
+	p.registerPrefix(token.SSL_RENEGOTIATE, p.parseSSLCommand)
+	p.registerPrefix(token.SSL_SESSIONVALID, p.parseSSLCommand)
+	p.registerPrefix(token.SSL_SESSIONUPDATES, p.parseSSLCommand)
 
 	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
 	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
@@ -186,9 +193,6 @@ func (p *Parser) peekError(t token.TokenType) {
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
-	// if config.DebugMode {
-	// fmt.Printf("DEBUG: Advanced tokens - Current: %s, Peek: %s\n", p.curToken.Type, p.peekToken.Type)
-	// }
 }
 
 func (p *Parser) ParseProgram() *ast.Program {
@@ -257,6 +261,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		stmt = p.parseIfStatement()
 	case token.ELSE:
 		stmt = p.parseIfStatement()
+	case token.ELSEIF:
+		stmt = p.parseIfStatement()
 	case token.LBRACE:
 		stmt = p.parseBlockStatement()
 	case token.SWITCH:
@@ -286,8 +292,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 
 	p.nextToken() // consume the 'return' token
 
-	// Check if the next token is a semicolon or a closing brace
-	// If so, it's a bare return statement
+	// Check if the next token is a semicolon or a closing brace - if so, it's a bare return statement
 	if p.curTokenIs(token.SEMICOLON) || p.curTokenIs(token.RBRACE) {
 		return stmt
 	}
@@ -312,31 +317,37 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 	p.nextToken() // Move past 'set'
 
-	// Parse the target (can be an identifier or an expression)
-	stmt.Name = p.parseExpression(LOWEST)
+	// Parse the target (should be an identifier)
+	if !p.curTokenIs(token.IDENT) && !p.curTokenIs(token.LBRACKET) {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseSetStatement: Expected an identifier or '[', got %s", p.curToken.Type))
+		return nil
+	}
+
+	if p.curTokenIs(token.LBRACKET) {
+		// This is likely a command or expression in brackets
+		expr := p.parseExpression(LOWEST)
+		if expr == nil {
+			return nil // Error already added in parseExpression
+		}
+		stmt.Name = expr
+	} else {
+		// This is a simple identifier
+		isValid, err := p.isValidIRuleIdentifier(p.curToken.Literal, "variable")
+		if !isValid {
+			p.errors = append(p.errors, fmt.Sprintf("ERROR: parseSetStatement: Invalid identifier %s: %v", p.curToken.Literal, err))
+			return nil
+		}
+		stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseSetStatement Statement Name: %v.\n", stmt.Name)
 	}
 
-	if stmt.Name == nil {
-		p.errors = append(p.errors, "ERROR: parseSetStatement: Expected a name for set statement")
-		return nil
-	}
+	p.nextToken() // Move to the value
 
 	// Parse the value
-	if !p.peekTokenIs(token.EOF) {
-		p.nextToken() // Move to the value
-
-		if p.curTokenIs(token.LBRACKET) {
-			stmt.Value = p.parseArrayLiteral()
-		} else {
-			stmt.Value = p.parseExpression(LOWEST)
-		}
-
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseSetStatement Statement Value: %v.\n", stmt.Value)
-		}
-	}
+	stmt.Value = p.parseExpression(LOWEST)
 
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseSetStatement name type: %T\n", stmt.Name)
@@ -381,54 +392,55 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		fmt.Printf("DEBUG: parseExpression Start - Current token: %s, Precedence: %d\n", p.curToken.Type, precedence)
 	}
 
-	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
+	var leftExp ast.Expression
+
+	switch {
+	case p.curTokenIs(token.STRING):
+		stringLit := &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+		return p.parseStringLiteralContents(stringLit)
+	case p.curTokenIs(token.IDENT) && p.curToken.Literal == "string":
 		return p.parseStringOperation()
-	}
-
-	// Special case for 'class' commands
-	if p.curTokenIs(token.CLASS) {
+	case p.curTokenIs(token.CLASS):
 		return p.parseClassCommand()
-	}
-
-	// check if it's a HTTP Command
-	if p.curTokenIs(token.IDENT) && strings.HasPrefix(p.curToken.Literal, "HTTP::") {
+	case p.curTokenIs(token.IDENT) && strings.HasPrefix(p.curToken.Literal, "HTTP::"):
 		return p.parseHttpCommand()
-	}
-
-	// check if it's a list literal
-	if p.curTokenIs(token.LBRACE) {
+	case p.curTokenIs(token.LBRACE):
 		return p.parseListLiteral()
-	}
-
-	prefix := p.prefixParseFns[p.curToken.Type]
-	if prefix == nil {
-		if config.DebugMode {
-			fmt.Printf("ERROR: parseExpression - no prefix parse function for %s\n", p.curToken.Literal)
-		}
-
-		// Handle closing braces and brackets gracefully
-		if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.RBRACKET) || p.curTokenIs(token.EOF) {
+	case p.curTokenIs(token.IDENT):
+		leftExp = p.parseIdentifier()
+	default:
+		prefix := p.prefixParseFns[p.curToken.Type]
+		if prefix == nil {
+			if p.curTokenIs(token.RBRACE) || p.curTokenIs(token.RBRACKET) || p.curTokenIs(token.EOF) {
+				return nil
+			}
+			p.noPrefixParseFnError(p.curToken.Type)
 			return nil
 		}
-
-		p.noPrefixParseFnError(p.curToken.Type)
-		return nil
+		leftExp = prefix()
 	}
 
-	leftExp := prefix()
-
+	// Check if leftExp is an InvalidIdentifier
 	if invalidIdent, ok := leftExp.(*ast.InvalidIdentifier); ok {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseExpression: Invalid identifier used: %s", invalidIdent.Value))
-		return nil
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseExpression: Got *ast.InvalidIdentifier: %s\n", invalidIdent.Value))
+		return leftExp
 	}
 
 	// Handle multi-word identifiers with dashes
-	for p.peekTokenIs(token.MINUS) && isValidHeaderName(p.curToken.Literal+"-"+p.peekToken.Literal) {
-		p.nextToken() // consume the '-'
-		p.nextToken() // move to the next part of the identifier
-		leftExp = &ast.Identifier{
-			Token: p.curToken,
-			Value: leftExp.(*ast.Identifier).Value + "-" + p.curToken.Literal,
+	if p.curTokenIs(token.IDENT) {
+		identifier := p.curToken.Literal
+		for p.peekTokenIs(token.MINUS) || (p.peekTokenIs(token.IDENT) && isValidHeaderName(identifier+"-"+p.peekToken.Literal)) {
+			p.nextToken() // consume the '-' or move to the next part
+			if p.curTokenIs(token.MINUS) {
+				p.nextToken() // move to the next part after '-'
+			}
+			identifier += "-" + p.curToken.Literal
+		}
+		if identifier != p.curToken.Literal {
+			leftExp = &ast.Identifier{
+				Token: token.Token{Type: token.IDENT, Literal: identifier},
+				Value: identifier,
+			}
 		}
 	}
 
@@ -436,8 +448,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	if stringLit, ok := leftExp.(*ast.StringLiteral); ok {
 		leftExp = p.parseStringLiteralContents(stringLit)
 		if leftExp == nil {
-			// Error occurred in parsing string contents
-			p.errors = append(p.errors, fmt.Sprintf("Error ocurred parsing string contents"))
+			p.errors = append(p.errors, "ERROR: parseExpression - Error occurred parsing string contents\n")
 			return nil
 		}
 	}
@@ -473,32 +484,59 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 func (p *Parser) parseIdentifier() ast.Expression {
 	value := p.curToken.Literal
-	isVariable := strings.HasPrefix(value, "$")
-
-	// Check for valid iRule identifiers (including those with periods)
-	if isValidIRuleIdentifier(value) || isValidHeaderName(value) {
-		return &ast.Identifier{Token: p.curToken, Value: value, IsVariable: isVariable}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseIdentifier called with value: %s\n", value)
 	}
 
-	// If it's not a valid identifier, mark it as invalid
-	if !isVariable { // Add this condition
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIdentifier - Invalid identifier: %s", value))
+	if strings.HasPrefix(value, "$") {
+		// This is a variable
+		return &ast.Identifier{Token: p.curToken, Value: value}
 	}
 
-	return &ast.Identifier{Token: p.curToken, Value: value, IsVariable: isVariable}
+	isValid, err := p.isValidIRuleIdentifier(value, "standalone")
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseIdentifier: isValid: %v, %v, identifier: %s\n", isValid, err, value)
+	}
+
+	if !isValid || err != nil {
+		errorMsg := fmt.Sprintf("Invalid identifier: %s\n", value)
+		if err != nil {
+			errorMsg = err.Error()
+		}
+		p.errors = append(p.errors, errorMsg)
+		return &ast.InvalidIdentifier{Token: p.curToken, Value: value}
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseIdentifier: %s is a valid identifier\n", value)
+	}
+	return &ast.Identifier{Token: p.curToken, Value: value}
 }
 
 func isValidHeaderName(s string) bool {
-	// Remove leading dash if present
-	s = strings.TrimPrefix(s, "-")
+	if config.DebugMode {
+		fmt.Printf("DEBUG: isValidHeaderName called with value: %s\n", s)
+	}
 
-	parts := strings.Split(s, "-")
-	for _, part := range parts {
-		if !isValidSimpleIdentifier(part) {
-			return false
+	// Check against a list of common headers
+	for _, header := range commonHeaders {
+		if strings.EqualFold(s, header) {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: isValidHeaderName: %s is a valid common header name\n", s)
+			}
+			return true
 		}
 	}
-	return true
+
+	// Check if it's a valid custom header (starts with X- or has a hyphen)
+	if strings.HasPrefix(strings.ToLower(s), "x-") || strings.Contains(s, "-") {
+		return true
+	}
+
+	if config.DebugMode {
+		fmt.Printf("ERROR: isValidHeaderName: %s is not a valid header name\n", s)
+	}
+	return false
 }
 
 func (p *Parser) parseNumberLiteral() ast.Expression {
@@ -548,26 +586,28 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 }
 
 func (p *Parser) parseGroupedExpression() ast.Expression {
-	p.nextToken()
-
-	exp := p.parseExpression(LOWEST)
-
-	if p.peekTokenIs(token.RPAREN) {
-		if !p.expectPeek(token.RPAREN) {
-			if config.DebugMode {
-				fmt.Printf("ERROR: parseGroupedExpression - Expected RPAREN, got %s\n", p.curToken.Type)
-			}
-			return nil
-		}
-	} else if p.peekTokenIs(token.RBRACKET) {
-		if !p.expectPeek(token.RBRACKET) {
-			if config.DebugMode {
-				fmt.Printf("ERROR: parseGroupedExpression - Expected RBRACKET, got %s\n", p.curToken.Type)
-			}
-			return nil
-		}
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseGroupedExpression Start. Token: %v\n", p.curToken.Literal)
 	}
 
+	// Check if we're actually starting with a left parenthesis
+	if !p.curTokenIs(token.LPAREN) {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseGroupedExpression - Expected '(', got %s", p.curToken.Literal))
+		return nil
+	}
+
+	p.nextToken()
+	exp := p.parseExpression(LOWEST)
+
+	// Ensure we have a matching closing parenthesis
+	if !p.expectPeek(token.RPAREN) {
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseGroupedExpression - Expected ')' to match '(', got %s", p.curToken.Literal))
+		return nil
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseGroupedExpression End. Expr: %v\n", exp)
+	}
 	return exp
 }
 
@@ -784,13 +824,6 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	precedence := p.curPrecedence()
 	p.nextToken()
 
-	if p.curTokenIs(token.EOF) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: parseInfixExpression - Reached EOF before parsing right expression\n")
-		}
-		return expression
-	}
-
 	expression.Right = p.parseExpression(precedence)
 
 	if expression.Right == nil {
@@ -824,11 +857,23 @@ func (p *Parser) parseSetExpression() ast.Expression {
 
 	p.nextToken() // move past 'set'
 
-	// Parse the target (can be an identifier or an expression)
-	stmt.Name = p.parseExpression(LOWEST)
+	variableName := p.curToken.Literal
+	p.declareVariable(variableName)
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: variableName}
 
 	if stmt.Name == nil {
 		return nil
+	}
+
+	// Declare the variable if it's a simple identifier
+	if ident, ok := stmt.Name.(*ast.Identifier); ok {
+		variableName := ident.Value
+		if strings.HasPrefix(variableName, "$") {
+			p.declareVariable(variableName)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseSetExpression - Declared variable: %s\n", variableName)
+			}
+		}
 	}
 
 	if config.DebugMode {
@@ -862,7 +907,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	array := &ast.ArrayLiteral{Token: p.curToken}
 	array.Elements = []ast.Expression{}
 
-	p.nextToken() // Move past the opening bracket
+	p.nextToken() // Move past the opening bracket [
 
 	// Handle nested array or expression
 	for !p.curTokenIs(token.RBRACKET) && !p.curTokenIs(token.EOF) {
@@ -871,7 +916,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 		if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
 			expr = p.parseStringOperation()
 		} else if p.curTokenIs(token.LBRACKET) {
-			expr = p.parseArrayLiteral() // Handle nested array
+			expr = p.parseArrayLiteral()
 		} else if p.isHttpKeyword(p.curToken.Type) {
 			expr = p.parseHttpCommand()
 		} else if p.isSSLKeyword(p.curToken.Type) {
@@ -1052,28 +1097,45 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	expr := &ast.HttpExpression{Token: p.curToken}
 	fullCommand := p.curToken.Literal
 
-	// Check if it's a known HTTP command
-	if _, isValid := lexer.HttpKeywords[fullCommand]; isValid {
+	switch {
+	case lexer.HttpKeywords[fullCommand] != token.ILLEGAL:
 		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
-	} else if fullCommand == "HTTP::header" {
-		// Handle HTTP::header specially
-		p.nextToken() // move past HTTP::header
-		if !p.expectPeek(token.STRING) {
-			return nil
+	case fullCommand == "HTTP::header":
+		expr.Command = &ast.Identifier{Token: p.curToken, Value: "HTTP::header"}
+		if p.peekTokenIs(token.IDENT) && p.peekToken.Literal == "names" {
+			p.nextToken()
+			expr.Argument = &ast.Identifier{Token: p.curToken, Value: "names"}
+		} else if p.peekTokenIs(token.STRING) || p.peekTokenIs(token.IDENT) {
+			p.nextToken()
+			expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 		}
-		headerName := p.curToken.Literal
-		expr.Command = &ast.Identifier{Token: p.curToken, Value: "HTTP::header"}
-		expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: headerName}
-	} else if isValidHeaderName(fullCommand) {
-		// Handle header names directly (without HTTP::header prefix)
-		expr.Command = &ast.Identifier{Token: p.curToken, Value: "HTTP::header"}
-		expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: fullCommand}
-	} else {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand Invalid HTTP command or header: %s", fullCommand))
+	default:
+		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand - Invalid HTTP command or header: %s", fullCommand))
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseHttpCommand Invalid HTTP command or header detected: %s\n", fullCommand)
+			fmt.Printf("ERROR: parseHttpCommand - Invalid HTTP command or header detected: %s\n", fullCommand)
 		}
 		return nil
+	}
+
+	// Check for additional arguments
+	for p.peekTokenIs(token.STRING) {
+		p.nextToken()
+		if expr.Argument == nil {
+			expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+		} else {
+			// If there's already an argument, create a list of arguments
+			if argList, ok := expr.Argument.(*ast.ArrayLiteral); ok {
+				argList.Elements = append(argList.Elements, &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal})
+			} else {
+				expr.Argument = &ast.ArrayLiteral{
+					Token: p.curToken,
+					Elements: []ast.Expression{
+						expr.Argument,
+						&ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal},
+					},
+				}
+			}
+		}
 	}
 
 	if config.DebugMode {
@@ -1112,15 +1174,52 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 	}
 	stmt.Consequence = p.parseBlockStatement()
 
-	// Parse else clause if it exists
-	if p.peekTokenIs(token.ELSE) {
-		p.nextToken() // consume 'else'
+	// Parse else-if and else clauses
+	currentStmt := stmt
+	for p.peekTokenIs(token.ELSEIF) || p.peekTokenIs(token.ELSE) {
+		p.nextToken() // consume 'elseif' or 'else'
 
-		if !p.expectPeek(token.LBRACE) {
-			p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSE Expected {, got %s", p.curToken.Literal))
-			return nil
+		if p.curTokenIs(token.ELSEIF) {
+			elseIfStmt := &ast.IfStatement{Token: p.curToken}
+
+			// Expect '{'
+			if !p.expectPeek(token.LBRACE) {
+				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSEIF: Expected {, got %s", p.curToken.Literal))
+				return nil
+			}
+
+			p.nextToken() // consume '{'
+
+			// Parse the else-if condition
+			elseIfStmt.Condition = p.parseExpression(LOWEST)
+
+			// Expect '}'
+			if !p.expectPeek(token.RBRACE) {
+				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSEIF: Expected }, got %s", p.curToken.Literal))
+				return nil
+			}
+
+			// Expect '{' for else-if consequence block
+			if !p.expectPeek(token.LBRACE) {
+				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSEIF Consequence Expected {, got %s", p.curToken.Literal))
+				return nil
+			}
+			elseIfStmt.Consequence = p.parseBlockStatement()
+
+			// Add the else-if statement as an alternative to the current statement
+			currentStmt.Alternative = &ast.BlockStatement{
+				Statements: []ast.Statement{elseIfStmt},
+			}
+			currentStmt = elseIfStmt
+		} else if p.curTokenIs(token.ELSE) {
+			// Parse the final else clause
+			if !p.expectPeek(token.LBRACE) {
+				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSE Expected {, got %s", p.curToken.Literal))
+				return nil
+			}
+			currentStmt.Alternative = p.parseBlockStatement()
+			break // Exit the loop after parsing the final else
 		}
-		stmt.Alternative = p.parseBlockStatement()
 	}
 
 	if config.DebugMode {
@@ -1168,12 +1267,25 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 	// Parse switch options and value
 	p.nextToken() // move past 'switch'
-	if p.curTokenIs(token.MINUS) {
-		switchStmt.Token.Literal += " " + p.curToken.Literal
-		p.nextToken() // move past option
-		switchStmt.Token.Literal += " " + p.curToken.Literal
-		p.nextToken() // move past option value
+
+	// Handle options like -glob
+	for p.curTokenIs(token.MINUS) {
+		option := p.curToken.Literal
+		p.nextToken() // move past the option
+		if p.curTokenIs(token.IDENT) {
+			option += " " + p.curToken.Literal
+			switchStmt.Options = append(switchStmt.Options, option)
+			p.nextToken() // move past the option value
+		}
 	}
+
+	// Handle the -- separator if present
+	if p.curTokenIs(token.MINUS) && p.peekTokenIs(token.MINUS) {
+		p.nextToken() // move past first -
+		p.nextToken() // move past second -
+	}
+
+	// Parse the switch value (which might be a string operation)
 	switchStmt.Value = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.LBRACE) {
@@ -1547,38 +1659,73 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 	parts := []ast.Expression{}
 	currentPart := ""
 	inCommand := false
+	value := s.Value
 
-	for i := 0; i < len(s.Value); i++ {
-		if s.Value[i] == '[' && !inCommand {
+	for len(value) > 0 {
+		if strings.HasPrefix(value, "[") && !inCommand {
 			if currentPart != "" {
 				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
 				currentPart = ""
 			}
 			inCommand = true
-			commandStart := i + 1
-			for i < len(s.Value) && s.Value[i] != ']' {
-				i++
-			}
-			if i < len(s.Value) {
-				command := s.Value[commandStart:i]
+			commandStart := 1
+			end := strings.Index(value[1:], "]")
+			if end != -1 {
+				end++ // Adjust for the starting '['
+				command := value[commandStart:end]
 				parts = append(parts, &ast.HttpExpression{Token: s.Token, Command: &ast.Identifier{Token: s.Token, Value: command}})
+				value = value[end+1:]
+			} else {
+				// Unclosed command, treat as literal
+				currentPart += "["
+				value = value[1:]
 			}
 			inCommand = false
-		} else if s.Value[i] == '$' && i+1 < len(s.Value) && !inCommand {
+		} else if strings.HasPrefix(value, "${") && !inCommand {
 			if currentPart != "" {
 				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
 				currentPart = ""
 			}
-			i++
-			identStart := i
-			for i < len(s.Value) && (lexer.IsLetter(s.Value[i]) || lexer.IsDigit(s.Value[i]) || s.Value[i] == '_') {
-				i++
+			end := strings.Index(value, "}")
+			if end != -1 {
+				varName := value[2:end]
+				parts = append(parts, &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: varName}, Value: varName})
+				value = value[end+1:]
+			} else {
+				// Unclosed variable, treat as literal
+				currentPart += "${"
+				value = value[2:]
 			}
-			identifier := s.Value[identStart:i]
+		} else if strings.HasPrefix(value, "$") && !inCommand {
+			if currentPart != "" {
+				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
+				currentPart = ""
+			}
+			identStart := 1
+			end := strings.IndexFunc(value[1:], func(r rune) bool {
+				return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+			})
+			if end == -1 {
+				end = len(value) - 1
+			} else {
+				end++ // Adjust for the starting '$'
+			}
+			identifier := value[identStart:end]
 			parts = append(parts, &ast.Identifier{Token: s.Token, Value: identifier})
-			i-- // Step back as the loop will increment i
+			value = value[end:]
 		} else {
-			currentPart += string(s.Value[i])
+			if inCommand {
+				currentPart += string(value[0])
+				value = value[1:]
+			} else {
+				end := strings.IndexAny(value, "[${$")
+				if end == -1 {
+					currentPart += value
+					break
+				}
+				currentPart += value[:end]
+				value = value[end:]
+			}
 		}
 	}
 
@@ -1586,9 +1733,14 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 		parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
 	}
 
+	if len(parts) == 0 {
+		return s
+	}
+
 	if len(parts) == 1 {
 		return parts[0]
 	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringLiteralContents End - Parts: %d\n", len(parts))
 	}
@@ -1608,21 +1760,32 @@ func (p *Parser) parseForEachStatement() ast.Statement {
 		}
 		return nil
 	}
+
 	stmt.Variable = p.curToken.Literal
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseForEachStatement Variable: %v\n", stmt.Variable)
 	}
+	p.declareVariable(stmt.Variable)
 
 	p.nextToken() // Move to the list expression
 
 	// Parse the list expression
-	stmt.List = p.parseExpression(LOWEST)
-	if stmt.List == nil {
-		if config.DebugMode {
-			fmt.Printf("ERROR: parseForEachStatement Failed to parse list\n")
+	if p.curTokenIs(token.LBRACE) {
+		listExpr := p.parseListLiteral()
+		if listLiteral, ok := listExpr.(*ast.ListLiteral); ok {
+			for _, elem := range listLiteral.Elements {
+				if ident, ok := elem.(*ast.Identifier); ok {
+					if isValid, _ := p.isValidIRuleIdentifier(ident.Value, "header"); !isValid {
+						p.errors = append(p.errors, fmt.Sprintf("Invalid header name in foreach loop: %s", ident.Value))
+					}
+				}
+			}
 		}
-		return nil
+		stmt.List = listExpr
+	} else {
+		stmt.List = p.parseExpression(LOWEST)
 	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseForEachStatement List: %+v\n", stmt.List)
 	}
@@ -1658,17 +1821,11 @@ func (p *Parser) parseListLiteral() ast.Expression {
 			list.Elements = append(list.Elements, elem)
 		}
 
-		// If we're not at the end of the list, expect a space
-		if !p.peekTokenIs(token.RBRACE) {
-			if !p.expectPeek(token.IDENT) {
-				if config.DebugMode {
-					fmt.Printf("ERROR: parseListLiteral Expected IDENT but got %s\n", p.curToken.Type)
-				}
-				return nil
-			}
-		} else {
+		if p.peekTokenIs(token.RBRACE) {
 			break
 		}
+
+		p.nextToken()
 	}
 
 	if !p.expectPeek(token.RBRACE) {
@@ -1684,56 +1841,141 @@ func (p *Parser) parseListLiteral() ast.Expression {
 	return list
 }
 
-func isValidIRuleIdentifier(s string) bool {
-
-	// Variables starting with $ are valid
-	if strings.HasPrefix(s, "$") {
-		return isValidSimpleIdentifier(s[1:])
+func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) (bool, error) {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: isValidIRuleIdentifier - Start. Value=%v, Context=%v\n", value, identifierContext)
 	}
 
-	parts := strings.Split(s, "::")
-	if len(parts) > 2 {
+	// Check for reserved keywords
+	if reservedKeywords[strings.ToLower(value)] {
+		if identifierContext == "variable" {
+			return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - '%s' is a reserved keyword and should not be used as a variable name", value)
+		}
 		if config.DebugMode {
-			fmt.Printf("ERROR: isValidIRuleIdentifier - Invalid parts : %v\n", parts)
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - Using reserved keyword '%s' in context '%s'\n", value, identifierContext)
 		}
-		return false
 	}
 
-	if len(parts) == 2 {
-		if !isValidNamespace(parts[0]) {
+	// Check if it's a variable (starts with $)
+	if strings.HasPrefix(value, "$") {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a variable\n", value)
+		}
+		return true, nil // Allow all variables
+	}
+
+	// Check if it's a common iRule identifier or command
+	if isCommonIRuleIdentifier(value) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a common iRule identifier or command\n", value)
+		}
+		return true, nil
+	}
+
+	// Check if it's a valid simple identifier (for variable names, etc.)
+	if isValidSimpleIdentifier(value) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid simple identifier\n", value)
+		}
+		return true, nil
+	}
+
+	// If we're in a variable context, use a more permissive check
+	if identifierContext == "variable" {
+		if regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(value) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: isValidIRuleIdentifier - Invalid namespace : %v\n", parts[0])
+				fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid variable name\n", value)
 			}
-			return false
+			return true, nil
 		}
-		return isValidCommand(parts[0], parts[1])
+		return false, fmt.Errorf("invalid variable name: %s", value)
 	}
 
-	// Single part identifier or header name
-	return isValidSimpleIdentifier(s) || isValidHeaderName(s)
-}
+	// If we're in a header context, use isValidHeaderName
+	if isValidHeaderName(value) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid HTTP header name\n", value)
+		}
+		return true, nil
+	}
 
-func isValidNamespace(s string) bool {
-	return s == "HTTP" || s == "LB" || s == "SSL"
+	// Check if it's a valid command or keyword
+	if _, ok := lexer.HttpKeywords[value]; ok {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid HTTP keyword\n", value)
+		}
+		return true, nil
+	}
+	if _, ok := lexer.LbKeywords[value]; ok {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid LB keyword\n", value)
+		}
+		return true, nil
+	}
+	if _, ok := lexer.SSLKeywords[value]; ok {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid SSL keyword\n", value)
+		}
+		return true, nil
+	}
+
+	// Check if it's a valid custom identifier (declared variable or function)
+	if p.isValidCustomIdentifier(value) {
+		return true, nil
+	}
+
+	// Check if it's a valid logging facility
+	if isValidLoggingFacility(value) {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid logging facility\n", value)
+		}
+		return true, nil
+	}
+
+	// For standalone context, use the same check as for variables
+	if identifierContext == "standalone" {
+		if regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(value) {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid standalone identifier\n", value)
+			}
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - invalid identifier: %s", value)
 }
 
 func isValidSimpleIdentifier(s string) bool {
-	if len(s) == 0 {
-		return false
+	if config.DebugMode {
+		fmt.Printf("DEBUG: isValidSimpleIdentifier called with value: %s\n", s)
 	}
 
-	for i, r := range s {
-		if i == 0 {
-			if !unicode.IsLetter(r) && r != '_' {
-				return false
-			}
-		} else {
-			if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_' && r != '.' {
-				return false
-			}
-		}
+	validIdentifiers := map[string]bool{
+		"if":       true,
+		"else":     true,
+		"elseif":   true,
+		"switch":   true,
+		"case":     true,
+		"default":  true,
+		"for":      true,
+		"foreach":  true,
+		"while":    true,
+		"break":    true,
+		"continue": true,
+		"return":   true,
 	}
-	return true
+
+	if validIdentifiers[s] {
+		if config.DebugMode {
+			fmt.Printf("DEBUG: isValidSimpleIdentifier - %s is a valid simple identifier\n", s)
+		}
+		return true
+	}
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: isValidSimpleIdentifier - %s is not a valid simple identifier\n", s)
+	}
+	return false
 }
 
 func isValidOperatorForTypes(operator string, left, right ast.Expression) bool {
@@ -1743,23 +1985,24 @@ func isValidOperatorForTypes(operator string, left, right ast.Expression) bool {
 
 	switch operator {
 	case "contains", "starts_with", "ends_with", "equals":
-		// These operators are valid for strings, HTTP expressions, array literals, and IP address literals
-		return (isStringType(left) || isHttpExpression(left) || isArrayLiteral(left) || isIpAddressLiteral(left)) &&
-			(isStringType(right) || isHttpExpression(right) || isArrayLiteral(right) || isIpAddressLiteral(right))
+		// These operators are valid for strings, HTTP expressions, array literals, IP address literals, and identifiers
+		return (isStringType(left) || isHttpExpression(left) || isArrayLiteral(left) || isIpAddressLiteral(left) || isIdentifier(left)) &&
+			(isStringType(right) || isHttpExpression(right) || isArrayLiteral(right) || isIpAddressLiteral(right) || isIdentifier(right))
 	case "eq", "==", "!=":
 		// Equality operators are valid for most types
 		return true
 	case "<", ">", "<=", ">=":
 		// Comparison operators are valid for numbers and strings
-		return (isNumberType(left) && isNumberType(right)) || (isStringType(left) && isStringType(right))
+		return (isNumberType(left) && isNumberType(right)) || (isStringType(left) && isStringType(right)) ||
+			(isIdentifier(left) && isStringType(right)) || (isStringType(left) && isIdentifier(right))
 	case "+", "-", "*", "/":
 		// Arithmetic operators are valid for numbers, infix expressions, array literals, and identifiers
-		return (isNumberType(left) || isInfixExpression(left) || isArrayLiteral(left)) &&
+		return (isNumberType(left) || isInfixExpression(left) || isArrayLiteral(left) || isIdentifier(left)) &&
 			(isNumberType(right) || isInfixExpression(right) || isIdentifier(right))
 	case "&&", "||":
-		// Logical operators are valid for boolean expressions and HTTP expressions
-		return isBooleanType(left) || isHttpExpression(left) || isInfixExpression(left) ||
-			isBooleanType(right) || isHttpExpression(right) || isInfixExpression(right)
+		// Logical operators are valid for boolean expressions, HTTP expressions, and identifiers
+		return isBooleanType(left) || isHttpExpression(left) || isInfixExpression(left) || isIdentifier(left) ||
+			isBooleanType(right) || isHttpExpression(right) || isInfixExpression(right) || isIdentifier(right)
 	default:
 		return true // Allow unknown operators to be handled elsewhere
 	}
@@ -1790,23 +2033,6 @@ func isArrayLiteral(expr ast.Expression) bool {
 	return ok
 }
 
-func isValidCommand(namespace, command string) bool {
-	fullCommand := namespace + "::" + command
-	switch namespace {
-	case "HTTP":
-		_, exists := lexer.HttpKeywords[fullCommand]
-		return exists
-	case "LB":
-		_, exists := lexer.LbKeywords[fullCommand]
-		return exists
-	case "SSL":
-		_, exists := lexer.SSLKeywords[fullCommand]
-		return exists
-	default:
-		return false
-	}
-}
-
 func isStringType(expr ast.Expression) bool {
 	switch e := expr.(type) {
 	case *ast.StringLiteral:
@@ -1826,7 +2052,6 @@ func isNumberType(expr ast.Expression) bool {
 	case *ast.NumberLiteral:
 		return true
 	case *ast.Identifier:
-		// You might want to add more sophisticated type checking for variables
 		return true
 	default:
 		return false
@@ -1838,12 +2063,47 @@ func isBooleanType(expr ast.Expression) bool {
 	case *ast.Boolean:
 		return true
 	case *ast.InfixExpression:
-		// Assuming comparison operations result in boolean values
 		return true
 	case *ast.Identifier:
-		// You might want to add more sophisticated type checking for variables
 		return true
 	default:
 		return false
 	}
+}
+
+func isCommonIRuleIdentifier(s string) bool {
+	for _, identifier := range commonIdentifiers {
+		if strings.EqualFold(s, identifier) {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidLoggingFacility(s string) bool {
+	validFacilities := []string{"local0.", "local1.", "local2.", "local3.", "local4.", "local5.", "local6.", "local7."}
+	for _, facility := range validFacilities {
+		if s == facility {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Parser) declareVariable(name string) {
+	p.declaredVariables[name] = true
+}
+
+func (p *Parser) isValidCustomIdentifier(s string) bool {
+	// Check if it's a declared variable
+	if p.declaredVariables[s] {
+		return true
+	}
+
+	// Check if it's a valid function name (assuming functions are declared with "proc")
+	if strings.HasPrefix(s, "proc ") {
+		return true
+	}
+
+	return false
 }

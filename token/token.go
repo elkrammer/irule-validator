@@ -81,14 +81,29 @@ const (
 	HTTP_COMPRESS = "HTTP::compress"
 	HTTP_FILTER   = "HTTP::filter"
 
-	SSL_CIPHER      = "SSL::cipher"
-	SSL_CIPHER_BITS = "SSL::cipher_bits"
-	SSL_CLIENTHELLO = "SSL::clienthello"
-	SSL_SERVERHELLO = "SSL::serverhello"
+	SSL_CIPHER         = "SSL::cipher"
+	SSL_CIPHER_BITS    = "SSL::cipher_bits"
+	SSL_CLIENTHELLO    = "SSL::clienthello"
+	SSL_SERVERHELLO    = "SSL::serverhello"
+	SSL_CERT           = "SSL::cert"
+	SSL_VERIFY_RESULT  = "SSL::verify_result"
+	SSL_SESSIONID      = "SSL::sessionid"
+	SSL_RENEGOTIATE    = "SSL::renegotiate"
+	SSL_SESSIONVALID   = "SSL::sessionvalid"
+	SSL_SESSIONUPDATES = "SSL::sessionupdates"
 
 	IP_ADDRESS     = "IP_ADDRESS"
 	IP_CLIENT_ADDR = "IP::client_addr"
 	IP_SERVER_ADDR = "IP::server_addr"
+
+	X509_SUBJECT    = "X509::subject"
+	X509_ISSUER     = "X509::issuer"
+	X509_SERIAL     = "X509::serial"
+	X509_NOTBEFORE  = "X509::notbefore"
+	X509_NOTAFTER   = "X509::notafter"
+	X509_VERSION    = "X509::version"
+	X509_HASH       = "X509::hash"
+	X509_EXTENSIONS = "X509::extensions"
 
 	// LOAD BALANCING
 	// Events
