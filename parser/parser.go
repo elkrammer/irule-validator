@@ -191,7 +191,7 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	msg := fmt.Sprintf("peekError: Expected next token to be %s, got %s instead. Line: %d\n", t, p.peekToken.Type, p.peekToken.Line)
+	msg := fmt.Sprintf("   peekError: Expected next token to be %s, got %s instead. Line: %d", t, p.peekToken.Type, p.peekToken.Line)
 	p.errors = append(p.errors, msg)
 }
 
@@ -216,7 +216,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
 		} else {
-			fmt.Printf("ERROR: Failed to parse statement at token: %+v\n", p.curToken)
+			fmt.Printf("   ERROR: Failed to parse statement at token: %+v\n", p.curToken)
 		}
 
 		p.nextToken()
@@ -237,7 +237,7 @@ func (p *Parser) ParseProgram() *ast.Program {
 	}
 
 	if p.braceCount != 0 {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: Program has mismatched braces. Final brace count: %d", p.braceCount))
+		p.errors = append(p.errors, fmt.Sprintf("   Program has mismatched braces. Final brace count: %d", p.braceCount))
 	}
 
 	if config.DebugMode {
@@ -283,7 +283,7 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 
 	if stmt == nil {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseStatement - Unexpected token: %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseStatement - Unexpected token: %s", p.curToken.Literal))
 		p.nextToken() // Skip problematic token
 		return nil
 	}
@@ -330,7 +330,7 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 	// Parse the target (should be an identifier)
 	if !p.curTokenIs(token.IDENT) && !p.curTokenIs(token.LBRACKET) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseSetStatement: Expected an identifier or '[', got %s", p.curToken.Type))
+		p.errors = append(p.errors, fmt.Sprintf("   parseSetStatement: Expected an identifier or '[', got %s", p.curToken.Type))
 		return nil
 	}
 
@@ -345,7 +345,7 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 		// This is a simple identifier
 		isValid, err := p.isValidIRuleIdentifier(p.curToken.Literal, "variable")
 		if !isValid {
-			p.errors = append(p.errors, fmt.Sprintf("ERROR: parseSetStatement: Invalid identifier %s: %v", p.curToken.Literal, err))
+			p.errors = append(p.errors, fmt.Sprintf("   parseSetStatement: Invalid identifier %s: %v", p.curToken.Literal, err))
 			return nil
 		}
 		stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
@@ -433,7 +433,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 	// Check if leftExp is an InvalidIdentifier
 	if invalidIdent, ok := leftExp.(*ast.InvalidIdentifier); ok {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseExpression: Got *ast.InvalidIdentifier: %s\n", invalidIdent.Value))
+		p.errors = append(p.errors, fmt.Sprintf("   parseExpression: Got *ast.InvalidIdentifier: %s\n", invalidIdent.Value))
 		return leftExp
 	}
 
@@ -459,7 +459,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	if stringLit, ok := leftExp.(*ast.StringLiteral); ok {
 		leftExp = p.parseStringLiteralContents(stringLit)
 		if leftExp == nil {
-			p.errors = append(p.errors, "ERROR: parseExpression - Error occurred parsing string contents\n")
+			p.errors = append(p.errors, "   ERROR: parseExpression - Error occurred parsing string contents\n")
 			return nil
 		}
 	}
@@ -545,7 +545,7 @@ func isValidHeaderName(s string) bool {
 	}
 
 	if config.DebugMode {
-		fmt.Printf("ERROR: isValidHeaderName: %s is not a valid header name\n", s)
+		fmt.Printf("   ERROR: isValidHeaderName: %s is not a valid header name\n", s)
 	}
 	return false
 }
@@ -603,7 +603,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 
 	// Check if we're actually starting with a left parenthesis
 	if !p.curTokenIs(token.LPAREN) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseGroupedExpression - Expected '(', got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseGroupedExpression - Expected '(', got %s", p.curToken.Literal))
 		return nil
 	}
 
@@ -612,7 +612,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 
 	// Ensure we have a matching closing parenthesis
 	if !p.expectPeek(token.RPAREN) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseGroupedExpression - Expected ')' to match '(', got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseGroupedExpression - Expected ')' to match '(', got %s", p.curToken.Literal))
 		return nil
 	}
 
@@ -649,7 +649,7 @@ func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 }
 
 func (p *Parser) noPrefixParseFnError(t token.TokenType) {
-	msg := fmt.Sprintf("no prefix parse function for %s found", t)
+	msg := fmt.Sprintf("   no prefix parse function for %s found", t)
 	p.errors = append(p.errors, msg)
 }
 
@@ -694,7 +694,7 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 				fmt.Printf("DEBUG: parseBlockStatement: Added statement to block, type: %T\n", stmt)
 			}
 		} else if config.DebugMode {
-			fmt.Printf("ERROR: parseBlockStatement Failed to parse statement at token: %+v\n", p.curToken)
+			fmt.Printf("   ERROR: parseBlockStatement Failed to parse statement at token: %+v\n", p.curToken)
 		}
 
 		p.nextToken()
@@ -726,7 +726,7 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 
 	if !p.expectPeek(token.LPAREN) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseIndexExpression - Expected LPAREN, got %s\n", p.curToken.Type)
+			fmt.Printf("   ERROR: parseIndexExpression - Expected LPAREN, got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -736,7 +736,7 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 
 	if !p.expectPeek(token.RPAREN) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseIndexExpression - Expected RPAREN, got %s\n", p.curToken.Type)
+			fmt.Printf("   ERROR: parseIndexExpression - Expected RPAREN, got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -754,7 +754,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 		// Parse key
 		if !p.expectPeek(token.STRING) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseHashLiteral - Expected STRING, got %s\n", p.curToken.Type)
+				fmt.Printf("   ERROR: parseHashLiteral - Expected STRING, got %s\n", p.curToken.Type)
 			}
 			return nil
 		}
@@ -763,7 +763,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 		// Parse value
 		if !p.expectPeek(token.STRING) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseHashLiteral - Expected STRING, got %s\n", p.curToken.Type)
+				fmt.Printf("   ERROR: parseHashLiteral - Expected STRING, got %s\n", p.curToken.Type)
 			}
 			return nil
 		}
@@ -773,7 +773,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 
 		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseHashLiteral - Expected COMMA for Peek token, got %s\n", p.curToken.Type)
+				fmt.Printf("   ERROR: parseHashLiteral - Expected COMMA for Peek token, got %s\n", p.curToken.Type)
 			}
 			return nil
 		}
@@ -781,7 +781,7 @@ func (p *Parser) parseHashLiteral() ast.Expression {
 
 	if !p.expectPeek(token.RBRACE) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseHashLiteral - Expected RBRACE, got %s\n", p.curToken.Type)
+			fmt.Printf("   ERROR: parseHashLiteral - Expected RBRACE, got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -841,15 +841,15 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseInfixExpression - Right expression is nil\n")
 		}
-		p.errors = append(p.errors, "ERROR: parseInfixExpression: Invalid right-hand side of infix expression")
+		p.errors = append(p.errors, "   ERROR: parseInfixExpression: Invalid right-hand side of infix expression")
 		return nil
 	}
 
 	if !isValidOperatorForTypes(expression.Operator, expression.Left, expression.Right) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseInfixExpression: isValidOperatorForTypes FALSE for '%v'\n", expression)
+			fmt.Printf("   ERROR: parseInfixExpression: isValidOperatorForTypes FALSE for '%v'\n", expression)
 		}
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseInfixExpression: Invalid operator %s for types %T and %T", expression.Operator, expression.Left, expression.Right))
+		p.errors = append(p.errors, fmt.Sprintf("   parseInfixExpression: Invalid operator %s for types %T and %T", expression.Operator, expression.Left, expression.Right))
 	}
 
 	if config.DebugMode {
@@ -945,7 +945,7 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			}
 		} else {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseArrayLiteral - Failed to parse element %T\n", expr)
+				fmt.Printf("   ERROR: parseArrayLiteral - Failed to parse element %T\n", expr)
 			}
 			return nil
 		}
@@ -962,9 +962,9 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 	}
 
 	if !p.expectPeek(token.RBRACKET) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseArrayLiteral - Expected closing bracket, got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseArrayLiteral - Expected closing bracket, got %s", p.curToken.Literal))
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseArrayLiteral Error - Expected closing bracket, got %s\n", p.curToken.Literal)
+			fmt.Printf("   ERROR: parseArrayLiteral Error - Expected closing bracket, got %s\n", p.curToken.Literal)
 		}
 		return nil
 	}
@@ -1005,7 +1005,7 @@ func (p *Parser) parseSSLCommand() ast.Expression {
 func (p *Parser) parseVariableOrArrayAccess() ast.Expression {
 	p.nextToken() // consume '$'
 	if !p.curTokenIs(token.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseVariableOrArrayAccess Expected identifier after $, got %s instead", p.curToken.Type))
+		p.errors = append(p.errors, fmt.Sprintf("   parseVariableOrArrayAccess Expected identifier after $, got %s instead", p.curToken.Type))
 		return nil
 	}
 
@@ -1017,7 +1017,7 @@ func (p *Parser) parseVariableOrArrayAccess() ast.Expression {
 		index := p.parseExpression(LOWEST)
 		if !p.expectPeek(token.RPAREN) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseVariableOrArrayAccess:  Expected RPAREN, got %s\n", p.curToken.Type)
+				fmt.Printf("   ERROR: parseVariableOrArrayAccess:  Expected RPAREN, got %s\n", p.curToken.Type)
 			}
 			return nil
 		}
@@ -1056,7 +1056,7 @@ func (p *Parser) parseWhenNode() *ast.WhenNode {
 
 	if !p.expectPeek(token.HTTP_REQUEST) || !p.peekTokenIs(token.LB_SELECTED) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseWhenNode - Expected HTTP_REQUEST or LB_SELECTED, got %s\n", p.curToken.Type)
+			fmt.Printf("   ERROR: parseWhenNode - Expected HTTP_REQUEST or LB_SELECTED, got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -1064,7 +1064,7 @@ func (p *Parser) parseWhenNode() *ast.WhenNode {
 
 	if !p.expectPeek(token.LBRACE) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseWhenNode - Expected LBRACE, got %s\n", p.curToken.Type)
+			fmt.Printf("   ERROR: parseWhenNode - Expected LBRACE, got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -1108,6 +1108,17 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	expr := &ast.HttpExpression{Token: p.curToken}
 	fullCommand := p.curToken.Literal
 
+	// Check if the command is a valid HTTP keyword
+	if _, isValidHttpCommand := lexer.HttpKeywords[fullCommand]; isValidHttpCommand {
+		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
+	} else {
+		p.errors = append(p.errors, fmt.Sprintf("   parseHttpCommand - Invalid HTTP command: %s", fullCommand))
+		if config.DebugMode {
+			fmt.Printf("   ERROR: parseHttpCommand - Invalid HTTP command detected: %s\n", fullCommand)
+		}
+		return nil // Return nil for invalid commands
+	}
+
 	switch {
 	case lexer.HttpKeywords[fullCommand] != token.ILLEGAL:
 		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
@@ -1121,9 +1132,9 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 			expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 		}
 	default:
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseHttpCommand - Invalid HTTP command or header: %s", fullCommand))
+		p.errors = append(p.errors, fmt.Sprintf("   parseHttpCommand - Invalid HTTP command or header: %s", fullCommand))
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseHttpCommand - Invalid HTTP command or header detected: %s\n", fullCommand)
+			fmt.Printf("   ERROR: parseHttpCommand - Invalid HTTP command or header detected: %s\n", fullCommand)
 		}
 		return nil
 	}
@@ -1163,7 +1174,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 
 	// Expect '{'
 	if !p.expectPeek(token.LBRACE) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement: Expected {, got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement: Expected {, got %s", p.curToken.Literal))
 		return nil
 	}
 
@@ -1174,13 +1185,13 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 
 	// Expect '}'
 	if !p.expectPeek(token.RBRACE) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement: Expected }, got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement: Expected }, got %s", p.curToken.Literal))
 		return nil
 	}
 
 	// Expect '{' for consequence block
 	if !p.expectPeek(token.LBRACE) {
-		p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement Consequence Expected {, got %s", p.curToken.Literal))
+		p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement Consequence Expected {, got %s", p.curToken.Literal))
 		return nil
 	}
 	stmt.Consequence = p.parseBlockStatement()
@@ -1195,7 +1206,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 
 			// Expect '{'
 			if !p.expectPeek(token.LBRACE) {
-				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSEIF: Expected {, got %s", p.curToken.Literal))
+				p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement ELSEIF: Expected {, got %s", p.curToken.Literal))
 				return nil
 			}
 
@@ -1206,13 +1217,13 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 
 			// Expect '}'
 			if !p.expectPeek(token.RBRACE) {
-				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSEIF: Expected }, got %s", p.curToken.Literal))
+				p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement ELSEIF: Expected }, got %s", p.curToken.Literal))
 				return nil
 			}
 
 			// Expect '{' for else-if consequence block
 			if !p.expectPeek(token.LBRACE) {
-				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSEIF Consequence Expected {, got %s", p.curToken.Literal))
+				p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement ELSEIF Consequence Expected {, got %s", p.curToken.Literal))
 				return nil
 			}
 			elseIfStmt.Consequence = p.parseBlockStatement()
@@ -1225,7 +1236,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 		} else if p.curTokenIs(token.ELSE) {
 			// Parse the final else clause
 			if !p.expectPeek(token.LBRACE) {
-				p.errors = append(p.errors, fmt.Sprintf("ERROR: parseIfStatement ELSE Expected {, got %s", p.curToken.Literal))
+				p.errors = append(p.errors, fmt.Sprintf("   parseIfStatement ELSE Expected {, got %s", p.curToken.Literal))
 				return nil
 			}
 			currentStmt.Alternative = p.parseBlockStatement()
@@ -1250,14 +1261,14 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 	if p.isValidWhenEvent(token.TokenType(p.peekToken.Literal)) {
 		p.nextToken() // Advance to the event token
 	} else {
-		p.errors = append(p.errors, "ERROR: parseWhenExpression - Expected HTTP_REQUEST or LB_SELECTED")
+		p.errors = append(p.errors, "   ERROR: parseWhenExpression - Expected HTTP_REQUEST or LB_SELECTED")
 		return nil
 	}
 
 	expr.Event = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if !p.expectPeek(token.LBRACE) {
-		p.errors = append(p.errors, "ERROR: parseWhenExpression - expected LBRACE")
+		p.errors = append(p.errors, "   ERROR: parseWhenExpression - expected LBRACE")
 		return nil
 	}
 
@@ -1300,7 +1311,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	switchStmt.Value = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.LBRACE) {
-		p.errors = append(p.errors, "ERROR: parseSwitchStatement expected LBRACE")
+		p.errors = append(p.errors, "   ERROR: parseSwitchStatement expected LBRACE")
 		return nil
 	}
 
@@ -1336,7 +1347,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 	if !p.curTokenIs(token.RBRACE) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseSwitchStatement expected RBRACE. Got=%s\n", p.curToken.Literal)
+			fmt.Printf("   ERROR: parseSwitchStatement expected RBRACE. Got=%s\n", p.curToken.Literal)
 		}
 		p.peekError(token.RBRACE)
 		return nil
@@ -1365,7 +1376,7 @@ func (p *Parser) parseCaseStatement() *ast.CaseStatement {
 	caseStmt.Value = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.LBRACE) {
-		p.errors = append(p.errors, "ERROR: parseCaseStatement expected LBRACE")
+		p.errors = append(p.errors, "   ERROR: parseCaseStatement expected LBRACE")
 		return nil
 	}
 
@@ -1388,7 +1399,7 @@ func (p *Parser) parseDefaultCase() *ast.CaseStatement {
 	defaultCase := &ast.CaseStatement{Token: p.curToken, Value: nil}
 
 	if !p.expectPeek(token.LBRACE) {
-		p.errors = append(p.errors, "ERROR: parseDefaultCase expected LBRACE")
+		p.errors = append(p.errors, "   ERROR: parseDefaultCase expected LBRACE")
 		return nil
 	}
 
@@ -1558,7 +1569,7 @@ func (p *Parser) parseMapArgument() ast.Expression {
 
 		if !p.expectPeek(token.STRING) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseMapArgument expected STRING, got %v\n", p.curToken.Literal)
+				fmt.Printf("   ERROR: parseMapArgument expected STRING, got %v\n", p.curToken.Literal)
 			}
 			return nil
 		}
@@ -1568,7 +1579,7 @@ func (p *Parser) parseMapArgument() ast.Expression {
 
 		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
 			if config.DebugMode {
-				fmt.Printf("ERROR: parseMapArgument expected RBACE OR COMMA, got %v\n", p.curToken.Literal)
+				fmt.Printf("   ERROR: parseMapArgument expected RBACE OR COMMA, got %v\n", p.curToken.Literal)
 			}
 			return nil
 		}
@@ -1596,7 +1607,7 @@ func (p *Parser) parsePoolStatement() ast.Expression {
 	}
 
 	if !p.expectPeek(token.IDENT) {
-		p.errors = append(p.errors, "ERROR: parsePoolStatement Expected IDENT")
+		p.errors = append(p.errors, "   ERROR: parsePoolStatement Expected IDENT")
 		return nil
 	}
 
@@ -1621,7 +1632,7 @@ func (p *Parser) parseClassCommand() ast.Expression {
 	// Advance to the subcommand
 	if !p.expectPeek(token.MATCH) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseClassCommand Expected 'match', got %v\n", p.curToken.Literal)
+			fmt.Printf("   ERROR: parseClassCommand Expected 'match', got %v\n", p.curToken.Literal)
 		}
 		return nil
 	}
@@ -1767,7 +1778,7 @@ func (p *Parser) parseForEachStatement() ast.Statement {
 
 	if !p.expectPeek(token.IDENT) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseForEachStatement Expected IDENT, got: %v\n", p.curToken.Literal)
+			fmt.Printf("   ERROR: parseForEachStatement Expected IDENT, got: %v\n", p.curToken.Literal)
 		}
 		return nil
 	}
@@ -1803,7 +1814,7 @@ func (p *Parser) parseForEachStatement() ast.Statement {
 
 	if !p.expectPeek(token.LBRACE) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseForEachStatement Expected LBRACE, got: %v\n", p.curToken.Literal)
+			fmt.Printf("   ERROR: parseForEachStatement Expected LBRACE, got: %v\n", p.curToken.Literal)
 		}
 		return nil
 	}
@@ -1841,7 +1852,7 @@ func (p *Parser) parseListLiteral() ast.Expression {
 
 	if !p.expectPeek(token.RBRACE) {
 		if config.DebugMode {
-			fmt.Printf("ERROR: parseListLiteral Expected RBRACE but got %s\n", p.curToken.Type)
+			fmt.Printf("   ERROR: parseListLiteral Expected RBRACE but got %s\n", p.curToken.Type)
 		}
 		return nil
 	}
@@ -1860,7 +1871,7 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 	// Check for reserved keywords
 	if reservedKeywords[strings.ToLower(value)] {
 		if identifierContext == "variable" {
-			return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - '%s' is a reserved keyword and should not be used as a variable name", value)
+			return false, fmt.Errorf("   ERROR: isValidIRuleIdentifier - '%s' is a reserved keyword and should not be used as a variable name", value)
 		}
 		if config.DebugMode {
 			fmt.Printf("DEBUG: isValidIRuleIdentifier - Using reserved keyword '%s' in context '%s'\n", value, identifierContext)
@@ -1953,7 +1964,7 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 		}
 	}
 
-	return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - invalid identifier: %s", value)
+	return false, fmt.Errorf("   ERROR: isValidIRuleIdentifier - invalid identifier: %s", value)
 }
 
 func isValidSimpleIdentifier(s string) bool {
