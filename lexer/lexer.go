@@ -457,7 +457,7 @@ func (l *Lexer) readHeaderName() token.Token {
 }
 
 func (l *Lexer) reportError(message string) {
-	errorMsg := fmt.Sprintf("Line %d: %s", l.line, message)
+	errorMsg := fmt.Sprintf("   Line %d: %s", l.line, message)
 	l.errors = append(l.errors, errorMsg)
 }
 

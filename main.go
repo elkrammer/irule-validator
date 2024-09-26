@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/elkrammer/irule-validator/config"
 	"github.com/elkrammer/irule-validator/lexer"
@@ -42,10 +41,10 @@ func main() {
 	errors := p.Errors()
 
 	if len(errors) > 0 {
+		fmt.Printf("❌ Errors parsing irule %v\n", filename)
 		if config.PrintErrors || config.DebugMode {
 			printParserErrors(os.Stdout, p.Errors())
 		}
-		fmt.Printf("❌ Errors parsing irule %v\n", filename)
 		os.Exit(1)
 	}
 
@@ -55,7 +54,7 @@ func main() {
 
 func printParserErrors(out io.Writer, errors []string) {
 	for _, msg := range errors {
-		io.WriteString(out, strings.TrimSpace(msg))
+		io.WriteString(out, msg)
 		io.WriteString(out, "\n")
 	}
 }
