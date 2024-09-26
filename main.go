@@ -38,7 +38,10 @@ func main() {
 	p := parser.New(l)
 
 	p.ParseProgram()
-	if len(p.Errors()) != 0 {
+
+	errors := p.Errors()
+
+	if len(errors) > 0 {
 		if config.PrintErrors || config.DebugMode {
 			printParserErrors(os.Stdout, p.Errors())
 		}

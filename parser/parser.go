@@ -90,6 +90,11 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 	p.nextToken()
 
+	// Check for lexer errors
+	if lexerErrors := l.Errors(); len(lexerErrors) > 0 {
+		p.errors = append(p.errors, lexerErrors...)
+	}
+
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.ASTERISK, p.parsePrefixExpression)
 	p.registerPrefix(token.BANG, p.parsePrefixExpression)
@@ -186,7 +191,7 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	msg := fmt.Sprintf("peekError: Expected next token to be %s, got %s instead", t, p.peekToken.Type)
+	msg := fmt.Sprintf("peekError: Expected next token to be %s, got %s instead. Line: %d\n", t, p.peekToken.Type, p.peekToken.Line)
 	p.errors = append(p.errors, msg)
 }
 
@@ -215,6 +220,12 @@ func (p *Parser) ParseProgram() *ast.Program {
 		}
 
 		p.nextToken()
+	}
+
+	// Check for lexer errors after parsing
+	lexerErrors := p.l.Errors()
+	if len(lexerErrors) > 0 {
+		p.errors = append(p.errors, lexerErrors...)
 	}
 
 	// Handle any remaining open blocks at EOF

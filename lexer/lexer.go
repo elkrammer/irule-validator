@@ -9,10 +9,12 @@ import (
 
 type Lexer struct {
 	input        string
-	position     int  // current position in input (points to current char)
-	readPosition int  // current reading position in input (after current char)
-	ch           byte // current char under examination
-	braceDepth   int
+	position     int      // current position in input (points to current char)
+	readPosition int      // current reading position in input (after current char)
+	ch           byte     // current char under examination
+	braceDepth   int      // current depth in block statements
+	line         int      // current line number
+	errors       []string // catch lexing errors
 }
 
 var HttpKeywords = map[string]token.TokenType{
@@ -66,7 +68,7 @@ var SSLKeywords = map[string]token.TokenType{
 }
 
 func New(input string) *Lexer {
-	l := &Lexer{input: input}
+	l := &Lexer{input: input, line: 1}
 	l.readChar()
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Lexer initialized with input length: %d\n", len(input))
@@ -83,12 +85,14 @@ func (l *Lexer) readChar() {
 		}
 	} else {
 		l.ch = l.input[l.readPosition]
-		// if config.DebugMode {
-		// 	fmt.Printf("DEBUG: Read char '%c' at position %d\n", l.ch, l.readPosition)
-		// }
 	}
 	l.position = l.readPosition
 	l.readPosition += 1
+
+	// Update line number
+	if l.ch == '\n' {
+		l.line++
+	}
 }
 
 func newToken(tokenType token.TokenType, ch byte) token.Token {
@@ -107,6 +111,8 @@ func (l *Lexer) NextToken() token.Token {
 	}
 
 	switch l.ch {
+	case '\n':
+		l.line++
 	case '=':
 		if l.peekChar() == '=' {
 			ch := l.ch
@@ -231,7 +237,7 @@ func (l *Lexer) NextToken() token.Token {
 		return token.Token{Type: token.IDENT, Literal: identifier}
 	case 0:
 		if l.braceDepth > 0 {
-			fmt.Printf("Unexpected EOF: unclosed brace, depth: %d\n", l.braceDepth)
+			l.reportError(fmt.Sprintf("Unexpected EOF: unclosed brace, depth: %d", l.braceDepth))
 		}
 		tok.Type = token.EOF
 		tok.Literal = ""
@@ -448,4 +454,13 @@ func (l *Lexer) readHeaderName() token.Token {
 		l.readChar()
 	}
 	return token.Token{Type: token.IDENT, Literal: l.input[position:l.position]}
+}
+
+func (l *Lexer) reportError(message string) {
+	errorMsg := fmt.Sprintf("Line %d: %s", l.line, message)
+	l.errors = append(l.errors, errorMsg)
+}
+
+func (l *Lexer) Errors() []string {
+	return l.errors
 }
