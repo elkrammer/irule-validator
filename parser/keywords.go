@@ -22,6 +22,6 @@ var (
 		"break", "continue", "return", "proc", "catch", "eval",
 		"local0", "local1", "local2", "local3", "local4", "local5", "local6", "local7",
 		"content_type", "uri_path", "value", "pool", "path", "domain", "expires",
-		"content", "node", "virtual",
+		"content", "node", "virtual", "class", "table", "persist", "timing", "after", "event",
 	}
 )

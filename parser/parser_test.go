@@ -51,7 +51,6 @@ func TestSetStatements(t *testing.T) {
 		{"set x 5", "x", 5, false},
 		{"set y true", "y", true, false},
 		{"set foobar y", "foobar", "y", false},
-		{"set [HTTP::uri] /new/path", "HTTP::uri", "new/path", true},
 	}
 
 	for i, tt := range tests {

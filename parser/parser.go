@@ -1868,11 +1868,12 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 	// Check for reserved keywords
 	if reservedKeywords[strings.ToLower(value)] {
 		if identifierContext == "variable" {
-			return false, fmt.Errorf("   ERROR: isValidIRuleIdentifier - '%s' is a reserved keyword and should not be used as a variable name", value)
+			return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - '%s' is a reserved keyword and should not be used as a variable name", value)
 		}
 		if config.DebugMode {
 			fmt.Printf("DEBUG: isValidIRuleIdentifier - Using reserved keyword '%s' in context '%s'\n", value, identifierContext)
 		}
+		return true, nil
 	}
 
 	// Check if it's a variable (starts with $)
@@ -1880,7 +1881,7 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 		if config.DebugMode {
 			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a variable\n", value)
 		}
-		return true, nil // Allow all variables
+		return true, nil
 	}
 
 	// Check if it's a common iRule identifier or command
@@ -1891,30 +1892,60 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 		return true, nil
 	}
 
-	// Check if it's a valid simple identifier (for variable names, etc.)
-	if isValidSimpleIdentifier(value) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid simple identifier\n", value)
-		}
-		return true, nil
-	}
-
-	if identifierContext == "variable" || identifierContext == "standalone" {
+	// Check context-specific validations
+	switch identifierContext {
+	case "variable":
+		// Stricter check for variable names
 		if regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`).MatchString(value) {
 			if config.DebugMode {
-				fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid variable or standalone identifier\n", value)
+				fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid variable identifier\n", value)
 			}
 			return true, nil
 		}
-		return false, fmt.Errorf("invalid variable or standalone identifier: %s", value)
-	}
+		return false, fmt.Errorf("invalid variable identifier: %s", value)
 
-	// If we're in a header context, use isValidHeaderName
-	if isValidHeaderName(value) {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid HTTP header name\n", value)
+	case "standalone":
+		// Allow single-letter identifiers and check against common headers (case-insensitive)
+		if len(value) == 1 && regexp.MustCompile(`^[a-zA-Z]$`).MatchString(value) {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid single-letter identifier\n", value)
+			}
+			return true, nil
 		}
-		return true, nil
+		// Check against common headers (case-insensitive)
+		for _, header := range commonHeaders {
+			if strings.EqualFold(value, header) {
+				if config.DebugMode {
+					fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid common header\n", value)
+				}
+				return true, nil
+			}
+		}
+
+		// Check for command patterns (e.g., HTTP::*)
+		if strings.Contains(value, "::") {
+			parts := strings.Split(value, "::")
+			if len(parts) == 2 {
+				validPrefixes := []string{"HTTP", "TCP", "SSL", "LB"}
+				for _, prefix := range validPrefixes {
+					if strings.EqualFold(parts[0], prefix) {
+						if config.DebugMode {
+							fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid command pattern\n", value)
+						}
+						return true, nil
+					}
+				}
+			}
+		}
+
+	case "header":
+		if isValidHeaderName(value) {
+			if config.DebugMode {
+				fmt.Printf("DEBUG: isValidIRuleIdentifier - %s is a valid HTTP header name\n", value)
+			}
+			return true, nil
+		}
+		return false, fmt.Errorf("invalid HTTP header name: %s", value)
 	}
 
 	// Check if it's a valid command or keyword
@@ -1950,7 +1981,7 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 		return true, nil
 	}
 
-	return false, fmt.Errorf("   ERROR: isValidIRuleIdentifier - invalid identifier: %s", value)
+	return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - invalid identifier: %s", value)
 }
 
 func isValidSimpleIdentifier(s string) bool {
