@@ -9,6 +9,7 @@ when HTTP_REQUEST {
         # Nested expression to check if the URI contains "/api"
         if {[string match "/api*" $uri_path]} {
             log local0. "API request"
+            HTTP::respond 404 content "Oops! 'oops'"
         }
     }
 }

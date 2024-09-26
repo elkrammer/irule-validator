@@ -34,6 +34,7 @@ const (
 	EQ           = "=="
 	NOT_EQ       = "!="
 	DOLLAR       = "$"
+	PERCENT      = "%"
 	COLON        = ":"
 	DOUBLE_COLON = "::"
 

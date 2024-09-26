@@ -14,7 +14,7 @@ var (
 		"If-Range", "If-Unmodified-Since", "Max-Forwards", "Pragma", "Proxy-Authorization",
 		"Range", "Referer", "TE", "Upgrade", "User-Agent", "Via", "Warning", "X-Requested-With",
 		"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Csrf-Token",
-		"Server", "X-Powered-By", "names", "Location", "user_agent", "exists",
+		"Server", "X-Powered-By", "names", "Location",
 	}
 	commonIdentifiers = []string{
 		"log", "puts", "exit", "reject", "insert", "remove", "set", "unset",
@@ -23,5 +23,9 @@ var (
 		"local0", "local1", "local2", "local3", "local4", "local5", "local6", "local7",
 		"content_type", "uri_path", "value", "pool", "path", "domain", "expires",
 		"content", "node", "virtual", "class", "table", "persist", "timing", "after", "event",
+		"clock", "format", "expr", "call", "binary", "b64encode", "b64decode", "md5", "sha1",
+		"sha256", "sha384", "sha512", "redirect", "compress", "decompress", "cookie",
+		"getfield", "findstr", "scan", "matchclass", "priority", "when", "use",
+		"client_addr", "server_addr", "ip2rd", "rd2ip",
 	}
 )

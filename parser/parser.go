@@ -361,7 +361,11 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 	p.nextToken() // Move to the value
 
 	// Parse the value
-	stmt.Value = p.parseExpression(LOWEST)
+	if p.curTokenIs(token.LBRACKET) {
+		stmt.Value = p.parseArrayLiteral()
+	} else {
+		stmt.Value = p.parseExpression(LOWEST)
+	}
 
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseSetStatement name type: %T\n", stmt.Name)
@@ -416,6 +420,9 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		return p.parseStringOperation()
 	case p.curTokenIs(token.CLASS):
 		return p.parseClassCommand()
+	case p.curTokenIs(token.PERCENT):
+		p.nextToken() // consume %
+		return &ast.StringLiteral{Token: p.curToken, Value: "%" + p.curToken.Literal}
 	case p.curTokenIs(token.IDENT) && strings.HasPrefix(p.curToken.Literal, "HTTP::"):
 		return p.parseHttpCommand()
 	case p.curTokenIs(token.LBRACE):
@@ -924,7 +931,12 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 		if p.curTokenIs(token.IDENT) && p.curToken.Literal == "string" {
 			expr = p.parseStringOperation()
 		} else if p.curTokenIs(token.LBRACKET) {
-			expr = p.parseArrayLiteral()
+			// Handle nested command
+			nestedExpr := p.parseArrayLiteral()
+			if nestedExpr == nil {
+				return nil
+			}
+			expr = nestedExpr
 		} else if p.isHttpKeyword(p.curToken.Type) {
 			expr = p.parseHttpCommand()
 		} else if p.isSSLKeyword(p.curToken.Type) {
@@ -947,13 +959,23 @@ func (p *Parser) parseArrayLiteral() ast.Expression {
 			return nil
 		}
 
+		// Handle TCL-style command arguments
+		for p.peekTokenIs(token.MINUS) {
+			p.nextToken() // consume the '-'
+			p.nextToken() // move to the argument
+			arg := p.parseExpression(LOWEST)
+			if arg != nil {
+				array.Elements = append(array.Elements, arg)
+			}
+		}
+
 		// Break if we've reached the end of the array
 		if p.peekTokenIs(token.RBRACKET) {
 			break
 		}
 
-		// Move to next token if it's not the closing bracket
-		if !p.curTokenIs(token.RBRACKET) {
+		// Move to next token if it's not a '-' and not the closing bracket
+		if !p.peekTokenIs(token.MINUS) && !p.peekTokenIs(token.RBRACKET) {
 			p.nextToken()
 		}
 	}
@@ -1982,39 +2004,6 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 	}
 
 	return false, fmt.Errorf("ERROR: isValidIRuleIdentifier - invalid identifier: %s", value)
-}
-
-func isValidSimpleIdentifier(s string) bool {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: isValidSimpleIdentifier called with value: %s\n", s)
-	}
-
-	validIdentifiers := map[string]bool{
-		"if":       true,
-		"else":     true,
-		"elseif":   true,
-		"switch":   true,
-		"case":     true,
-		"default":  true,
-		"for":      true,
-		"foreach":  true,
-		"while":    true,
-		"break":    true,
-		"continue": true,
-		"return":   true,
-	}
-
-	if validIdentifiers[s] {
-		if config.DebugMode {
-			fmt.Printf("DEBUG: isValidSimpleIdentifier - %s is a valid simple identifier\n", s)
-		}
-		return true
-	}
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: isValidSimpleIdentifier - %s is not a valid simple identifier\n", s)
-	}
-	return false
 }
 
 func isValidOperatorForTypes(operator string, left, right ast.Expression) bool {

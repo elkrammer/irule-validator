@@ -1,0 +1,19 @@
+when HTTP_REQUEST {
+    # Load balance based on the day of the week
+    set day_of_week [clock format [clock seconds] -format %A]
+
+    switch $day_of_week {
+        "Monday" { 
+            log local0. "Ugh, it's Monday. Sending traffic to the slow_pool."
+            pool slow_pool
+        }
+        "Friday" {
+            log local0. "It's Friday! Everyone deserves fast access."
+            pool fast_pool
+        }
+        default {
+            log local0. "It's just another weekday. Off to the default_pool."
+            pool default_pool
+        }
+    }
+}

@@ -148,6 +148,8 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.RBRACKET, l.ch)
 	case ',':
 		tok = newToken(token.COMMA, l.ch)
+	case '%':
+		tok = newToken(token.PERCENT, l.ch)
 	case '$':
 		tok.Type = token.IDENT
 		tok.Literal = l.readVariable()
@@ -275,6 +277,7 @@ func (l *Lexer) NextToken() token.Token {
 		}
 
 		// Everything else is an illegal token
+		l.reportError("NextToken: Illegal token found = '%c'\n", l.ch)
 		fmt.Printf("NextToken: Illegal token found = '%c'\n", l.ch)
 		tok = newToken(token.ILLEGAL, l.ch)
 	}
@@ -456,9 +459,10 @@ func (l *Lexer) readHeaderName() token.Token {
 	return token.Token{Type: token.IDENT, Literal: l.input[position:l.position]}
 }
 
-func (l *Lexer) reportError(message string) {
-	errorMsg := fmt.Sprintf("   Line %d: %s", l.line, message)
-	l.errors = append(l.errors, errorMsg)
+func (l *Lexer) reportError(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	formattedMsg := "   [LEXER] " + msg
+	l.errors = append(l.errors, formattedMsg)
 }
 
 func (l *Lexer) Errors() []string {
