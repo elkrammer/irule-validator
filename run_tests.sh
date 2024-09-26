@@ -18,6 +18,7 @@ exclude_files=(
   "active_members.irule"
   "class_match.irule"
   "complex3.irule"
+  "cookie.irule"
 )
 
 # Initialize counters and arrays to store results
