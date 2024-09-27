@@ -1,0 +1,73 @@
+name: Create Release on Push to Main
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Wait
+        run: sleep 600
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Build binaries
+        run: |
+          # Build for Linux
+          GOOS=linux GOARCH=amd64 go build -o ./irule-validator
+          # Build for macOS (Intel)
+          GOOS=darwin GOARCH=amd64 go build -o ./irule-validator-macos-amd64
+          # Build for macOS (Apple Silicon)
+          GOOS=darwin GOARCH=arm64 go build -o ./irule-validator-macos-arm64
+          # Build for Windows
+          GOOS=windows GOARCH=amd64 go build -o ./irule-validator.exe
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          # Check if any tags exist
+          if [ -z "$(git tag)" ]; then
+            echo "No tags found, creating initial tag v0.0.1"
+            new_tag="v0.0.1"
+          else
+            # Get the latest tag
+            latest_tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+            echo "Latest tag: $latest_tag"
+            # Increment the version (patch level)
+            new_tag=$(echo $latest_tag | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          fi
+          echo "new_tag=$new_tag" >> $GITHUB_ENV
+
+      - name: Create new tag
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git tag ${{ env.new_tag }}
+          git push origin ${{ env.new_tag }}
+
+      # Create GitHub release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.new_tag }}
+          files: |
+            ./irule-validator
+            ./irule-validator-macos-amd64
+            ./irule-validator-macos-arm64
+            ./irule-validator.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
