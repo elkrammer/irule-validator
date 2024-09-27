@@ -12,19 +12,19 @@ when HTTP_REQUEST {
         }
     }
 
-#    # Perform routing based on the URI path using switch
-#    switch -glob $uri_path {
-#        "/api*" {
-#            log local0. "Routing /api to internal IP 10.0.0.1"
-#            # Redirect to internal IP address
-#            HTTP::redirect "http://10.0.0.1[HTTP::uri]"
-#        }
-#        "/healthcheck" {
-#            log local0. "Routing /healthcheck to external domain health.example.com"
-#            HTTP::redirect "https://health.example.com"
-#        }
-#        default {
-#            log local0. "Default request, no action taken"
-#        }
-#    }
+    # Perform routing based on the URI path using switch
+    switch -glob $uri_path {
+        "/api*" {
+            log local0. "Routing /api to internal IP 10.0.0.1"
+            # Redirect to internal IP address
+            HTTP::redirect "http://10.0.0.1[HTTP::uri]"
+        }
+        "/healthcheck" {
+            log local0. "Routing /healthcheck to external domain health.example.com"
+            HTTP::redirect "https://health.example.com"
+        }
+        default {
+            log local0. "Default request, no action taken"
+        }
+    }
 }

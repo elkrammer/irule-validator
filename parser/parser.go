@@ -1354,6 +1354,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 				}
 			}
 		} else {
+			p.reportError(fmt.Sprintf("parseSwitchStatement: Invalid case statement starting with token: %s", p.curToken.Literal))
 			return nil // Error occurred in parsing case statement
 		}
 
@@ -1701,6 +1702,7 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 	currentPart := ""
 	inCommand := false
 	value := s.Value
+	startPosition := 0
 
 	for len(value) > 0 {
 		if strings.HasPrefix(value, "[") && !inCommand {
@@ -1759,6 +1761,7 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 				currentPart += string(value[0])
 				value = value[1:]
 			} else {
+				// Handle regular text
 				end := strings.IndexAny(value, "[${$")
 				if end == -1 {
 					currentPart += value
@@ -1767,7 +1770,16 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 				currentPart += value[:end]
 				value = value[end:]
 			}
+
+			// Break condition to prevent infinite loop
+			if startPosition == len(value) {
+				if config.DebugMode {
+					fmt.Printf("DEBUG: parseStringLiteralContents - Breaking loop due to no progress\n")
+				}
+				break
+			}
 		}
+		startPosition = len(value)
 	}
 
 	if currentPart != "" {
