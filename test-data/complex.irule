@@ -1,1 +1,1 @@
-(HTTP::uri contains "admin") && (HTTP::header "User-Agent" contains "Mozilla")
+(TP::uri contains "admin") && (HTTP::header "User-Agent" contains "Mozilla")
