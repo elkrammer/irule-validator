@@ -72,3 +72,10 @@ done
 # Print the summary
 printf "%*s\n" 60 "" | tr ' ' '-'
 echo "Test Data results: $successful_tests/$total_tests"
+
+# If there are failures, exit with code 1
+if [ ${#failure_output[@]} -gt 0 ]; then
+  exit 1
+else
+  exit 0
+fi
