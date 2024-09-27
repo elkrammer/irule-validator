@@ -17,6 +17,7 @@ func main() {
 	args := pflag.Args()
 
 	if len(args) == 0 {
+		config.DebugMode = true
 		repl.Start(os.Stdin, os.Stdout)
 		return
 	}

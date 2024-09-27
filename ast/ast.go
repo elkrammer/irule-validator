@@ -293,33 +293,6 @@ func (is *IfStatement) String() string {
 	return out.String()
 }
 
-// FUNCTION LITERALS
-// type FunctionLiteral struct {
-// 	Token      token.Token // the 'proc' token
-// 	Name       *Identifier
-// 	Parameters []*Identifier
-// 	Body       *BlockStatement
-// }
-//
-// func (fl *FunctionLiteral) expressionNode()      {}
-// func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
-// func (fl *FunctionLiteral) String() string {
-// 	var out bytes.Buffer
-//
-// 	params := []string{}
-// 	for _, p := range fl.Parameters {
-// 		params = append(params, p.String())
-// 	}
-//
-// 	out.WriteString(fl.TokenLiteral())
-// 	out.WriteString("(")
-// 	out.WriteString(strings.Join(params, ", "))
-// 	out.WriteString(")")
-// 	out.WriteString(fl.Body.String())
-//
-// 	return out.String()
-// }
-
 // HASH LITERALS
 type HashLiteral struct {
 	Token token.Token // the '{' token
@@ -408,16 +381,6 @@ func (ce *CallExpression) String() string {
 	return out.String()
 }
 
-// // 'expr'
-// type ExprExpression struct {
-// 	Token      token.Token // The 'expr' token
-// 	Expression Expression  // The expression after 'expr'
-// }
-//
-// func (ee *ExprExpression) expressionNode()      {}
-// func (ee *ExprExpression) TokenLiteral() string { return ee.Token.Literal }
-// func (ee *ExprExpression) String() string       { return "expr " + ee.Expression.String() }
-
 type ParenthesizedExpression struct {
 	Expression Expression
 }
@@ -450,34 +413,6 @@ func (al *ArrayLiteral) String() string {
 
 	return out.String()
 }
-
-// type ArrayOperation struct {
-// 	Token   token.Token
-// 	Command string     // e.g., "set", "get", "exists", etc.
-// 	Name    Expression // Array name
-// 	Index   Expression // Array index (optional, can be nil)
-// 	Value   Expression // For set operations (optional, can be nil)
-// }
-//
-// func (ao *ArrayOperation) expressionNode()      {}
-// func (ao *ArrayOperation) TokenLiteral() string { return ao.Token.Literal }
-// func (ao *ArrayOperation) String() string {
-// 	var out bytes.Buffer
-// 	out.WriteString("array ")
-// 	out.WriteString(ao.Command)
-// 	out.WriteString(" ")
-// 	out.WriteString(ao.Name.String())
-// 	if ao.Index != nil {
-// 		out.WriteString("(")
-// 		out.WriteString(ao.Index.String())
-// 		out.WriteString(")")
-// 	}
-// 	if ao.Value != nil {
-// 		out.WriteString(" ")
-// 		out.WriteString(ao.Value.String())
-// 	}
-// 	return out.String()
-// }
 
 // CommandSubstitution represents a command substitution in TCL, enclosed in square brackets
 type CommandSubstitution struct {
