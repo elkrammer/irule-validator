@@ -1,5 +1,9 @@
 # 📏 iRule-Validator
 
+![Static Badge](https://img.shields.io/badge/build-passing-elk)
+![GitHub Release](https://img.shields.io/github/v/release/elkrammer/irule-validator)
+![Static Badge](https://img.shields.io/badge/license-MIT-blue?)
+
 Ever tried writing an F5 iRule and thought, "will this work?" only to have F5
 respond with, "Nah, invalid expression on line 42?" 😩
 
