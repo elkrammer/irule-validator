@@ -95,8 +95,8 @@ func (l *Lexer) readChar() {
 	}
 }
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
-	return token.Token{Type: tokenType, Literal: string(ch)}
+func newToken(tokenType token.TokenType, ch byte, line int) token.Token {
+	return token.Token{Type: tokenType, Literal: string(ch), Line: line}
 }
 
 func (l *Lexer) NextToken() token.Token {
@@ -113,43 +113,44 @@ func (l *Lexer) NextToken() token.Token {
 	switch l.ch {
 	case '\n':
 		l.line++
+		return l.NextToken()
 	case '=':
 		if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.EQ, Literal: literal}
+			tok = token.Token{Type: token.EQ, Literal: literal, Line: l.line}
 			if config.DebugMode {
 				fmt.Printf("DEBUG: Lexer produced EQ token in case '=': %v\n", tok)
 			}
 
 		} else {
-			tok = newToken(token.ASSIGN, l.ch)
+			tok = newToken(token.ASSIGN, l.ch, l.line)
 		}
 	case '{':
-		tok = newToken(token.LBRACE, l.ch)
+		tok = newToken(token.LBRACE, l.ch, l.line)
 		l.braceDepth++
 		if config.DebugMode {
 			fmt.Printf("DEBUG: Lexer identified opening brace '{', depth now %d\n", l.braceDepth)
 		}
 	case '}':
-		tok = newToken(token.RBRACE, l.ch)
+		tok = newToken(token.RBRACE, l.ch, l.line)
 		l.braceDepth--
 		if config.DebugMode {
 			fmt.Printf("DEBUG: Lexer identified closing brace '}', depth now %d\n", l.braceDepth)
 		}
 	case '(':
-		tok = newToken(token.LPAREN, l.ch)
+		tok = newToken(token.LPAREN, l.ch, l.line)
 	case ')':
-		tok = newToken(token.RPAREN, l.ch)
+		tok = newToken(token.RPAREN, l.ch, l.line)
 	case '[':
-		tok = newToken(token.LBRACKET, l.ch)
+		tok = newToken(token.LBRACKET, l.ch, l.line)
 	case ']':
-		tok = newToken(token.RBRACKET, l.ch)
+		tok = newToken(token.RBRACKET, l.ch, l.line)
 	case ',':
-		tok = newToken(token.COMMA, l.ch)
+		tok = newToken(token.COMMA, l.ch, l.line)
 	case '%':
-		tok = newToken(token.PERCENT, l.ch)
+		tok = newToken(token.PERCENT, l.ch, l.line)
 	case '$':
 		tok.Type = token.IDENT
 		tok.Literal = l.readVariable()
@@ -158,85 +159,85 @@ func (l *Lexer) NextToken() token.Token {
 		tok.Type = token.STRING
 		tok.Literal = l.readString()
 	case '+':
-		tok = newToken(token.PLUS, l.ch)
+		tok = newToken(token.PLUS, l.ch, l.line)
 	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
+		tok = newToken(token.SEMICOLON, l.ch, l.line)
 	case '<':
-		tok = newToken(token.LT, l.ch)
+		tok = newToken(token.LT, l.ch, l.line)
 	case '>':
-		tok = newToken(token.GT, l.ch)
+		tok = newToken(token.GT, l.ch, l.line)
 	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
+		tok = newToken(token.ASTERISK, l.ch, l.line)
 	case '/':
-		tok = newToken(token.SLASH, l.ch)
+		tok = newToken(token.SLASH, l.ch, l.line)
 	case '-':
 		if l.isPartOfHeaderName() {
 			return l.readHeaderName()
 		}
-		tok = newToken(token.MINUS, l.ch)
+		tok = newToken(token.MINUS, l.ch, l.line)
 	case '&':
 		if l.peekChar() == '&' {
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.AND, Literal: literal}
+			tok = token.Token{Type: token.AND, Literal: literal, Line: l.line}
 		} else {
-			tok = newToken(token.AND, l.ch)
+			tok = newToken(token.AND, l.ch, l.line)
 		}
 	case '|':
 		if l.peekChar() == '|' {
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.OR, Literal: literal}
+			tok = token.Token{Type: token.OR, Literal: literal, Line: l.line}
 		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+			tok = newToken(token.ILLEGAL, l.ch, l.line)
 		}
 	case '!':
 		if l.peekChar() == '=' {
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.NOT_EQ, Literal: literal}
+			tok = token.Token{Type: token.NOT_EQ, Literal: literal, Line: l.line}
 		} else {
-			tok = newToken(token.BANG, l.ch)
+			tok = newToken(token.BANG, l.ch, l.line)
 		}
 	case ':':
 		if l.peekChar() == ':' {
 			ch := l.ch
 			l.readChar()
 			literal := string(ch) + string(l.ch)
-			tok = token.Token{Type: token.DOUBLE_COLON, Literal: literal}
+			tok = token.Token{Type: token.DOUBLE_COLON, Literal: literal, Line: l.line}
 		} else {
-			tok = newToken(token.COLON, l.ch)
+			tok = newToken(token.COLON, l.ch, l.line)
 		}
 	case 'H':
 		peekedWord := l.peekWord()
 		if tokenType, isHTTPKeyword := HttpKeywords[peekedWord]; isHTTPKeyword {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: tokenType, Literal: peekedWord}
+			identifier, line := l.readIdentifier()
+			return token.Token{Type: tokenType, Literal: identifier, Line: line}
 		}
 
-		identifier := l.readIdentifier()
-		return token.Token{Type: token.IDENT, Literal: identifier}
+		identifier, line := l.readIdentifier()
+		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
 	case 'L':
 		peekedWord := l.peekWord()
 		if tokenType, isLBKeyword := LbKeywords[peekedWord]; isLBKeyword {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: tokenType, Literal: peekedWord}
+			l.readIdentifier()
+			return token.Token{Type: tokenType, Literal: peekedWord, Line: l.line}
 		}
 
-		identifier := l.readIdentifier()
-		return token.Token{Type: token.IDENT, Literal: identifier}
+		identifier, line := l.readIdentifier()
+		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
 	case 'S':
 		peekedWord := l.peekWord()
 		if tokenType, isSSLKeyword := SSLKeywords[peekedWord]; isSSLKeyword {
-			l.readIdentifier() // consume the word
-			return token.Token{Type: tokenType, Literal: peekedWord}
+			identifier, line := l.readIdentifier()
+			return token.Token{Type: tokenType, Literal: identifier, Line: line}
 		}
 
-		identifier := l.readIdentifier()
-		return token.Token{Type: token.IDENT, Literal: identifier}
+		identifier, line := l.readIdentifier()
+		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
 	case 0:
 		if l.braceDepth > 0 {
 			l.reportError(fmt.Sprintf("Unexpected EOF: unclosed brace, depth: %d", l.braceDepth))
@@ -254,7 +255,7 @@ func (l *Lexer) NextToken() token.Token {
 
 		// Check for identifier
 		if IsLetter(l.ch) {
-			tok.Literal = l.readIdentifier()
+			tok.Literal, tok.Line = l.readIdentifier()
 			switch tok.Literal {
 			case "IP::client_addr":
 				tok.Type = token.IP_CLIENT_ADDR
@@ -279,7 +280,7 @@ func (l *Lexer) NextToken() token.Token {
 		// Everything else is an illegal token
 		l.reportError("NextToken: Illegal token found = '%c'\n", l.ch)
 		fmt.Printf("NextToken: Illegal token found = '%c'\n", l.ch)
-		tok = newToken(token.ILLEGAL, l.ch)
+		tok = newToken(token.ILLEGAL, l.ch, l.line)
 	}
 
 	l.readChar()
@@ -290,12 +291,16 @@ func (l *Lexer) NextToken() token.Token {
 	return tok
 }
 
-func (l *Lexer) readIdentifier() string {
+func (l *Lexer) readIdentifier() (string, int) {
 	position := l.position
+	startLine := l.line
 	for IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '_' || l.ch == ':' || l.ch == '.' || l.ch == '-' {
+		if l.ch == '\n' {
+			l.line++
+		}
 		l.readChar()
 	}
-	return l.input[position:l.position]
+	return l.input[position:l.position], startLine
 }
 
 func IsLetter(ch byte) bool {
@@ -417,6 +422,7 @@ func (l *Lexer) readNumberOrIpAddress() token.Token {
 	return token.Token{
 		Type:    token.NUMBER,
 		Literal: l.input[startPosition:l.position],
+		Line:    l.line,
 	}
 }
 
@@ -436,6 +442,7 @@ func (l *Lexer) readIpAddress(startPosition int) token.Token {
 		return token.Token{
 			Type:    token.IP_ADDRESS,
 			Literal: l.input[startPosition:l.position],
+			Line:    l.line,
 		}
 	}
 
@@ -443,6 +450,7 @@ func (l *Lexer) readIpAddress(startPosition int) token.Token {
 	return token.Token{
 		Type:    token.NUMBER,
 		Literal: l.input[startPosition:l.position],
+		Line:    l.line,
 	}
 }
 
@@ -456,7 +464,7 @@ func (l *Lexer) readHeaderName() token.Token {
 	for l.position < len(l.input) && (IsLetter(l.ch) || IsDigit(l.ch) || l.ch == '-') {
 		l.readChar()
 	}
-	return token.Token{Type: token.IDENT, Literal: l.input[position:l.position]}
+	return token.Token{Type: token.IDENT, Literal: l.input[position:l.position], Line: l.line}
 }
 
 func (l *Lexer) reportError(format string, args ...interface{}) {
