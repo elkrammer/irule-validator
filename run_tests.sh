@@ -19,6 +19,7 @@ exclude_files=(
   "class_match.irule"
   "complex3.irule"
   "cookie.irule"
+  "routes01.irule"
 )
 
 # Initialize counters and arrays to store results

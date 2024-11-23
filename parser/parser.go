@@ -79,6 +79,8 @@ type Parser struct {
 
 	braceCount        int
 	declaredVariables map[string]bool
+	symbolTable       *SymbolTable
+	currentLine       int
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -86,13 +88,15 @@ func New(l *lexer.Lexer) *Parser {
 		l:                 l,
 		errors:            []string{},
 		declaredVariables: make(map[string]bool),
+		symbolTable:       NewSymbolTable(),
 	}
+
 	// read two tokens so curToken and peekToken are both set
 	p.nextToken()
 	p.nextToken()
 
 	// Initialize prevToken to an "empty" token or a special "start of file" token
-	p.prevToken = token.Token{Type: token.ILLEGAL, Literal: ""}
+	p.prevToken = token.Token{Type: token.ILLEGAL, Literal: "", Line: p.curToken.Line}
 
 	// Check for lexer errors
 	if lexerErrors := l.Errors(); len(lexerErrors) > 0 {
@@ -202,6 +206,7 @@ func (p *Parser) nextToken() {
 	p.prevToken = p.curToken
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
+	p.currentLine = p.curToken.Line
 
 	if p.curToken.Type == token.LBRACE {
 		p.braceCount++
@@ -380,12 +385,19 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseExpressionStatement Start, current token: %s\n", p.curToken.Type)
+		fmt.Printf("DEBUG: parseExpressionStatement Start, current token: %s, Line: %d\n", p.curToken.Type, p.currentLine)
 	}
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 
-	if p.curTokenIs(token.IDENT) && p.curToken.Literal == "pool" {
-		stmt.Expression = p.parsePoolStatement()
+	if p.curTokenIs(token.IDENT) {
+		switch p.curToken.Literal {
+		case "pool":
+			stmt.Expression = p.parsePoolStatement()
+		case "node":
+			stmt.Expression = p.parseNodeStatement()
+		default:
+			stmt.Expression = p.parseExpression(LOWEST)
+		}
 	} else {
 		stmt.Expression = p.parseExpression(LOWEST)
 	}
@@ -459,7 +471,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		}
 		if identifier != p.curToken.Literal {
 			leftExp = &ast.Identifier{
-				Token: token.Token{Type: token.IDENT, Literal: identifier},
+				Token: token.Token{Type: token.IDENT, Literal: identifier, Line: p.curToken.Line},
 				Value: identifier,
 			}
 		}
@@ -681,6 +693,9 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
+
+	p.symbolTable.EnterScope()
+	defer p.symbolTable.ExitScope()
 
 	p.braceCount++
 	p.nextToken() // consume opening brace
@@ -1618,8 +1633,10 @@ func (p *Parser) parseMapArgument() ast.Expression {
 
 func (p *Parser) parsePoolStatement() ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parsePoolStatement Start\n")
+		fmt.Printf("DEBUG: parsePoolStatement Start - Current token: %s, Line: %d\n", p.curToken.Type, p.currentLine)
 	}
+
+	p.symbolTable.Declare(p, POOL)
 
 	poolStmt := &ast.CallExpression{
 		Token:    p.curToken,
@@ -1732,7 +1749,7 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 			end := strings.Index(value, "}")
 			if end != -1 {
 				varName := value[2:end]
-				parts = append(parts, &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: varName}, Value: varName})
+				parts = append(parts, &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: varName, Line: p.curToken.Line}, Value: varName})
 				value = value[end+1:]
 			} else {
 				// Unclosed variable, treat as literal
@@ -2150,6 +2167,36 @@ func (p *Parser) isValidCustomIdentifier(s string) bool {
 
 func (p *Parser) reportError(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	formattedMsg := "   " + msg
+	formattedMsg := fmt.Sprintf("   %s Line: %d", msg, p.curToken.Line)
 	p.errors = append(p.errors, formattedMsg)
+}
+
+func (p *Parser) parseNodeStatement() ast.Expression {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseNodeStatement Start - Current token: %s, Line: %d\n", p.curToken.Type, p.curToken.Line)
+	}
+
+	p.symbolTable.Declare(p, NODE)
+
+	nodeStmt := &ast.NodeStatement{
+		Token: p.curToken,
+	}
+
+	// Expect the next token to be an IP address
+	if !p.expectPeek(token.IP_ADDRESS) {
+		return nil
+	}
+	nodeStmt.IPAddress = p.curToken.Literal
+
+	// Expect the next token to be a port number
+	if !p.expectPeek(token.NUMBER) {
+		return nil
+	}
+	nodeStmt.Port = p.curToken.Literal
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: parseNodeStatement End\n")
+	}
+
+	return nodeStmt
 }

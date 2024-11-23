@@ -740,3 +740,15 @@ func (fs *ForEachStatement) String() string {
 
 	return out.String()
 }
+
+type NodeStatement struct {
+	Token     token.Token
+	IPAddress string
+	Port      string
+}
+
+func (ns *NodeStatement) expressionNode()      {}
+func (ns *NodeStatement) TokenLiteral() string { return ns.Token.Literal }
+func (ns *NodeStatement) String() string {
+	return fmt.Sprintf("node %s %s", ns.IPAddress, ns.Port)
+}
