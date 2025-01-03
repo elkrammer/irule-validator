@@ -169,6 +169,8 @@ const (
 	MATCH       = "match"
 	MATCHES     = "matches"
 	CLASS       = "class"
+	LTM         = "ltm"
+	RULE        = "rule"
 
 	// Additional control structures
 	SWITCH  = "switch"
@@ -209,6 +211,8 @@ var keywords = map[string]TokenType{
 	"class":       CLASS,
 	"foreach":     FOREACH,
 	"in":          IN,
+	"ltm":         LTM,
+	"rule":        RULE,
 
 	// F5 Event Contexts
 	"HTTP_REQUEST":        HTTP_REQUEST,

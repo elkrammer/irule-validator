@@ -752,3 +752,20 @@ func (ns *NodeStatement) TokenLiteral() string { return ns.Token.Literal }
 func (ns *NodeStatement) String() string {
 	return fmt.Sprintf("node %s %s", ns.IPAddress, ns.Port)
 }
+
+type LtmRule struct {
+	Token token.Token
+	Name  *Identifier
+	Body  *BlockStatement
+}
+
+func (lr *LtmRule) statementNode()       {}
+func (lr *LtmRule) TokenLiteral() string { return lr.Token.Literal }
+func (lr *LtmRule) String() string {
+	var out bytes.Buffer
+	out.WriteString("ltm rule ")
+	out.WriteString(lr.Name.String())
+	out.WriteString(" ")
+	out.WriteString(lr.Body.String())
+	return out.String()
+}
