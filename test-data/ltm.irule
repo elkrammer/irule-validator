@@ -1,0 +1,9 @@
+ltm rule redirect_rule {
+  when HTTP_REQUEST {
+    if {[string tolower [HTTP::host]] eq "test.com" } {
+      node 192.168.191.5
+    }
+    elseif {[string tolower [HTTP::host]] eq "test2.com"}{
+      node 192.168.191.6
+    }}
+}

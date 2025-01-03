@@ -286,6 +286,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		stmt = p.parseBlockStatement()
 	case token.SWITCH:
 		stmt = p.parseSwitchStatement()
+	case token.LTM:
+		stmt = p.parseLtmRule()
 	default:
 		stmt = p.parseExpressionStatement()
 	}
@@ -2188,15 +2190,37 @@ func (p *Parser) parseNodeStatement() ast.Expression {
 	}
 	nodeStmt.IPAddress = p.curToken.Literal
 
-	// Expect the next token to be a port number
-	if !p.expectPeek(token.NUMBER) {
-		return nil
+	// Expect the next token to be a port number, but don't require it
+	if p.peekTokenIs(token.NUMBER) {
+		p.nextToken()
+		nodeStmt.Port = p.curToken.Literal
 	}
-	nodeStmt.Port = p.curToken.Literal
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseNodeStatement End\n")
+		fmt.Printf("DEBUG: parseNodeStatement End - IP: %s, Port: %s\n", nodeStmt.IPAddress, nodeStmt.Port)
 	}
 
 	return nodeStmt
+}
+
+func (p *Parser) parseLtmRule() ast.Statement {
+	stmt := &ast.LtmRule{Token: p.curToken}
+
+	if !p.expectPeek(token.RULE) {
+		return nil
+	}
+
+	if !p.expectPeek(token.IDENT) {
+		return nil
+	}
+
+	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+
+	stmt.Body = p.parseBlockStatement()
+
+	return stmt
 }
