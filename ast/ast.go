@@ -769,3 +769,20 @@ func (lr *LtmRule) String() string {
 	out.WriteString(lr.Body.String())
 	return out.String()
 }
+
+type GlobPattern struct {
+	Token token.Token
+	Value string
+}
+
+func (gp *GlobPattern) expressionNode()      {}
+func (gp *GlobPattern) TokenLiteral() string { return gp.Token.Literal }
+func (gp *GlobPattern) String() string       { return "{" + gp.Value + "}" }
+
+type SlashExpression struct {
+	Token token.Token
+}
+
+func (se *SlashExpression) expressionNode()      {}
+func (se *SlashExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SlashExpression) String() string       { return "/" }

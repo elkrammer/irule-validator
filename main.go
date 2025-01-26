@@ -49,7 +49,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// You can add further processing of the parsed program here if needed
 	fmt.Printf("✅ Successfully parsed irule %v\n", filename)
 }
 

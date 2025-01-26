@@ -37,6 +37,7 @@ const (
 	PERCENT      = "%"
 	COLON        = ":"
 	DOUBLE_COLON = "::"
+	CARET        = "^"
 
 	// delimiters
 	COMMA    = ","

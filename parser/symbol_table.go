@@ -13,7 +13,7 @@ type SymbolTable struct {
 
 type SymbolInfo struct {
 	declared bool
-	line     int
+	// line     int
 }
 
 func NewSymbolTable() *SymbolTable {

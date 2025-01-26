@@ -151,6 +151,8 @@ func (l *Lexer) NextToken() token.Token {
 		tok = newToken(token.COMMA, l.ch, l.line)
 	case '%':
 		tok = newToken(token.PERCENT, l.ch, l.line)
+	case '^':
+		tok = newToken(token.CARET, l.ch, l.line)
 	case '$':
 		tok.Type = token.IDENT
 		tok.Literal = l.readVariable()

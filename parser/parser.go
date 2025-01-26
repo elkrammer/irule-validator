@@ -118,6 +118,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.TRUE, p.parseBoolean)
 	p.registerPrefix(token.WHEN, p.parseWhenExpression)
+	p.registerPrefix(token.SLASH, p.parseSlashExpression)
 
 	// http commands
 	p.registerPrefix(token.HTTP_HEADER, p.parseHttpCommand)
@@ -1362,7 +1363,8 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 		if p.curTokenIs(token.DEFAULT) {
 			switchStmt.Default = p.parseDefaultCase()
-		} else if p.curTokenIs(token.STRING) {
+		} else if p.curTokenIs(token.LBRACE) {
+			// bracket syntax i.e. {/api*} {
 			caseStmt := p.parseCaseStatement()
 			if caseStmt != nil {
 				switchStmt.Cases = append(switchStmt.Cases, caseStmt)
@@ -1370,16 +1372,25 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 					fmt.Printf("DEBUG: parseSwitchStatement Added case, total cases: %d\n", len(switchStmt.Cases))
 				}
 			}
+		} else if p.curTokenIs(token.STRING) {
+			// string-based syntax i.e. "/api*"
+			caseStmt := &ast.CaseStatement{Token: p.curToken, Value: p.parseExpression(LOWEST)}
+			if !p.expectPeek(token.LBRACE) {
+				p.reportError("Expected '{' after case value")
+				return nil
+			}
+			caseStmt.Consequence = p.parseBlockStatement()
+			switchStmt.Cases = append(switchStmt.Cases, caseStmt)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseSwitchStatement Added case, total cases: %d\n", len(switchStmt.Cases))
+			}
 		} else {
 			p.reportError(fmt.Sprintf("parseSwitchStatement: Invalid case statement starting with token: %s", p.curToken.Literal))
 			return nil // Error occurred in parsing case statement
 		}
 
 		// Ensure we're moving forward after each case
-		if p.peekTokenIs(token.RBRACE) {
-			p.nextToken()
-			break
-		}
+		p.nextToken()
 	}
 
 	if !p.curTokenIs(token.RBRACE) {
@@ -1410,17 +1421,35 @@ func (p *Parser) parseCaseStatement() *ast.CaseStatement {
 	}
 	caseStmt := &ast.CaseStatement{Token: p.curToken}
 
-	caseStmt.Value = p.parseExpression(LOWEST)
-
-	if !p.expectPeek(token.LBRACE) {
-		p.reportError("parseCaseStatement expected LBRACE")
+	// Parse the glob pattern
+	if !p.curTokenIs(token.LBRACE) {
+		p.reportError("Expected '{' at the start of case statement")
 		return nil
 	}
 
-	caseStmt.Consequence = p.parseBlockStatement()
+	pattern := &ast.GlobPattern{Token: p.curToken}
+	var patternContent strings.Builder
 
-	// Advance to the next token after the closing brace
-	p.nextToken()
+	p.nextToken() // move past the opening brace
+
+	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		patternContent.WriteString(p.curToken.Literal)
+		p.nextToken()
+	}
+
+	if !p.curTokenIs(token.RBRACE) {
+		p.reportError("Unterminated glob pattern")
+		return nil
+	}
+
+	pattern.Value = patternContent.String()
+	caseStmt.Value = pattern
+
+	if !p.expectPeek(token.LBRACE) {
+		p.reportError("Expected '{' after glob pattern")
+		return nil
+	}
+	caseStmt.Consequence = p.parseBlockStatement()
 
 	if config.DebugMode {
 		fmt.Printf("DEBUG: End parseCaseStatement\n")
@@ -1999,6 +2028,9 @@ func (p *Parser) isValidIRuleIdentifier(value string, identifierContext string) 
 			return true, nil
 		}
 		return false, fmt.Errorf("invalid HTTP header name: %s", value)
+
+	case "glob_pattern":
+		return true, nil
 	}
 
 	// Check if it's a valid command or keyword
@@ -2223,4 +2255,8 @@ func (p *Parser) parseLtmRule() ast.Statement {
 	stmt.Body = p.parseBlockStatement()
 
 	return stmt
+}
+
+func (p *Parser) parseSlashExpression() ast.Expression {
+	return &ast.SlashExpression{Token: p.curToken}
 }

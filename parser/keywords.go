@@ -26,6 +26,6 @@ var (
 		"clock", "format", "expr", "call", "binary", "b64encode", "b64decode", "md5", "sha1",
 		"sha256", "sha384", "sha512", "redirect", "compress", "decompress", "cookie",
 		"getfield", "findstr", "scan", "matchclass", "priority", "when", "use",
-		"client_addr", "server_addr", "ip2rd", "rd2ip",
+		"client_addr", "server_addr", "ip2rd", "rd2ip", "replace",
 	}
 )
