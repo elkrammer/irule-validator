@@ -20,7 +20,6 @@ exclude_files=(
   "complex3.irule"
   "cookie.irule"
   "routes01.irule"
-  "regex.irule"
 )
 
 # Initialize counters and arrays to store results

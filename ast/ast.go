@@ -520,6 +520,8 @@ type SwitchStatement struct {
 	Value   Expression
 	Cases   []*CaseStatement
 	Default *CaseStatement
+	IsRegex bool
+	IsGlob  bool
 }
 
 func (ss *SwitchStatement) expressionNode()      {}

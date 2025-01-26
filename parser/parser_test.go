@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/elkrammer/irule-validator/ast"
 	"github.com/elkrammer/irule-validator/lexer"
+	"strings"
 	"testing"
 )
 
@@ -784,5 +785,111 @@ func checkSwitchStatement(t *testing.T, stmt ast.Statement) {
 
 	if switchStmt.Default == nil {
 		t.Fatalf("switchExpr.Default is nil")
+	}
+}
+
+func TestSwitchStatementPatternValidation(t *testing.T) {
+	tests := []struct {
+		name           string
+		input          string
+		expectedErrors []string
+	}{
+		{
+			name: "Valid regex patterns",
+			input: `
+				when HTTP_REQUEST {
+					switch -regex [string tolower [HTTP::uri]] {
+						"^/api/v1/users.*" { }
+						"/api/v2/.*" { }
+						{^/reports/(daily|monthly)/.*} { }
+						default { }
+					}
+				}
+			`,
+			expectedErrors: []string{},
+		},
+		{
+			name: "Invalid glob pattern in regex switch",
+			input: `
+				when HTTP_REQUEST {
+					switch -regex [string tolower [HTTP::uri]] {
+						"^/api/v1/users.*" { }
+						"/api*" { }
+						{^/reports/(daily|monthly)/.*} { }
+						default { }
+					}
+				}
+			`,
+			expectedErrors: []string{"   invalid regex pattern (looks like a glob pattern): /api*"},
+		},
+		{
+			name: "Mixed invalid patterns",
+			input: `
+				when HTTP_REQUEST {
+					switch -regex [string tolower [HTTP::uri]] {
+						"^/api/v1/users.*" { }
+						"/api*" { }
+            {^/reports/[daily|monthly]/.*} { }
+					}
+				}
+			`,
+			expectedErrors: []string{
+				"   invalid regex pattern (looks like a glob pattern): /api*",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+			program := p.ParseProgram()
+
+			errors := p.Errors()
+			if len(errors) != len(tt.expectedErrors) {
+				t.Fatalf("Expected %d errors, got %d", len(tt.expectedErrors), len(errors))
+			}
+
+			for i, expectedError := range tt.expectedErrors {
+				if !strings.Contains(errors[i], expectedError) {
+					t.Errorf("Expected error to contain: %q, got: %q", expectedError, errors[i])
+				}
+			}
+
+			if len(errors) > 0 {
+				return
+			}
+
+			if program == nil || len(program.Statements) == 0 {
+				t.Fatalf("ParseProgram() returned nil or empty program")
+			}
+
+			whenExpr, ok := program.Statements[0].(*ast.ExpressionStatement)
+			if !ok {
+				t.Fatalf("First statement is not ast.ExpressionStatement. got=%T", program.Statements[0])
+			}
+
+			whenStmt, ok := whenExpr.Expression.(*ast.WhenExpression)
+			if !ok {
+				t.Fatalf("Expression is not ast.WhenExpression. got=%T", whenExpr.Expression)
+			}
+
+			if whenStmt.Block == nil || len(whenStmt.Block.Statements) == 0 {
+				t.Fatalf("When block is nil or empty")
+			}
+
+			switchStmt, ok := whenStmt.Block.Statements[0].(*ast.SwitchStatement)
+			if !ok {
+				t.Fatalf("When block does not contain a SwitchStatement. got=%T", whenStmt.Block.Statements[0])
+			}
+
+			if len(switchStmt.Cases) < 3 {
+				t.Fatalf("Switch statement should have at least 3 cases, got %d", len(switchStmt.Cases))
+			}
+
+			if switchStmt.Default == nil {
+				t.Fatalf("Switch statement should have a default case")
+			}
+		})
 	}
 }
