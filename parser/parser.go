@@ -81,6 +81,7 @@ type Parser struct {
 	declaredVariables map[string]bool
 	symbolTable       *SymbolTable
 	currentLine       int
+	lastKnownLine     int
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -89,6 +90,8 @@ func New(l *lexer.Lexer) *Parser {
 		errors:            []string{},
 		declaredVariables: make(map[string]bool),
 		symbolTable:       NewSymbolTable(),
+		currentLine:       1,
+		lastKnownLine:     1,
 	}
 
 	// read two tokens so curToken and peekToken are both set
@@ -96,7 +99,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.nextToken()
 
 	// Initialize prevToken to an "empty" token or a special "start of file" token
-	p.prevToken = token.Token{Type: token.ILLEGAL, Literal: "", Line: p.curToken.Line}
+	p.prevToken = token.Token{Type: token.ILLEGAL, Literal: "", Line: p.l.CurrentLine()}
 
 	// Check for lexer errors
 	if lexerErrors := l.Errors(); len(lexerErrors) > 0 {
@@ -200,7 +203,7 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	p.reportError("peekError: Expected next token to be %s, got %s instead. Line: %d", t, p.peekToken.Type, p.peekToken.Line)
+	p.reportError("peekError: Expected next token to be %s, got %s instead. Line: %d", t, p.peekToken.Type, p.l.CurrentLine())
 }
 
 func (p *Parser) nextToken() {
@@ -208,6 +211,10 @@ func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
 	p.currentLine = p.curToken.Line
+
+	if p.peekToken.Line > 0 {
+		p.lastKnownLine = p.peekToken.Line
+	}
 
 	if p.curToken.Type == token.LBRACE {
 		p.braceCount++
@@ -474,7 +481,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		}
 		if identifier != p.curToken.Literal {
 			leftExp = &ast.Identifier{
-				Token: token.Token{Type: token.IDENT, Literal: identifier, Line: p.curToken.Line},
+				Token: token.Token{Type: token.IDENT, Literal: identifier, Line: p.l.CurrentLine()},
 				Value: identifier,
 			}
 		}
@@ -1320,7 +1327,7 @@ func (p *Parser) parseWhenExpression() ast.Expression {
 
 func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Start parseSwitchStatement\n")
+		fmt.Printf("DEBUG: Start parseSwitchStatement at line %d\n", p.lastKnownLine)
 	}
 	switchStmt := &ast.SwitchStatement{Token: p.curToken}
 	switchStmt.IsRegex = false
@@ -1334,8 +1341,6 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 		option := p.curToken.Literal
 		p.nextToken() // move past the option
 		if p.curTokenIs(token.IDENT) {
-			// option += " " + p.curToken.Literal
-			// switchStmt.Options = append(switchStmt.Options, option)
 			option += p.curToken.Literal
 			switchStmt.Options = append(switchStmt.Options, option)
 			if option == "-regex" {
@@ -1370,28 +1375,34 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	p.nextToken() // Move past the opening brace
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+		line := p.lastKnownLine
 		if config.DebugMode {
-			fmt.Printf("DEBUG: parseSwitchStatement Switch loop - Current token: %s, Literal: %s\n", p.curToken.Type, p.curToken.Literal)
+			fmt.Printf("DEBUG: parseSwitchStatement Switch loop - Current token: %s, Literal: %s, Line: %d\n", p.curToken.Type, p.curToken.Literal, p.lastKnownLine)
 		}
 
 		if p.curTokenIs(token.DEFAULT) {
 			switchStmt.Default = p.parseDefaultCase()
 		} else if p.curTokenIs(token.LBRACE) {
 			// bracket syntax i.e. {/api*} {
-			caseStmt := p.parseBracketCaseStatement(switchStmt.IsRegex, switchStmt.IsGlob)
+			caseStmt := p.parseBracketCaseStatement(switchStmt.IsRegex, switchStmt.IsGlob, line)
 			if caseStmt != nil {
 				switchStmt.Cases = append(switchStmt.Cases, caseStmt)
+				caseStmt.Line = p.curToken.Line
 				if config.DebugMode {
-					fmt.Printf("DEBUG: parseSwitchStatement Added case, total cases: %d\n", len(switchStmt.Cases))
+					fmt.Printf("DEBUG: parseSwitchStatement Bracket Adding case statement with pattern '%s' at line %d\n", caseStmt.Value, caseStmt.Line)
 				}
 			}
 		} else if p.curTokenIs(token.STRING) {
 			// string-based syntax i.e. "/api*"
-			caseStmt := p.parseStringCaseStatement(switchStmt.IsRegex, switchStmt.IsGlob)
+			if config.DebugMode {
+				fmt.Printf("DEBUG: parseSwitchStatement Before calling parseStringCaseStatement - Token: %+v\n", p.curToken)
+			}
+			caseStmt := p.parseStringCaseStatement(switchStmt.IsRegex, switchStmt.IsGlob, line)
 			if caseStmt != nil {
 				switchStmt.Cases = append(switchStmt.Cases, caseStmt)
+				caseStmt.Line = p.curToken.Line
 				if config.DebugMode {
-					fmt.Printf("DEBUG: parseSwitchStatement Added case, total cases: %d\n", len(switchStmt.Cases))
+					fmt.Printf("DEBUG: parseSwitchStatement StringCase Adding case statement with pattern '%s' at line %d\n", caseStmt.Value, caseStmt.Line)
 				}
 			}
 		} else {
@@ -1404,6 +1415,12 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	}
 
 	// Validate patterns after parsing all cases
+	if config.DebugMode {
+		fmt.Println("DEBUG: Cases before validation:")
+		for i, caseStmt := range switchStmt.Cases {
+			fmt.Printf("  Case %d: Pattern '%s' at line %d\n", i, caseStmt.Value, caseStmt.Line)
+		}
+	}
 	if err := p.validateSwitchPatterns(switchStmt); err != nil {
 		p.reportError(err.Error())
 		return nil
@@ -1637,7 +1654,7 @@ func (p *Parser) parseMapArgument() ast.Expression {
 
 func (p *Parser) parsePoolStatement() ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parsePoolStatement Start - Current token: %s, Line: %d\n", p.curToken.Type, p.currentLine)
+		fmt.Printf("DEBUG: parsePoolStatement Start - Current token: %s\n", p.curToken.Type)
 	}
 
 	p.symbolTable.Declare(p, POOL)
@@ -1753,7 +1770,7 @@ func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression
 			end := strings.Index(value, "}")
 			if end != -1 {
 				varName := value[2:end]
-				parts = append(parts, &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: varName, Line: p.curToken.Line}, Value: varName})
+				parts = append(parts, &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: varName, Line: p.l.CurrentLine()}, Value: varName})
 				value = value[end+1:]
 			} else {
 				// Unclosed variable, treat as literal
@@ -2173,14 +2190,36 @@ func (p *Parser) isValidCustomIdentifier(s string) bool {
 }
 
 func (p *Parser) reportError(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
-	formattedMsg := fmt.Sprintf("   %s Line: %d", msg, p.curToken.Line)
-	p.errors = append(p.errors, formattedMsg)
+	var line int
+	var msg string
+
+	if len(args) > 0 {
+		if lastArg, ok := args[len(args)-1].(int); ok {
+			// If the last argument is an int, use it as the line number
+			line = lastArg
+			msg = fmt.Sprintf(format, args[:len(args)-1]...)
+		} else {
+			// If the last argument is not an int, use all args for the message
+			line = p.lastKnownLine
+			msg = fmt.Sprintf(format, args...)
+		}
+	} else {
+		// If no args provided, just use the format string and lastKnownLine
+		line = p.lastKnownLine
+		msg = format
+	}
+
+	lineMsg := fmt.Sprintf("   %s Line: %d", msg, line)
+	p.errors = append(p.errors, lineMsg)
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Reporting error: %s\n", lineMsg)
+	}
 }
 
 func (p *Parser) parseNodeStatement() ast.Expression {
 	if config.DebugMode {
-		fmt.Printf("DEBUG: parseNodeStatement Start - Current token: %s, Line: %d\n", p.curToken.Type, p.curToken.Line)
+		fmt.Printf("DEBUG: parseNodeStatement Start - Current token: %s, Line: %d\n", p.curToken.Type, p.l.CurrentLine())
 	}
 
 	p.symbolTable.Declare(p, NODE)
@@ -2251,8 +2290,11 @@ func isValidRegexPattern(pattern string) bool {
 	return result
 }
 
-func (p *Parser) parseBracketCaseStatement(isRegex, isGlob bool) *ast.CaseStatement {
-	caseStmt := &ast.CaseStatement{Token: p.curToken}
+func (p *Parser) parseBracketCaseStatement(isRegex, isGlob bool, startLine int) *ast.CaseStatement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Start parseBracketCaseStatement at line %d\n", p.curToken.Line)
+	}
+	caseStmt := &ast.CaseStatement{Token: p.curToken, Line: startLine}
 
 	pattern := &ast.GlobPattern{Token: p.curToken}
 	var patternContent strings.Builder
@@ -2274,12 +2316,12 @@ func (p *Parser) parseBracketCaseStatement(isRegex, isGlob bool) *ast.CaseStatem
 	// Validate the pattern
 	if isRegex {
 		if !isValidRegexPattern(pattern.Value) {
-			p.reportError(fmt.Sprintf("Invalid regex pattern: %s", pattern.Value))
+			p.reportError("Invalid regex pattern: %s", pattern.Value)
 			return nil
 		}
 	} else if isGlob {
 		if !isValidGlobPattern(pattern.Value) {
-			p.reportError(fmt.Sprintf("Invalid glob pattern: %s", pattern.Value))
+			p.reportError("Invalid glob pattern: %s", pattern.Value)
 			return nil
 		}
 	}
@@ -2293,22 +2335,33 @@ func (p *Parser) parseBracketCaseStatement(isRegex, isGlob bool) *ast.CaseStatem
 
 	caseStmt.Consequence = p.parseBlockStatement()
 
+	if config.DebugMode {
+		fmt.Printf("DEBUG: End parseBracketCaseStatement, created case with pattern '%s' at line %d\n", caseStmt.Value, caseStmt.Line)
+	}
+
 	return caseStmt
 }
 
-func (p *Parser) parseStringCaseStatement(isRegex, isGlob bool) *ast.CaseStatement {
-	caseStmt := &ast.CaseStatement{Token: p.curToken}
+func (p *Parser) parseStringCaseStatement(isRegex, isGlob bool, startLine int) *ast.CaseStatement {
+	if config.DebugMode {
+		fmt.Printf("DEBUG: Start parseStringCaseStatement at line %d\n", startLine)
+	}
+
+	caseStmt := &ast.CaseStatement{Token: p.curToken, Line: p.curToken.Line}
 	pattern := p.parseExpression(LOWEST)
 
 	if stringLiteral, ok := pattern.(*ast.StringLiteral); ok {
+		// Preserve the original line number from the token
+		stringLiteral.Token.Line = startLine
+		caseStmt.Value = stringLiteral
 		if isRegex {
 			if !isValidRegexPattern(stringLiteral.Value) {
-				p.reportError(fmt.Sprintf("Invalid regex pattern: %s", stringLiteral.Value))
+				p.reportError("Invalid regex pattern: %s", stringLiteral.Value)
 				return nil
 			}
 		} else if isGlob {
 			if !isValidGlobPattern(stringLiteral.Value) {
-				p.reportError(fmt.Sprintf("Invalid glob pattern: %s", stringLiteral.Value))
+				p.reportError("Invalid glob pattern: %s", stringLiteral.Value)
 				return nil
 			}
 		}
@@ -2325,6 +2378,10 @@ func (p *Parser) parseStringCaseStatement(isRegex, isGlob bool) *ast.CaseStateme
 	}
 
 	caseStmt.Consequence = p.parseBlockStatement()
+
+	if config.DebugMode {
+		fmt.Printf("DEBUG: End parseStringCaseStatement, created case with pattern '%s' at line %d\n", caseStmt.Value, caseStmt.Line)
+	}
 
 	return caseStmt
 }
@@ -2353,32 +2410,50 @@ func (p *Parser) validateSwitchPatterns(switchStmt *ast.SwitchStatement) error {
 	}
 	for i, caseStmt := range switchStmt.Cases {
 		var pattern string
+		line := p.lastKnownLine
+
+		if config.DebugMode {
+			fmt.Printf("DEBUG: validateSwitchPatterns Case %d - Token: %+v, Line: %d\n", i, caseStmt.Token, line)
+		}
+
 		switch v := caseStmt.Value.(type) {
 		case *ast.StringLiteral:
 			pattern = v.Value
+			if v.Token.Line > 0 {
+				line = v.Token.Line
+			}
+			if config.DebugMode {
+				fmt.Printf("DEBUG: StringLiteral pattern: %s, Token: %+v\n", pattern, v.Token)
+			}
 		case *ast.GlobPattern:
 			pattern = v.Value
+			if v.Token.Line > 0 {
+				line = v.Token.Line
+			}
+			if config.DebugMode {
+				fmt.Printf("DEBUG: GlobPattern pattern: %s, Token: %+v\n", pattern, v.Token)
+			}
 		default:
 			return fmt.Errorf("unexpected case value type: %T", caseStmt.Value)
 		}
 
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Validating pattern %d: %s\n", i, pattern)
+			fmt.Printf("DEBUG: Validating pattern %d: '%s' at line %d\n", i, pattern, line)
 		}
 
 		if switchStmt.IsRegex {
 			if isGlobPattern(pattern) {
-				return fmt.Errorf("invalid regex pattern (looks like a glob pattern): %s", pattern)
+				p.reportError("Invalid regex pattern (looks like a glob pattern): %s", []interface{}{pattern, line}...)
 			}
 			if !isValidRegexPattern(pattern) {
-				return fmt.Errorf("invalid regex pattern: %s", pattern)
+				p.reportError("Invalid regex pattern: %s", []interface{}{pattern, line}...)
 			}
 		} else if switchStmt.IsGlob {
 			if isRegexPattern(pattern) {
-				return fmt.Errorf("invalid glob pattern (looks like a regex pattern): %s", pattern)
+				p.reportError("Invalid glob pattern (looks like a regex pattern): %s", []interface{}{pattern, line}...)
 			}
 			if !isValidGlobPattern(pattern) {
-				return fmt.Errorf("invalid glob pattern: %s", pattern)
+				p.reportError("Invalid glob pattern: %s", []interface{}{pattern, line}...)
 			}
 		}
 	}

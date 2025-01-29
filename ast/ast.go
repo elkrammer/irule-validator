@@ -548,6 +548,7 @@ type CaseStatement struct {
 	Token       token.Token // the 'case' token
 	Value       Expression
 	Consequence *BlockStatement
+	Line        int
 }
 
 func (cs *CaseStatement) expressionNode()      {}
