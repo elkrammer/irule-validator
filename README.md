@@ -36,6 +36,16 @@ Examples:
 Pro Tip: When using this in a CI/CD pipeline, be sure to call it with `-p` to
 get those sweet error printouts you so desperately crave.
 
+## 🛠️ Features
+
+- Parse and validate various iRule-specific constructs
+- Static Syntax Analysis
+  - Glob and regex pattern validation
+  - Symbol table to prevent incompatible command combinations
+- Detailed error reporting with line numbers
+- Debug mode for detailed parsing information
+- Robust test suite to prevent regressions
+
 ## 🦄 Disclaimer
 
 Does it validate every possible command with perfect accuracy? Not quite.

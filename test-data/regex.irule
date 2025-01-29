@@ -4,10 +4,6 @@ when HTTP_REQUEST {
        log local0. "Matched: /api/v1/users"
        HTTP::respond 200 content "Users API Matched"
      }
-    "/api*" {
-      set uri [string map -nocase {"/api" "/"} [HTTP::uri]]
-      HTTP::uri $uri
-    }
     {^/reports/(daily|monthly)/.*} {
       HTTP::respond 200 content "Reports Matched"
     }

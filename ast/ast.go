@@ -773,6 +773,14 @@ func (lr *LtmRule) String() string {
 	return out.String()
 }
 
+type SlashExpression struct {
+	Token token.Token
+}
+
+func (se *SlashExpression) expressionNode()      {}
+func (se *SlashExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SlashExpression) String() string       { return "/" }
+
 type GlobPattern struct {
 	Token token.Token
 	Value string
@@ -782,10 +790,27 @@ func (gp *GlobPattern) expressionNode()      {}
 func (gp *GlobPattern) TokenLiteral() string { return gp.Token.Literal }
 func (gp *GlobPattern) String() string       { return "{" + gp.Value + "}" }
 
-type SlashExpression struct {
-	Token token.Token
+type MultiPattern struct {
+	Patterns []Expression
 }
 
-func (se *SlashExpression) expressionNode()      {}
-func (se *SlashExpression) TokenLiteral() string { return se.Token.Literal }
-func (se *SlashExpression) String() string       { return "/" }
+func (mp *MultiPattern) expressionNode()      {}
+func (mp *MultiPattern) TokenLiteral() string { return "MultiPattern" }
+func (mp *MultiPattern) String() string {
+	var out bytes.Buffer
+	patterns := []string{}
+	for _, p := range mp.Patterns {
+		patterns = append(patterns, p.String())
+	}
+	out.WriteString(strings.Join(patterns, " - "))
+	return out.String()
+}
+
+type RegexPattern struct {
+	Token token.Token
+	Value string
+}
+
+func (rp *RegexPattern) expressionNode()      {}
+func (rp *RegexPattern) TokenLiteral() string { return rp.Token.Literal }
+func (rp *RegexPattern) String() string       { return rp.Value }

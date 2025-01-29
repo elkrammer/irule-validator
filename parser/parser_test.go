@@ -800,7 +800,7 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 				when HTTP_REQUEST {
 					switch -regex [string tolower [HTTP::uri]] {
 						"^/api/v1/users.*" { }
-						"/api/v2/.*" { }
+						"^/api/v2/.*" { }
 						{^/reports/(daily|monthly)/.*} { }
 						default { }
 					}
@@ -820,7 +820,20 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 					}
 				}
 			`,
-			expectedErrors: []string{"   invalid regex pattern (looks like a glob pattern): /api*"},
+			expectedErrors: []string{"   Invalid regex pattern (looks like a glob pattern): /api*"},
+		},
+		{
+			name: "Invalid regex pattern in glob switch",
+			input: `
+				when HTTP_REQUEST {
+					switch -glob [string tolower [HTTP::uri]] {
+						"/api*" - "/api" { }
+						"^/api/v1/users.*" { }
+						default { }
+					}
+				}
+			`,
+			expectedErrors: []string{"   Invalid glob pattern (looks like a regex pattern): ^/api/v1/users.*"},
 		},
 		{
 			name: "Mixed invalid patterns",
@@ -834,7 +847,7 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 				}
 			`,
 			expectedErrors: []string{
-				"   invalid regex pattern (looks like a glob pattern): /api*",
+				"   Invalid regex pattern (looks like a glob pattern): /api*",
 			},
 		},
 	}

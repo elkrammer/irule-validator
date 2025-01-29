@@ -242,7 +242,9 @@ func (l *Lexer) NextToken() token.Token {
 		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
 	case 0:
 		if l.braceDepth > 0 {
-			l.reportError(fmt.Sprintf("Unexpected EOF: unclosed brace, depth: %d", l.braceDepth))
+			if config.DebugMode {
+				fmt.Printf("Unexpected EOF: unclosed brace, depth: %d", l.braceDepth)
+			}
 		}
 		tok.Type = token.EOF
 		tok.Literal = ""
@@ -480,6 +482,5 @@ func (l *Lexer) Errors() []string {
 }
 
 func (l *Lexer) CurrentLine() int {
-	fmt.Printf("DEBUG: Lexer.CurrentLine() called, returning %d\n", l.line)
 	return l.line
 }
