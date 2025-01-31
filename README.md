@@ -4,15 +4,17 @@
 ![GitHub Release](https://img.shields.io/github/v/release/elkrammer/irule-validator)
 ![Static Badge](https://img.shields.io/badge/license-MIT-blue?)
 
-Ever tried writing an F5 iRule and thought, "will this work?" only to have F5
-respond with, "Nah, invalid expression on line 42?" 😩
+Ever written an F5 iRule and thought "this should work!"—only to get hit with
+an "Invalid expression on line 42"?
 
-Wouldn't it be nice to catch those errors in your iRules **before** they break production?
-Well, you're welcome! 🎁
+Deploying an iRule, waiting for automation to kick in, and then realizing it’s
+broken is frustrating. Wouldn't it be great to catch those errors before they
+waste your time?
 
-Inspired by the awesome book [Writing an Interpreter in Go](https://interpreterbook.com),
-this project aims to parse F5 iRules with style and grace! 🦸 (Well, at least
-most of the time.)
+You're in luck! This project lets you parse F5 iRules, catch syntax errors early,
+and debug with confidence.
+
+![irule-validator](https://github.com/user-attachments/assets/6fdf255e-aa6e-4d73-972e-18ad3e700502)
 
 ## 🚀 Usage
 
@@ -33,8 +35,8 @@ Examples:
 ./irule-validator                 # Start REPL
 ```
 
-Pro Tip: When using this in a CI/CD pipeline, be sure to call it with `-p` to
-get those sweet error printouts you so desperately crave.
+When using this in a CI/CD pipeline, be sure to call it with `-p` to get
+those sweet error printouts you so desperately crave. 🤤
 
 ## 🛠️ Features
 
@@ -44,13 +46,12 @@ get those sweet error printouts you so desperately crave.
   - Symbol table to prevent incompatible command combinations
 - Detailed error reporting with line numbers
 - Debug mode for detailed parsing information
-- Robust test suite to prevent regressions
 
 ## 🦄 Disclaimer
 
 Does it validate every possible command with perfect accuracy? Not quite.
-Full syntax validation is *hard*, and I've realized that F5 iRules are
-a bottomless pit of edge cases. 🕳️
+Full syntax validation is *hard*, and F5 iRules are a bottomless pit
+of edge cases. 🕳️
 
 Building a complete F5 iRule parser is like trying to solve a puzzle where
 the pieces keep changing shape. But hey, I already have a parser that
