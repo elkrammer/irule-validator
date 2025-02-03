@@ -1,0 +1,7 @@
+switch -glob [HTTP::uri] {
+  "^/api.*" {
+    set uri [string map -nocase {"/api" "/"} [HTTP::uri]]
+    HTTP::uri $uri
+  }
+  default { pool default_pool }
+}

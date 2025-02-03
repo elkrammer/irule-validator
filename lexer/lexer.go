@@ -81,7 +81,7 @@ func (l *Lexer) readChar() {
 	if l.readPosition >= len(l.input) {
 		l.ch = 0
 		if config.DebugMode {
-			fmt.Printf("DEBUG: Reached EOF in lexer at position %d\n", l.position)
+			fmt.Printf("DEBUG: Reached EOF in lexer at position %d. Line: %d\n", l.position, l.line)
 		}
 	} else {
 		l.ch = l.input[l.readPosition]
@@ -242,7 +242,9 @@ func (l *Lexer) NextToken() token.Token {
 		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
 	case 0:
 		if l.braceDepth > 0 {
-			l.reportError(fmt.Sprintf("Unexpected EOF: unclosed brace, depth: %d", l.braceDepth))
+			if config.DebugMode {
+				fmt.Printf("Unexpected EOF: unclosed brace, depth: %d", l.braceDepth)
+			}
 		}
 		tok.Type = token.EOF
 		tok.Literal = ""
@@ -288,7 +290,7 @@ func (l *Lexer) NextToken() token.Token {
 	l.readChar()
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Lexer produced token: Type=%s, Literal='%s', Position=%d\n", tok.Type, tok.Literal, l.position)
+		fmt.Printf("DEBUG: Lexer produced token: Type=%s, Literal='%s', Position=%d, Line=%d\n", tok.Type, tok.Literal, l.position, l.line)
 	}
 	return tok
 }
@@ -477,4 +479,8 @@ func (l *Lexer) reportError(format string, args ...interface{}) {
 
 func (l *Lexer) Errors() []string {
 	return l.errors
+}
+
+func (l *Lexer) CurrentLine() int {
+	return l.line
 }
