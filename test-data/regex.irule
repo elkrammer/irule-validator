@@ -1,9 +1,9 @@
 when HTTP_REQUEST {
   switch -regex [string tolower [HTTP::uri]] {
-    "^/api/v1/users.*" {
+    "api\/(user$|user\/.*)" {
        log local0. "Matched: /api/v1/users"
        HTTP::respond 200 content "Users API Matched"
-     }
+    }
     {^/reports/(daily|monthly)/.*} {
       HTTP::respond 200 content "Reports Matched"
     }
