@@ -797,15 +797,19 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 		{
 			name: "Valid regex patterns",
 			input: `
-				when HTTP_REQUEST {
-					switch -regex [string tolower [HTTP::uri]] {
-						"^/api/v1/users.*" { }
-						"^/api/v2/.*" { }
-						{^/reports/(daily|monthly)/.*} { }
-						default { }
-					}
-				}
-			`,
+		      when HTTP_REQUEST {
+		          switch -regex [string tolower [HTTP::uri]] {
+		              "^/api/v1/users/\d+$" { }
+		              "^/api/v2/(?:users|groups)/[a-zA-Z0-9-]+$" { }
+		              "^/search\?q=([^&]+)&page=(\d+)$" { }
+		              "^/products/([a-z0-9-]+)(?:/reviews)?(?:\?sort=(asc|desc))?$" { }
+		              "^/files/([^/]+\.(?:pdf|docx?|xlsx?))$" { }
+		              "^/(\w+)/(\d+)(?:/(\w+))?(?:/history)?$" { }
+                  "^/reports/(daily|weekly|monthly)/(\d{4}-\d{2}-\d{2})$}" { }
+		              default { }
+		          }
+		      }
+		  `,
 			expectedErrors: []string{},
 		},
 		{
@@ -815,7 +819,6 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 					switch -regex [string tolower [HTTP::uri]] {
 						"^/api/v1/users.*" { }
 						"/api*" { }
-						{^/reports/(daily|monthly)/.*} { }
 						default { }
 					}
 				}
@@ -842,7 +845,6 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 					switch -regex [string tolower [HTTP::uri]] {
 						"^/api/v1/users.*" { }
 						"/api*" { }
-            {^/reports/[daily|monthly]/.*} { }
 					}
 				}
 			`,

@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/elkrammer/irule-validator/ast"
 	"github.com/elkrammer/irule-validator/config"
@@ -647,7 +646,7 @@ func (p *Parser) parseInterpolatedString(token token.Token, value string) ast.Ex
 			}
 			end := strings.Index(value[i:], "}")
 			if end == -1 {
-				p.reportError("Unterminated interpolation in string")
+				p.reportError("parseInterpolatedString: Unterminated interpolation in string")
 				return nil
 			}
 			expr := p.parseExpression(LOWEST)
@@ -1197,7 +1196,7 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	if _, isValidHttpCommand := lexer.HttpKeywords[fullCommand]; isValidHttpCommand {
 		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
 	} else {
-		p.reportError("parseHttpCommand - Invalid HTTP command: %s", fullCommand)
+		p.reportError("parseHttpCommand: Invalid HTTP command: %s", fullCommand)
 		if config.DebugMode {
 			fmt.Printf("   ERROR: parseHttpCommand - Invalid HTTP command detected: %s\n", fullCommand)
 		}
@@ -1397,7 +1396,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 		fmt.Printf("DEBUG: Switch type - isRegex: %v, isGlob: %v\n", switchStmt.IsRegex, switchStmt.IsGlob)
 	}
 
-	// Handle the -- separator if present
+	// handle the -- separator if present
 	if p.curTokenIs(token.MINUS) && p.peekTokenIs(token.MINUS) {
 		p.nextToken() // move past first -
 		p.nextToken() // move past second -
@@ -1407,7 +1406,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	switchStmt.Value = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.LBRACE) {
-		p.reportError("parseSwitchStatement expected LBRACE")
+		p.reportError("parseSwitchStatement: expected LBRACE")
 		return nil
 	}
 
@@ -1423,16 +1422,6 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 		if p.curTokenIs(token.DEFAULT) {
 			switchStmt.Default = p.parseDefaultCase()
-		} else if p.curTokenIs(token.LBRACE) {
-			// bracket syntax i.e. {/api*} {
-			caseStmt := p.parseBracketCaseStatement(switchStmt.IsRegex, switchStmt.IsGlob, line)
-			if caseStmt != nil {
-				switchStmt.Cases = append(switchStmt.Cases, caseStmt)
-				caseStmt.Line = p.curToken.Line
-				if config.DebugMode {
-					fmt.Printf("DEBUG: parseSwitchStatement Bracket Adding case statement with pattern '%s' at line %d\n", caseStmt.Value, caseStmt.Line)
-				}
-			}
 		} else if p.curTokenIs(token.STRING) {
 			// string-based syntax i.e. "/api*"
 			if config.DebugMode {
@@ -1456,7 +1445,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	}
 
 	if config.DebugMode {
-		fmt.Println("DEBUG: Cases before validation:")
+		fmt.Println("DEBUG: parseStringCaseStatement: Cases before validation:")
 		for i, caseStmt := range switchStmt.Cases {
 			fmt.Printf("  Case %d: Pattern '%s' at line %d\n", i, caseStmt.Value, caseStmt.Line)
 		}
@@ -1468,7 +1457,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 	if !p.curTokenIs(token.RBRACE) {
 		if config.DebugMode {
-			fmt.Printf("   ERROR: parseSwitchStatement expected RBRACE. Got=%s\n", p.curToken.Literal)
+			fmt.Printf("ERROR: parseSwitchStatement expected RBRACE. Got=%s\n", p.curToken.Literal)
 		}
 		p.peekError(token.RBRACE)
 		return nil
@@ -1769,116 +1758,13 @@ func (p *Parser) parseClassMatchOrSearch(cmd *ast.ClassCommand) ast.Expression {
 }
 
 func (p *Parser) parseStringLiteralContents(s *ast.StringLiteral) ast.Expression {
+	if s == nil || s.Value == "" {
+		return nil
+	}
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringLiteralContents Start - Value: %s\n", s.Value)
 	}
-
-	// check if this is a regex pattern
-	if p.curTokenIs(token.STRING) && isValidRegexPattern(s.Value) {
-		return &ast.RegexPattern{Token: s.Token, Value: s.Value}
-	}
-
-	parts := []ast.Expression{}
-	currentPart := ""
-	inCommand := false
-	value := s.Value
-	startPosition := 0
-
-	for len(value) > 0 {
-		if strings.HasPrefix(value, "[") && !inCommand {
-			if currentPart != "" {
-				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
-				currentPart = ""
-			}
-			inCommand = true
-			commandStart := 1
-			end := strings.Index(value[1:], "]")
-			if end != -1 {
-				end++ // adjust for the starting '['
-				command := value[commandStart:end]
-				parts = append(parts, &ast.HttpExpression{Token: s.Token, Command: &ast.Identifier{Token: s.Token, Value: command}})
-				value = value[end+1:]
-			} else {
-				// unclosed command, treat as literal
-				currentPart += "["
-				value = value[1:]
-			}
-			inCommand = false
-		} else if strings.HasPrefix(value, "${") && !inCommand {
-			if currentPart != "" {
-				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
-				currentPart = ""
-			}
-			end := strings.Index(value, "}")
-			if end != -1 {
-				varName := value[2:end]
-				parts = append(parts, &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: varName, Line: p.l.CurrentLine()}, Value: varName})
-				value = value[end+1:]
-			} else {
-				// unclosed variable, treat as literal
-				currentPart += "${"
-				value = value[2:]
-			}
-		} else if strings.HasPrefix(value, "$") && !inCommand {
-			if currentPart != "" {
-				parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
-				currentPart = ""
-			}
-			identStart := 1
-			end := strings.IndexFunc(value[1:], func(r rune) bool {
-				return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
-			})
-			if end == -1 {
-				end = len(value) - 1
-			} else {
-				end++ // adjust for the starting '$'
-			}
-			identifier := value[identStart:end]
-			parts = append(parts, &ast.Identifier{Token: s.Token, Value: identifier})
-			value = value[end:]
-		} else {
-			if inCommand {
-				currentPart += string(value[0])
-				value = value[1:]
-			} else {
-				// handle regular text
-				end := strings.IndexAny(value, "[${$")
-				if end == -1 {
-					currentPart += value
-					break
-				}
-				currentPart += value[:end]
-				value = value[end:]
-			}
-
-			// break condition to prevent infinite loop
-			if startPosition == len(value) {
-				if config.DebugMode {
-					fmt.Printf("DEBUG: parseStringLiteralContents - Breaking loop due to no progress\n")
-				}
-				break
-			}
-		}
-		startPosition = len(value)
-	}
-
-	if currentPart != "" {
-		parts = append(parts, &ast.StringLiteral{Token: s.Token, Value: currentPart})
-	}
-
-	if len(parts) == 0 {
-		return s
-	}
-
-	if len(parts) == 1 {
-		return parts[0]
-	}
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: parseStringLiteralContents End - Parts: %d\n", len(parts))
-	}
-
-	return &ast.InterpolatedString{Token: s.Token, Parts: parts}
+	return s
 }
 
 func (p *Parser) parseForEachStatement() ast.Statement {
@@ -2329,53 +2215,6 @@ func isValidRegexPattern(pattern string) bool {
 	return result
 }
 
-func (p *Parser) parseBracketCaseStatement(isRegex, isGlob bool, startLine int) *ast.CaseStatement {
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Start parseBracketCaseStatement at line %d\n", p.curToken.Line)
-	}
-
-	caseStmt := &ast.CaseStatement{Token: p.curToken, Line: startLine}
-	var pattern ast.Expression
-	var patternContent strings.Builder
-
-	p.nextToken() // move past the opening brace
-
-	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
-		patternContent.WriteString(p.curToken.Literal)
-		p.nextToken()
-	}
-
-	if !p.curTokenIs(token.RBRACE) {
-		p.reportError("Unterminated pattern")
-		return nil
-	}
-
-	patternValue := patternContent.String()
-
-	if isRegex {
-		pattern = &ast.RegexPattern{Token: p.curToken, Value: patternValue}
-	} else if isGlob {
-		pattern = &ast.GlobPattern{Token: p.curToken, Value: patternValue}
-	} else {
-		pattern = &ast.StringLiteral{Token: p.curToken, Value: patternValue}
-	}
-
-	caseStmt.Value = pattern
-
-	if !p.expectPeek(token.LBRACE) {
-		p.reportError("Expected '{' after pattern")
-		return nil
-	}
-
-	caseStmt.Consequence = p.parseBlockStatement()
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: End parseBracketCaseStatement, created case with pattern '%s' at line %d\n", caseStmt.Value, caseStmt.Line)
-	}
-
-	return caseStmt
-}
-
 func (p *Parser) parseStringCaseStatement(isRegex, isGlob bool, startLine int) *ast.CaseStatement {
 	if config.DebugMode {
 		fmt.Printf("DEBUG: Start parseStringCaseStatement at line %d\n", startLine)
@@ -2384,30 +2223,36 @@ func (p *Parser) parseStringCaseStatement(isRegex, isGlob bool, startLine int) *
 	caseStmt := &ast.CaseStatement{Token: p.curToken, Line: p.curToken.Line}
 
 	pattern := p.parseExpression(LOWEST)
-	switch expr := pattern.(type) {
-	case *ast.StringLiteral:
-		if isRegex {
-			caseStmt.Value = &ast.RegexPattern{Token: expr.Token, Value: expr.Value}
-		} else if isGlob {
-			caseStmt.Value = &ast.GlobPattern{Token: expr.Token, Value: expr.Value}
-		} else {
-			caseStmt.Value = expr
-		}
-	case *ast.InterpolatedString:
-		if isRegex {
-			caseStmt.Value = &ast.RegexPattern{Token: expr.Token, Value: expr.String()}
-		} else if isGlob {
-			caseStmt.Value = &ast.GlobPattern{Token: expr.Token, Value: expr.String()}
-		} else {
-			caseStmt.Value = expr
-		}
-	default:
-		p.reportError(fmt.Sprintf("Expected string literal for case pattern, got %T", pattern))
+	startPattern, ok := pattern.(*ast.StringLiteral)
+	if !ok {
+		p.reportError(fmt.Sprintf("parseStringCaseStatement: Expected string literal for case pattern, got %T", pattern))
 		return nil
 	}
 
+	// check for range case
+	if p.peekTokenIs(token.MINUS) {
+		p.nextToken() // consume the '-'
+		p.nextToken() // move to the end range token
+		endPattern := p.parseExpression(LOWEST)
+		endStringLiteral, ok := endPattern.(*ast.StringLiteral)
+		if !ok {
+			p.reportError(fmt.Sprintf("parseStringCaseStatement: Expected string literal for range end, got %T", endPattern))
+			return nil
+		}
+
+		// Create a MultiPattern for the range
+		caseStmt.Value = &ast.MultiPattern{
+			Patterns: []ast.Expression{
+				startPattern,
+				endStringLiteral,
+			},
+		}
+	} else {
+		caseStmt.Value = startPattern
+	}
+
 	if !p.expectPeek(token.LBRACE) {
-		p.reportError("Expected '{' after case pattern")
+		p.reportError("parseStringCaseStatement: Expected '{' after case pattern")
 		return nil
 	}
 
