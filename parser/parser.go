@@ -16,13 +16,13 @@ import (
 const (
 	_ int = iota
 	LOWEST
+	LOGICAL     // && or ||
 	EQUALS      // ==
 	LESSGREATER // > or <
 	SUM         // +
 	PRODUCT     // *
 	PREFIX      // -X or !X
 	CALL        // myFunction(X)
-	LOGICAL     // && or ||
 	CONTAINS
 )
 
@@ -1292,7 +1292,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 	p.nextToken() // consume '{'
 
 	// Parse the condition
-	stmt.Condition = p.parseExpression(LOWEST)
+	stmt.Condition = p.parseComplexCondition()
 
 	// check for matches_regex
 	if p.peekTokenIs(token.IDENT) && p.peekToken.Literal == "matches_regex" {
@@ -2545,4 +2545,24 @@ func (p *Parser) parseMatchesRegex() ast.Expression {
 
 func (p *Parser) parseRegexLiteral() ast.Expression {
 	return &ast.RegexPattern{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+func (p *Parser) parseComplexCondition() ast.Expression {
+	expr := p.parseExpression(LOWEST)
+
+	for p.peekTokenIs(token.OR) || p.peekTokenIs(token.AND) {
+		operator := p.peekToken.Literal
+		p.nextToken() // consume 'or' or 'and'
+		p.nextToken() // move to the next token after 'or' or 'and'
+		right := p.parseExpression(LOGICAL)
+
+		expr = &ast.InfixExpression{
+			Token:    p.curToken,
+			Left:     expr,
+			Operator: operator,
+			Right:    right,
+		}
+	}
+
+	return expr
 }

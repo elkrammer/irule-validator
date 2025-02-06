@@ -5,7 +5,7 @@ var (
 		"when": true, "if": true, "else": true, "elseif": true, "foreach": true, "for": true,
 		"switch": true, "case": true, "default": true, "return": true, "set": true,
 		"unset": true, "puts": true, "log": true, "while": true, "break": true,
-		"continue": true, "exit": true, "abort": true,
+		"continue": true, "exit": true, "abort": true, "and": true, "or": true,
 	}
 	commonHeaders = []string{
 		"Accept", "Accept-Charset", "Accept-Encoding", "Accept-Language", "Authorization",

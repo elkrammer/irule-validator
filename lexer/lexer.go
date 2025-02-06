@@ -272,6 +272,9 @@ func (l *Lexer) NextToken() token.Token {
 			case "eq":
 				tok.Type = token.EQ
 				tok.Literal = "eq"
+			case "equals":
+				tok.Type = token.EQ
+				tok.Literal = "equals"
 			case "starts_with":
 				tok.Type = token.STARTS_WITH
 			case "contains":
@@ -281,6 +284,10 @@ func (l *Lexer) NextToken() token.Token {
 			case "default":
 				tok.Type = token.DEFAULT
 				tok.Literal = "default"
+			case "or":
+				tok.Type = token.OR
+			case "and":
+				tok.Type = token.AND
 			default:
 				tok.Type = token.LookupIdent(tok.Literal)
 			}
