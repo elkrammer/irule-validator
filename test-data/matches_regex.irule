@@ -1,0 +1,16 @@
+when HTTP_REQUEST {
+  switch [string tolower [HTTP::host]] {
+    "domain.com" {
+       if { [string tolower [HTTP::uri]] matches_regex {^\/api\/\w+\/\w+(\?|$)} } {
+           set uri "[HTTP::uri]"
+           node 1.2.3.4 443
+       }
+       elseif { [string tolower [HTTP::uri]] starts_with "/user" }  {
+           node 4.5.6.7 443
+       }
+       else {
+           pool stage-ecoreweb-pool
+       }
+    }
+  }
+}

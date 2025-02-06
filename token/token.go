@@ -59,6 +59,7 @@ const (
 	SET     = "SET"
 	FOREACH = "FOREACH"
 	IN      = "IN"
+	REGEX   = "REGEX"
 
 	// HTTP TOKENS
 	HTTP_REQUEST  = "HTTP_REQUEST"

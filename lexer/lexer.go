@@ -128,8 +128,14 @@ func (l *Lexer) NextToken() token.Token {
 			tok = newToken(token.ASSIGN, l.ch, l.line)
 		}
 	case '{':
-		tok = newToken(token.LBRACE, l.ch, l.line)
-		l.braceDepth++
+		if l.peekChar() == '^' {
+			// this is likely the start of a regex pattern
+			pattern := l.readRegexPattern()
+			tok = token.Token{Type: token.REGEX, Literal: pattern}
+		} else {
+			tok = newToken(token.LBRACE, l.ch, l.line)
+			l.braceDepth++
+		}
 		if config.DebugMode {
 			fmt.Printf("DEBUG: Lexer identified opening brace '{', depth now %d\n", l.braceDepth)
 		}
@@ -282,8 +288,7 @@ func (l *Lexer) NextToken() token.Token {
 		}
 
 		// Everything else is an illegal token
-		l.reportError("NextToken: Illegal token found = '%c'\n", l.ch)
-		fmt.Printf("NextToken: Illegal token found = '%c'\n", l.ch)
+		l.reportError("NextToken: Illegal token found = '%c'", l.ch)
 		tok = newToken(token.ILLEGAL, l.ch, l.line)
 	}
 
@@ -483,4 +488,19 @@ func (l *Lexer) Errors() []string {
 
 func (l *Lexer) CurrentLine() int {
 	return l.line
+}
+
+func (l *Lexer) readRegexPattern() string {
+	position := l.position + 1
+	for {
+		l.readChar()
+		if l.ch == '}' && l.peekChar() != '}' {
+			break
+		}
+		if l.ch == 0 {
+			l.reportError("Unterminated regex pattern")
+			return ""
+		}
+	}
+	return l.input[position:l.position]
 }
