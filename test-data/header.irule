@@ -9,4 +9,8 @@ when HTTP_REQUEST {
     log local0. "Removing $header: [HTTP::header value $header]"
     HTTP::header remove $header
   }
+
+  if { [HTTP::header exists "X-Client-IP"] } {
+    HTTP::header replace X-Client-For [HTTP::header value "CF-Connecting-IP"]
+  }
 }

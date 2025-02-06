@@ -1202,7 +1202,7 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 	expr := &ast.HttpExpression{Token: p.curToken}
 	fullCommand := p.curToken.Literal
 
-	// Check if the command is a valid HTTP keyword
+	// check if the command is a valid HTTP keyword
 	if _, isValidHttpCommand := lexer.HttpKeywords[fullCommand]; isValidHttpCommand {
 		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
 	} else {
@@ -1210,7 +1210,7 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 		if config.DebugMode {
 			fmt.Printf("   ERROR: parseHttpCommand - Invalid HTTP command detected: %s\n", fullCommand)
 		}
-		return nil // Return nil for invalid commands
+		return nil
 	}
 
 	switch {
@@ -1218,10 +1218,27 @@ func (p *Parser) parseHttpCommand() ast.Expression {
 		expr.Command = &ast.Identifier{Token: p.curToken, Value: fullCommand}
 	case fullCommand == "HTTP::header":
 		expr.Command = &ast.Identifier{Token: p.curToken, Value: "HTTP::header"}
-		if p.peekTokenIs(token.IDENT) && p.peekToken.Literal == "names" {
+		if p.peekTokenIs(token.IDENT) {
 			p.nextToken()
-			expr.Argument = &ast.Identifier{Token: p.curToken, Value: "names"}
-		} else if p.peekTokenIs(token.STRING) || p.peekTokenIs(token.IDENT) {
+			switch p.curToken.Literal {
+			case "names":
+				expr.Argument = &ast.Identifier{Token: p.curToken, Value: "names"}
+			case "exists":
+				expr.Argument = &ast.Identifier{Token: p.curToken, Value: "exists"}
+				if p.peekTokenIs(token.STRING) {
+					p.nextToken()
+					expr.Argument = &ast.ArrayLiteral{
+						Token: p.curToken,
+						Elements: []ast.Expression{
+							&ast.Identifier{Token: p.curToken, Value: "exists"},
+							&ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal},
+						},
+					}
+				}
+			default:
+				expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+			}
+		} else if p.peekTokenIs(token.STRING) {
 			p.nextToken()
 			expr.Argument = &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 		}
@@ -2168,10 +2185,6 @@ func (p *Parser) reportError(format string, args ...interface{}) {
 
 	lineMsg := fmt.Sprintf("   %s, Line: %d", msg, line)
 	p.errors = append(p.errors, lineMsg)
-
-	if config.DebugMode {
-		fmt.Printf("DEBUG: Reporting error: %s\n", lineMsg)
-	}
 }
 
 func (p *Parser) parseNodeStatement() ast.Expression {
