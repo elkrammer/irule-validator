@@ -27,6 +27,6 @@ var (
 		"sha256", "sha384", "sha512", "redirect", "compress", "decompress", "cookie",
 		"getfield", "findstr", "scan", "matchclass", "priority", "when", "use",
 		"client_addr", "server_addr", "ip2rd", "rd2ip", "replace", "matches_regex",
-		"exists",
+		"exists", "whereis", "drop",
 	}
 )

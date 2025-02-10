@@ -14,6 +14,7 @@ const (
 	SEMICOLON = ";"
 	EOF       = "EOF"
 	NEWLINE   = "\n"
+	SPACE     = " "
 
 	// types
 	BLOCK   = "BLOCK"

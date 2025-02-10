@@ -1,0 +1,7 @@
+when CLIENT_ACCEPTED {
+    set ipaddr [IP::client_addr]
+
+    if { [class match $ipaddr equals ip_whitelist] } {
+      set allowed 1
+    }
+}
