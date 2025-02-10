@@ -2,18 +2,23 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"os"
+	"runtime/debug"
+	"time"
+
+	"github.com/spf13/pflag"
 )
 
 // App Config
 var DebugMode bool
 var PrintErrors bool
+var PrintVersion bool
 
 // Setup program flags
 func SetupFlags() {
 	pflag.BoolVarP(&DebugMode, "debug", "d", false, "Debugging Mode")
 	pflag.BoolVarP(&PrintErrors, "print-errors", "p", false, "Print Errors")
+	pflag.BoolVarP(&PrintVersion, "version", "v", false, "Print App Version")
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -41,4 +46,44 @@ Examples:
 		pflag.Usage()
 		os.Exit(0)
 	}
+
+	if *&PrintVersion {
+		version := printVersion()
+		fmt.Println(version)
+		os.Exit(0)
+	}
+}
+
+func printVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "Version: unknown"
+	}
+
+	var revision, buildTime string
+	for _, setting := range info.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.time":
+			buildTime = setting.Value
+		}
+	}
+
+	shortRevision := "unknown"
+	if revision != "" {
+		shortRevision = revision
+		if len(shortRevision) > 8 {
+			shortRevision = shortRevision[:8]
+		}
+	}
+
+	shortBuildTime := "unknown"
+	if buildTime != "" {
+		if t, err := time.Parse(time.RFC3339, buildTime); err == nil {
+			shortBuildTime = t.Format("2006-01-02")
+		}
+	}
+
+	return fmt.Sprintf("irule-validator Revision: %s, Build Time: %s", shortRevision, shortBuildTime)
 }

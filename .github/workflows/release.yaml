@@ -38,7 +38,7 @@ jobs:
           if [ "${{ matrix.goos }}" = "windows" ]; then
             BINARY_NAME="${BINARY_NAME}.exe"
           fi
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ${BINARY_NAME}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o ${BINARY_NAME} -buildvcs=true
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

@@ -7,7 +7,7 @@ run_and_check() {
   fi
 }
 
-go build
+go build -buildvcs=true
 run_and_check go test ./ast
 run_and_check go test ./lexer
 run_and_check go test ./parser
