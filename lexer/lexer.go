@@ -269,6 +269,10 @@ func (l *Lexer) NextToken() token.Token {
 			switch tok.Literal {
 			case "IP::client_addr":
 				tok.Type = token.IP_CLIENT_ADDR
+			case "IP::server_addr":
+				tok.Type = token.IP_SERVER_ADDR
+			case "IP::remote_addr":
+				tok.Type = token.IP_REMOTE_ADDR
 			case "eq":
 				tok.Type = token.EQ
 				tok.Literal = "eq"

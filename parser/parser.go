@@ -170,11 +170,14 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.SSL_SESSIONVALID, p.parseSSLCommand)
 	p.registerPrefix(token.SSL_SESSIONUPDATES, p.parseSSLCommand)
 
-	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
-	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
+	// IP Commands
 	p.registerPrefix(token.IP_CLIENT_ADDR, p.parseIpExpression)
 	p.registerPrefix(token.IP_SERVER_ADDR, p.parseIpExpression)
+	p.registerPrefix(token.IP_REMOTE_ADDR, p.parseIpExpression)
 	p.registerPrefix(token.IP_ADDRESS, p.parseIpAddressLiteral)
+
+	p.registerPrefix(token.SWITCH, p.parseSwitchExpression)
+	p.registerPrefix(token.DEFAULT, p.parseDefaultExpression)
 
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
@@ -1574,6 +1577,8 @@ func (p *Parser) parseIpExpression() ast.Expression {
 		expression.Function = "client_addr"
 	case token.IP_SERVER_ADDR:
 		expression.Function = "server_addr"
+	case token.IP_REMOTE_ADDR:
+		expression.Function = "remote_addr"
 	default:
 		p.reportError("parseIpExpression: Unexpected IP token: %s", p.curToken.Literal)
 		return nil

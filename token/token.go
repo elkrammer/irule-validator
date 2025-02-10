@@ -100,6 +100,7 @@ const (
 	IP_ADDRESS     = "IP_ADDRESS"
 	IP_CLIENT_ADDR = "IP::client_addr"
 	IP_SERVER_ADDR = "IP::server_addr"
+	IP_REMOTE_ADDR = "IP::remote_addr"
 
 	X509_SUBJECT    = "X509::subject"
 	X509_ISSUER     = "X509::issuer"
