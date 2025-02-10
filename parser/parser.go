@@ -354,6 +354,8 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 		return nil
 	}
 
+	var variableName string
+
 	if p.curTokenIs(token.LBRACKET) {
 		// this is likely a command or expression in brackets
 		expr := p.parseExpression(LOWEST)
@@ -361,6 +363,11 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 			return nil
 		}
 		stmt.Name = expr
+
+		// try to extract variable name if it's an identifier
+		if ident, ok := expr.(*ast.Identifier); ok {
+			variableName = ident.Value
+		}
 	} else {
 		// this is a simple identifier
 		isValid, err := p.isValidIRuleIdentifier(p.curToken.Literal, "variable")
@@ -368,7 +375,16 @@ func (p *Parser) parseSetStatement() *ast.SetStatement {
 			p.reportError("parseSetStatement: Invalid identifier %s: %v", p.curToken.Literal, err)
 			return nil
 		}
+		variableName = p.curToken.Literal
 		stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
+	// add the variable to the declared variables map
+	if variableName != "" {
+		p.declaredVariables[variableName] = true
+		if config.DebugMode {
+			fmt.Printf("DEBUG: parseSetStatement Added variable %s to declared variables\n", variableName)
+		}
 	}
 
 	if config.DebugMode {
@@ -1693,6 +1709,17 @@ func (p *Parser) parseStringOperation() ast.Expression {
 	}
 
 	stringOp.Arguments = args
+
+	// perform checks based on the operation
+	switch operation {
+	case "match":
+		if len(args) != 2 {
+			p.errors = append(p.errors, fmt.Sprintf("line %d: 'string match' expects 2 arguments", p.curToken.Line))
+		} else {
+			p.checkVariableUsage(args[1], "second argument of 'string match'")
+		}
+	}
+
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringOperation Arguments: %v\n", stringOp.Arguments)
 		fmt.Printf("DEBUG: parseStringOperation End\n")
@@ -2531,4 +2558,27 @@ func (p *Parser) parseComplexCondition() ast.Expression {
 	}
 
 	return expr
+}
+
+func (p *Parser) checkVariableUsage(arg ast.Expression, context string) {
+	switch expr := arg.(type) {
+	case *ast.Identifier:
+		if expr.Value[0] == '$' {
+			// it's a variable reference, check if it's declared
+			varName := expr.Value[1:] // Remove the $
+			if !p.declaredVariables[varName] {
+				p.reportError("checkVariableUsage - undeclared variable %s used in %s", expr.Value, context)
+			}
+		} else {
+			// it's not a variable reference, but it should be
+			if p.declaredVariables[expr.Value] {
+				p.reportError("checkVariableUsage - %s should be referenced as $%s in %s", expr.Value, expr.Value, context)
+			} else {
+				p.reportError("checkVariableUsage - expected variable reference in %s, got %s", context, expr.Value)
+			}
+		}
+	default:
+		// it's not an identifier at all
+		p.reportError("checkVariableUsage -expected variable reference in %s", context)
+	}
 }
