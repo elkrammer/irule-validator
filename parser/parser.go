@@ -1660,10 +1660,18 @@ func (p *Parser) parseStringOperation() ast.Expression {
 	stringOp := &ast.StringOperation{Token: p.curToken}
 
 	p.nextToken() // move past 'string'
-	stringOp.Operation = p.curToken.Literal
+	operation := p.curToken.Literal
 	if config.DebugMode {
 		fmt.Printf("DEBUG: parseStringOperation Operation: %v\n", stringOp.Operation)
 	}
+
+	// validate the operation
+	if !validStringOperations[operation] {
+		p.reportError("parseStringOperation: Invalid string operation: %s", operation)
+		return nil
+	}
+
+	stringOp.Operation = operation
 
 	var args []ast.Expression
 	for p.peekToken.Type != token.RBRACKET && p.peekToken.Type != token.EOF {

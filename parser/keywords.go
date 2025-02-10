@@ -29,4 +29,23 @@ var (
 		"client_addr", "server_addr", "ip2rd", "rd2ip", "replace", "matches_regex",
 		"exists", "whereis", "drop",
 	}
+	validStringOperations = map[string]bool{
+		"contains":  true,
+		"equals":    true,
+		"tolower":   true,
+		"toupper":   true,
+		"length":    true,
+		"substring": true,
+		"match":     true,
+		"map":       true,
+		"replace":   true,
+		"trim":      true,
+		"compare":   true,
+		"findstr":   true,
+		"reverse":   true,
+		"repeat":    true,
+		"range":     true,
+		"index":     true,
+		"last":      true,
+	}
 )
