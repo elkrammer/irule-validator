@@ -272,6 +272,9 @@ func (l *Lexer) NextToken() token.Token {
 			case "eq":
 				tok.Type = token.EQ
 				tok.Literal = "eq"
+			case "ne":
+				tok.Type = token.NOT_EQ
+				tok.Literal = "ne"
 			case "equals":
 				tok.Type = token.EQ
 				tok.Literal = "equals"

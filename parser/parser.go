@@ -2130,7 +2130,7 @@ func isValidOperatorForTypes(operator string, left, right ast.Expression) bool {
 		// these operators are valid for strings, HTTP expressions, array literals, IP address literals, and identifiers
 		return (isStringType(left) || isHttpExpression(left) || isArrayLiteral(left) || isIpAddressLiteral(left) || isIdentifier(left)) &&
 			(isStringType(right) || isHttpExpression(right) || isArrayLiteral(right) || isIpAddressLiteral(right) || isIdentifier(right))
-	case "eq", "==", "!=":
+	case "eq", "ne", "==", "!=":
 		// equality operators are valid for most types
 		return true
 	case "<", ">", "<=", ">=":
