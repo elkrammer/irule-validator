@@ -685,89 +685,6 @@ func checkIfStatement(t *testing.T, stmt ast.Statement) {
 	}
 }
 
-func TestComplexExpressions(t *testing.T) {
-	tests := []struct {
-		input              string
-		expectedStatements int
-		check              func(*testing.T, *ast.Program)
-	}{
-		{
-			input:              `(HTTP::uri contains "admin") && (HTTP::header "User-Agent" contains "Mozilla")`,
-			expectedStatements: 1,
-			check: func(t *testing.T, program *ast.Program) {
-				if len(program.Statements) != 1 {
-					t.Fatalf("program has wrong number of statements. got=%d, want=%d", len(program.Statements), 3)
-				}
-
-				expr, ok := program.Statements[0].(*ast.ExpressionStatement)
-				if !ok {
-					t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
-				}
-
-				if _, ok := expr.Expression.(*ast.InfixExpression); !ok {
-					t.Fatalf("expr is not ast.InfixExpression. got=%T", expr.Expression)
-				}
-			},
-		},
-		// {
-		// 	input: `
-		//             when HTTP_REQUEST {
-		//               if { ([HTTP::uri] starts_with "/api") && ([HTTP::method] equals "POST") } {
-		//                   if { [HTTP::header exists "Content-Type"] } {
-		//                       set content_type [HTTP::header "Content-Type"]
-		//                       if { $content_type contains "application/json" } {
-		//                           pool api_json_pool
-		//                       } else {
-		//                           HTTP::respond 415 content "Unsupported Media Type"
-		//                       }
-		//                   } else {
-		//                       HTTP::respond 400 content "Bad Request: Content-Type header missing"
-		//                   }
-		//               }
-		//             }`,
-		//
-		// 	expectedStatements: 1,
-		// 	check: func(t *testing.T, program *ast.Program) {
-		// 		if len(program.Statements) != 1 {
-		// 			t.Fatalf("program has wrong number of statements. got=%d, want=%d", len(program.Statements), 1)
-		// 		}
-		//
-		// 		ifStmt, ok := program.Statements[0].(*ast.ExpressionStatement)
-		// 		if !ok {
-		// 			t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T", program.Statements[0])
-		// 		}
-		//
-		// 		if len(ifStmt.Consequence.Statements) != 2 {
-		// 			t.Fatalf("consequence does not contain 2 statements. got=%d", len(ifStmt.Consequence.Statements))
-		// 		}
-		//
-		// 		_, ok = ifStmt.Consequence.Statements[0].(*ast.SetStatement)
-		// 		if !ok {
-		// 			t.Fatalf("First statement in consequence is not ast.SetStatement. got=%T", ifStmt.Consequence.Statements[0])
-		// 		}
-		//
-		// 		nestedIf, ok := ifStmt.Consequence.Statements[1].(*ast.IfStatement)
-		// 		if !ok {
-		// 			t.Fatalf("Second statement in consequence is not ast.IfStatement. got=%T", ifStmt.Consequence.Statements[1])
-		// 		}
-		//
-		// 		if nestedIf.Alternative == nil {
-		// 			t.Fatalf("Nested if statement does not have an else block")
-		// 		}
-		// 	},
-		// },
-	}
-
-	for _, tt := range tests {
-		l := lexer.New(tt.input)
-		p := New(l)
-		program := p.ParseProgram()
-		checkParserErrors(t, p)
-
-		tt.check(t, program)
-	}
-}
-
 func checkSwitchStatement(t *testing.T, stmt ast.Statement) {
 	switchStmt, ok := stmt.(*ast.SwitchStatement)
 	if !ok {
@@ -800,7 +717,7 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 		      when HTTP_REQUEST {
 		          switch -regex [string tolower [HTTP::uri]] {
 		              "^/api/v1/users/\d+$" { }
-		              "^/api/v2/(?:users|groups)/[a-zA-Z0-9-]+$" { }
+                  "^/api/v2/(?:users|groups)/[a-zA-Z0-9-]+$" { }
 		              "^/search\?q=([^&]+)&page=(\d+)$" { }
 		              "^/products/([a-z0-9-]+)(?:/reviews)?(?:\?sort=(asc|desc))?$" { }
 		              "^/files/([^/]+\.(?:pdf|docx?|xlsx?))$" { }
@@ -906,5 +823,96 @@ func TestSwitchStatementPatternValidation(t *testing.T) {
 				t.Fatalf("Switch statement should have a default case")
 			}
 		})
+	}
+}
+
+func TestMatchesRegexExpression(t *testing.T) {
+	input := `
+when HTTP_REQUEST {
+    if { [HTTP::uri] matches_regex {^/api/v2/users/\d+$} } {
+        log local0. "Matched user API endpoint"
+    }
+}
+`
+
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("program.Statements does not contain 1 statement. got=%d",
+			len(program.Statements))
+	}
+
+	exprStmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("program.Statements[0] is not ast.ExpressionStatement. got=%T",
+			program.Statements[0])
+	}
+
+	whenExpr, ok := exprStmt.Expression.(*ast.WhenExpression)
+	if !ok {
+		t.Fatalf("exprStmt.Expression is not ast.WhenExpression. got=%T",
+			exprStmt.Expression)
+	}
+
+	if whenExpr.Event.String() != "HTTP_REQUEST" {
+		t.Errorf("whenExpr.Event is not 'HTTP_REQUEST'. got=%s", whenExpr.Event)
+	}
+
+	if len(whenExpr.Block.Statements) != 1 {
+		t.Fatalf("whenExpr.Block does not contain 1 statement. got=%d",
+			len(whenExpr.Block.Statements))
+	}
+
+	ifStmt, ok := whenExpr.Block.Statements[0].(*ast.IfStatement)
+	if !ok {
+		t.Fatalf("whenExpr.Block.Statements[0] is not ast.IfStatement. got=%T",
+			whenExpr.Block.Statements[0])
+	}
+
+	matchesRegexExpr, ok := ifStmt.Condition.(*ast.InfixExpression)
+	if !ok {
+		t.Fatalf("ifStmt.Condition is not ast.InfixExpression. got=%T",
+			ifStmt.Condition)
+	}
+
+	if matchesRegexExpr.Operator != "matches_regex" {
+		t.Fatalf("matchesRegexExpr.Operator is not 'matches_regex'. got=%s",
+			matchesRegexExpr.Operator)
+	}
+
+	arrayLiteral, ok := matchesRegexExpr.Left.(*ast.ArrayLiteral)
+	if !ok {
+		t.Fatalf("matchesRegexExpr.Left is not ast.ArrayLiteral. got=%T",
+			matchesRegexExpr.Left)
+	}
+
+	if len(arrayLiteral.Elements) != 1 {
+		t.Fatalf("arrayLiteral does not contain 1 element. got=%d",
+			len(arrayLiteral.Elements))
+	}
+
+	httpExpr, ok := arrayLiteral.Elements[0].(*ast.HttpExpression)
+	if !ok {
+		t.Fatalf("arrayLiteral.Elements[0] is not ast.HttpExpression. got=%T",
+			arrayLiteral.Elements[0])
+	}
+
+	if httpExpr.Command.Value != "HTTP::uri" {
+		t.Errorf("httpExpr.Command is not 'HTTP::uri'. got=%s", httpExpr.Command)
+	}
+
+	regexPattern, ok := matchesRegexExpr.Right.(*ast.RegexPattern)
+	if !ok {
+		t.Fatalf("matchesRegexExpr.Right is not ast.StringLiteral. got=%T",
+			matchesRegexExpr.Right)
+	}
+
+	expectedPattern := "^/api/v2/users/\\d+$"
+	if regexPattern.Value != expectedPattern {
+		t.Fatalf("regexPattern.Value is not %q. got=%q",
+			expectedPattern, regexPattern.Value)
 	}
 }

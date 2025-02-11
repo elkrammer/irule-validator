@@ -10,10 +10,11 @@ type Token struct {
 
 // predefined token types
 const (
-	// Things
+	// things
 	SEMICOLON = ";"
 	EOF       = "EOF"
 	NEWLINE   = "\n"
+	SPACE     = " "
 
 	// types
 	BLOCK   = "BLOCK"
@@ -59,6 +60,7 @@ const (
 	SET     = "SET"
 	FOREACH = "FOREACH"
 	IN      = "IN"
+	REGEX   = "REGEX"
 
 	// HTTP TOKENS
 	HTTP_REQUEST  = "HTTP_REQUEST"
@@ -98,6 +100,7 @@ const (
 	IP_ADDRESS     = "IP_ADDRESS"
 	IP_CLIENT_ADDR = "IP::client_addr"
 	IP_SERVER_ADDR = "IP::server_addr"
+	IP_REMOTE_ADDR = "IP::remote_addr"
 
 	X509_SUBJECT    = "X509::subject"
 	X509_ISSUER     = "X509::issuer"
@@ -173,12 +176,12 @@ const (
 	LTM         = "ltm"
 	RULE        = "rule"
 
-	// Additional control structures
+	// additional control structures
 	SWITCH  = "switch"
 	CASE    = "case"
 	DEFAULT = "default"
 
-	// Additional operators
+	// additional operators
 	AND = "&&"
 	OR  = "||"
 

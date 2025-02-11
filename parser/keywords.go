@@ -5,7 +5,7 @@ var (
 		"when": true, "if": true, "else": true, "elseif": true, "foreach": true, "for": true,
 		"switch": true, "case": true, "default": true, "return": true, "set": true,
 		"unset": true, "puts": true, "log": true, "while": true, "break": true,
-		"continue": true, "exit": true, "abort": true,
+		"continue": true, "exit": true, "abort": true, "and": true, "or": true,
 	}
 	commonHeaders = []string{
 		"Accept", "Accept-Charset", "Accept-Encoding", "Accept-Language", "Authorization",
@@ -26,6 +26,26 @@ var (
 		"clock", "format", "expr", "call", "binary", "b64encode", "b64decode", "md5", "sha1",
 		"sha256", "sha384", "sha512", "redirect", "compress", "decompress", "cookie",
 		"getfield", "findstr", "scan", "matchclass", "priority", "when", "use",
-		"client_addr", "server_addr", "ip2rd", "rd2ip", "replace",
+		"client_addr", "server_addr", "ip2rd", "rd2ip", "replace", "matches_regex",
+		"exists", "whereis", "drop",
+	}
+	validStringOperations = map[string]bool{
+		"contains":  true,
+		"equals":    true,
+		"tolower":   true,
+		"toupper":   true,
+		"length":    true,
+		"substring": true,
+		"match":     true,
+		"map":       true,
+		"replace":   true,
+		"trim":      true,
+		"compare":   true,
+		"findstr":   true,
+		"reverse":   true,
+		"repeat":    true,
+		"range":     true,
+		"index":     true,
+		"last":      true,
 	}
 )

@@ -1,13 +1,18 @@
-switch -glob [HTTP::uri] {
-  "/images/*" { pool image_pool }
-  "/videos/*" { pool video_pool }
-  "/api" - "/api*" {
-    set uri [string map -nocase {"/api" "/"} [HTTP::uri]]
-    HTTP::uri $uri
+when HTTP_REQUEST {
+  if { [string tolower [HTTP::host]] equals "google.com" or [string tolower [HTTP::host]] equals "microsoft.com" } {
+    log local0. "Evil!"
   }
-  "/healthcheck" {
-    HTTP::host "api.google.com"
-    node 10.0.0.1 443
+  switch -glob [HTTP::uri] {
+    "/images/*" { pool image_pool }
+    "/videos/*" { pool video_pool }
+    "/api" - "/api*" {
+      set uri [string map -nocase {"/api" "/"} [HTTP::uri]]
+      HTTP::uri $uri
+    }
+    "/healthcheck" {
+      HTTP::host "api.google.com"
+      node 10.0.0.1 443
+    }
+    default { pool default_pool }
   }
-  default { pool default_pool }
 }
