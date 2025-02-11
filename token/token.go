@@ -10,7 +10,7 @@ type Token struct {
 
 // predefined token types
 const (
-	// Things
+	// things
 	SEMICOLON = ";"
 	EOF       = "EOF"
 	NEWLINE   = "\n"
@@ -176,12 +176,12 @@ const (
 	LTM         = "ltm"
 	RULE        = "rule"
 
-	// Additional control structures
+	// additional control structures
 	SWITCH  = "switch"
 	CASE    = "case"
 	DEFAULT = "default"
 
-	// Additional operators
+	// additional operators
 	AND = "&&"
 	OR  = "||"
 

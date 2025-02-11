@@ -9,16 +9,17 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// App Config
+// app Config
 var DebugMode bool
 var PrintErrors bool
 var PrintVersion bool
 
-// Setup program flags
+// setup program flags
 func SetupFlags() {
 	pflag.BoolVarP(&DebugMode, "debug", "d", false, "Debugging Mode")
 	pflag.BoolVarP(&PrintErrors, "print-errors", "p", false, "Print Errors")
 	pflag.BoolVarP(&PrintVersion, "version", "v", false, "Print App Version")
+	help := pflag.BoolP("help", "h", false, "Show help message")
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
@@ -37,9 +38,6 @@ Examples:
 `)
 	}
 
-	// Manually check for the help flag before parsing
-	help := pflag.BoolP("help", "h", false, "Show help message")
-
 	pflag.Parse()
 
 	if *help {
@@ -47,7 +45,7 @@ Examples:
 		os.Exit(0)
 	}
 
-	if *&PrintVersion {
+	if PrintVersion {
 		version := printVersion()
 		fmt.Println(version)
 		os.Exit(0)

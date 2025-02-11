@@ -249,13 +249,13 @@ func (p *Parser) ParseProgram() *ast.Program {
 		p.nextToken()
 	}
 
-	// Check for lexer errors after parsing
+	// check for lexer errors after parsing
 	lexerErrors := p.l.Errors()
 	if len(lexerErrors) > 0 {
 		p.errors = append(p.errors, lexerErrors...)
 	}
 
-	// Handle any remaining open blocks at EOF
+	// handle any remaining open blocks at EOF
 	if p.braceCount != 0 {
 		errorMsg := fmt.Sprintf("Unbalanced braces: depth at end of parsing is %d", p.braceCount)
 		p.reportError(errorMsg)
@@ -307,7 +307,6 @@ func (p *Parser) parseStatement() ast.Statement {
 
 	if stmt == nil {
 		p.reportError("parseStatement - Unexpected token: %s", p.curToken.Literal)
-		p.nextToken() // Skip problematic token
 		return nil
 	}
 
@@ -326,7 +325,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 
 	p.nextToken() // consume the 'return' token
 
-	// Check if the next token is a semicolon or a closing brace - if so, it's a bare return statement
+	// check if the next token is a semicolon or a closing brace - if so, it's a bare return statement
 	if p.curTokenIs(token.SEMICOLON) || p.curTokenIs(token.RBRACE) {
 		return stmt
 	}
@@ -496,13 +495,13 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		leftExp = prefix()
 	}
 
-	// Check if leftExp is an InvalidIdentifier
+	// check if leftExp is an InvalidIdentifier
 	if invalidIdent, ok := leftExp.(*ast.InvalidIdentifier); ok {
 		p.reportError("parseExpression: Got *ast.InvalidIdentifier: %s", invalidIdent.Value)
 		return leftExp
 	}
 
-	// Handle multi-word identifiers with dashes
+	// handle multi-word identifiers with dashes
 	if p.curTokenIs(token.IDENT) {
 		identifier := p.curToken.Literal
 		for p.peekTokenIs(token.MINUS) || (p.peekTokenIs(token.IDENT) && isValidHeaderName(identifier+"-"+p.peekToken.Literal)) {
@@ -537,7 +536,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
-			// Check if we've reached the end of the expression
+			// check if we've reached the end of the expression
 			if p.peekTokenIs(token.RBRACE) || p.peekTokenIs(token.RBRACKET) {
 				break
 			}
@@ -596,7 +595,7 @@ func isValidHeaderName(s string) bool {
 		fmt.Printf("DEBUG: isValidHeaderName called with value: %s\n", s)
 	}
 
-	// Check against a list of common headers
+	// check against a list of common headers
 	for _, header := range commonHeaders {
 		if strings.EqualFold(s, header) {
 			if config.DebugMode {
@@ -606,7 +605,7 @@ func isValidHeaderName(s string) bool {
 		}
 	}
 
-	// Check if it's a valid custom header (starts with X- or has a hyphen)
+	// check if it's a valid custom header (starts with X- or has a hyphen)
 	if strings.HasPrefix(strings.ToLower(s), "x-") || strings.Contains(s, "-") {
 		return true
 	}
@@ -635,7 +634,7 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 		Token: p.curToken,
 	}
 
-	// Handle the BANG operator
+	// handle the BANG operator
 	if p.curToken.Type == token.BANG {
 		expression.Operator = p.curToken.Literal
 		p.nextToken()
@@ -643,10 +642,10 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 		return expression
 	}
 
-	// Handle the MINUS operator
+	// handle the MINUS operator
 	if p.curToken.Type == token.MINUS {
 		expression.Operator = p.curToken.Literal
-		p.nextToken() // Consume the MINUS token
+		p.nextToken() // consume the MINUS token
 		expression.Right = p.parseExpression(PREFIX)
 		return expression
 	}
@@ -971,7 +970,7 @@ func (p *Parser) parseSetExpression() ast.Expression {
 		return nil
 	}
 
-	// Declare the variable if it's a simple identifier
+	// declare the variable if it's a simple identifier
 	if ident, ok := stmt.Name.(*ast.Identifier); ok {
 		variableName := ident.Value
 		if strings.HasPrefix(variableName, "$") {
@@ -986,13 +985,13 @@ func (p *Parser) parseSetExpression() ast.Expression {
 		fmt.Printf("DEBUG: parseSetExpression - Name: %s\n", stmt.Name)
 	}
 
-	// Parse the value
+	// parse the value
 	if !p.peekTokenIs(token.EOF) {
-		p.nextToken() // Move to the value
+		p.nextToken() // move to the value
 		stmt.Value = p.parseExpression(LOWEST)
 	}
 
-	// Consume any remaining tokens until EOF or semicolon
+	// consume any remaining tokens until EOF or semicolon
 	for !p.curTokenIs(token.EOF) && !p.curTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -1485,10 +1484,9 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 
 	switchStmt.Cases = []*ast.CaseStatement{}
 
-	p.nextToken() // Move past the opening brace
+	p.nextToken() // move past the opening brace
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
-		// line := p.lastKnownLine
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseSwitchStatement Switch loop - Current token: %s, Literal: %s, Line: %d\n", p.curToken.Type, p.curToken.Literal, p.lastKnownLine)
 		}
@@ -2385,7 +2383,7 @@ func (p *Parser) parseStringCaseStatement() *ast.CaseStatement {
 			return nil
 		}
 
-		// Create a MultiPattern for the range
+		// create a MultiPattern for the range
 		caseStmt.Value = &ast.MultiPattern{
 			Patterns: []ast.Expression{
 				startPattern,

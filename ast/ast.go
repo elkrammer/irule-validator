@@ -228,7 +228,7 @@ func (sl *StringLiteral) String() string {
 
 // BLOCKS
 type BlockStatement struct {
-	Token      token.Token // the { token
+	Token      token.Token // { token
 	Statements []Statement
 }
 
@@ -246,7 +246,7 @@ func (bs *BlockStatement) String() string {
 
 // IF EXPRESSION
 type IfExpression struct {
-	Token       token.Token // the `if` token
+	Token       token.Token // `if` token
 	Condition   Expression
 	Consequence *BlockStatement
 	Alternative *BlockStatement
@@ -297,7 +297,7 @@ func (is *IfStatement) String() string {
 
 // HASH LITERALS
 type HashLiteral struct {
-	Token token.Token // the '{' token
+	Token token.Token // '{' token
 	Pairs map[StringLiteral]Expression
 }
 
@@ -319,7 +319,7 @@ func (hl *HashLiteral) String() string {
 }
 
 type IndexExpression struct {
-	Token token.Token // The [ token
+	Token token.Token // [ token
 	Left  Expression
 	Index Expression
 }
@@ -338,7 +338,7 @@ func (ie *IndexExpression) String() string {
 }
 
 type ListLiteral struct {
-	Token    token.Token // the '{' token
+	Token    token.Token // '{' token
 	Elements []Expression
 }
 
@@ -360,8 +360,8 @@ func (al *ListLiteral) String() string {
 }
 
 type CallExpression struct {
-	Token     token.Token // The '(' token
-	Function  Expression  // Identifier or FunctionLiteral
+	Token     token.Token // '(' token
+	Function  Expression  // identifier or FunctionLiteral
 	Arguments []Expression
 }
 
@@ -393,9 +393,9 @@ func (pe *ParenthesizedExpression) String() string {
 	return "(" + pe.Expression.String() + ")"
 }
 
-// ArrayLiteral represents a TCL list (which is equivalent to an array in many languages)
+// represents a TCL list (equivalent to an array)
 type ArrayLiteral struct {
-	Token    token.Token // the '[' token
+	Token    token.Token // '[' token
 	Elements []Expression
 }
 
@@ -410,7 +410,7 @@ func (al *ArrayLiteral) String() string {
 	}
 
 	out.WriteString("[")
-	out.WriteString(strings.Join(elements, " ")) // Note: TCL uses space as separator
+	out.WriteString(strings.Join(elements, " ")) // TCL uses space as separator
 	out.WriteString("]")
 
 	return out.String()
@@ -418,7 +418,7 @@ func (al *ArrayLiteral) String() string {
 
 // CommandSubstitution represents a command substitution in TCL, enclosed in square brackets
 type CommandSubstitution struct {
-	Token   token.Token // the '[' token
+	Token   token.Token // '[' token
 	Command Expression
 }
 
@@ -434,8 +434,8 @@ func (cs *CommandSubstitution) String() string {
 
 // WHEN EXPRESSION
 type WhenExpression struct {
-	Token token.Token // the `when` token
-	Event Expression  // typically an identifier like HTTP_REQUEST
+	Token token.Token // when token
+	Event Expression  // identifier like HTTP_REQUEST
 	Block *BlockStatement
 }
 
@@ -452,7 +452,7 @@ func (we *WhenExpression) String() string {
 
 // HTTP URI EXPRESSION
 type HttpUriExpression struct {
-	Token  token.Token // the 'HTTP_URI' token
+	Token  token.Token // HTTP_URI token
 	Method *Identifier
 }
 
@@ -479,9 +479,9 @@ type WhenNode struct {
 }
 
 type HttpExpression struct {
-	Token    token.Token // The '[' token
-	Command  *Identifier // The HTTP command (e.g., HTTP::uri)
-	Method   *Identifier // Optional method (e.g., path, host)
+	Token    token.Token // http token
+	Command  *Identifier // HTTP command (e.g., HTTP::uri)
+	Method   *Identifier // optional method (e.g., path, host)
 	Argument Expression
 }
 
@@ -515,7 +515,7 @@ func (be *BracketExpression) String() string {
 }
 
 type SwitchStatement struct {
-	Token   token.Token // the 'switch' token
+	Token   token.Token // switch token
 	Options []string
 	Value   Expression
 	Cases   []*CaseStatement
@@ -545,7 +545,7 @@ func (ss *SwitchStatement) String() string {
 }
 
 type CaseStatement struct {
-	Token       token.Token // the 'case' token
+	Token       token.Token // case token
 	Value       Expression
 	Consequence *BlockStatement
 	Line        int
@@ -563,8 +563,8 @@ func (cs *CaseStatement) String() string {
 }
 
 type IpExpression struct {
-	Token    token.Token // The token associated with this expression
-	Function string      // The specific IP function (e.g., "client_addr" or "server_addr")
+	Token    token.Token // token associated with this expression
+	Function string      // specific IP function (e.g., "client_addr" or "server_addr")
 }
 
 func (ie *IpExpression) expressionNode()      {}
@@ -581,9 +581,9 @@ func (ip *IpAddressLiteral) TokenLiteral() string { return ip.Token.Literal }
 func (ip *IpAddressLiteral) String() string       { return ip.Value }
 
 type LoadBalancerExpression struct {
-	Token    token.Token // The 'LB' token
-	Command  *Identifier // The Load Balancer command (e.g., LB::select)
-	Method   *Identifier // Optional method or subcommand
+	Token    token.Token // LB token
+	Command  *Identifier // Load Balancer command (e.g., LB::select)
+	Method   *Identifier // optional method or subcommand
 	Argument Expression
 }
 
@@ -602,9 +602,9 @@ func (lbe *LoadBalancerExpression) String() string {
 }
 
 type SSLExpression struct {
-	Token    token.Token // The 'SSL' token
-	Command  *Identifier // The SSL command (e.g., SSL::cert)
-	Method   *Identifier // Optional method or subcommand
+	Token    token.Token // SSL token
+	Command  *Identifier // SSL command (e.g., SSL::cert)
+	Method   *Identifier // optional method or subcommand
 	Argument Expression
 }
 
@@ -626,10 +626,10 @@ func (se *SSLExpression) String() string {
 }
 
 type StringOperation struct {
-	Token     token.Token  // The 'string' token
-	Function  string       // The string function (e.g., "tolower")
-	Operation string       // The operation (e.g., "tolower")
-	Arguments []Expression // The argument to the string operation
+	Token     token.Token  // 'string' token
+	Function  string       // string function (e.g., "tolower")
+	Operation string       // operation (e.g., "tolower")
+	Arguments []Expression // argument to the string operation
 }
 
 func (so *StringOperation) expressionNode()      {}
@@ -648,7 +648,7 @@ func (so *StringOperation) String() string {
 	return out.String()
 }
 
-// MapLiteral represents a map literal in the AST
+// represents a map literal in the AST
 type MapLiteral struct {
 	Token token.Token // the token.LBRACE token
 	Pairs map[Expression]Expression
@@ -696,9 +696,9 @@ func (cc *ClassCommand) String() string {
 	return out.String()
 }
 
-// InterpolatedString represents a string that may contain embedded expressions
+// represents a string that may contain embedded expressions
 type InterpolatedString struct {
-	Token token.Token // the token containing the string literal
+	Token token.Token //  token containing the string literal
 	Parts []Expression
 }
 
@@ -715,7 +715,7 @@ func (is *InterpolatedString) String() string {
 }
 
 type ForEachStatement struct {
-	Token    token.Token // the 'foreach' token
+	Token    token.Token // 'foreach' token
 	Variable string
 	List     Expression
 	Body     *BlockStatement

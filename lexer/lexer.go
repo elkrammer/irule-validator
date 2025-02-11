@@ -89,7 +89,7 @@ func (l *Lexer) readChar() {
 	l.position = l.readPosition
 	l.readPosition += 1
 
-	// Update line number
+	// update line number
 	if l.ch == '\n' {
 		l.line++
 	}
@@ -258,12 +258,12 @@ func (l *Lexer) NextToken() token.Token {
 			fmt.Printf("DEBUG: Lexer reached EOF at position %d\n", l.position)
 		}
 	default:
-		// Check for number
+		// check for number
 		if IsDigit(l.ch) || (l.ch == '-' && IsDigit(l.peekChar())) {
 			return l.readNumberOrIpAddress()
 		}
 
-		// Check for identifier
+		// check for identifier
 		if IsLetter(l.ch) {
 			tok.Literal, tok.Line = l.readIdentifier()
 			switch tok.Literal {
@@ -301,7 +301,7 @@ func (l *Lexer) NextToken() token.Token {
 			return tok
 		}
 
-		// Everything else is an illegal token
+		// everything else is an illegal token
 		l.reportError("NextToken: Illegal token found = '%c'", l.ch)
 		tok = newToken(token.ILLEGAL, l.ch, l.line)
 	}
@@ -342,7 +342,7 @@ func (l *Lexer) skipWhitespace() {
 
 // skips over single-line and block comments.
 func (l *Lexer) skipComment() {
-	// Handle single-line comments starting with # or //
+	// handle single-line comments starting with # or //
 	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
 		for l.ch != '\x00' && l.ch != '\n' {
 			l.readChar()
@@ -353,19 +353,19 @@ func (l *Lexer) skipComment() {
 		return
 	}
 
-	// Handle block comments starting with /*
+	// handle block comments starting with /*
 	if l.ch == '/' && l.peekChar() == '*' {
 		l.readChar() // Move past the /
 		l.readChar() // Move past the *
 
-		// Read until the end of the block comment (*/)
+		// read until the end of the block comment (*/)
 		for {
 			if l.ch == '*' && l.peekChar() == '/' {
-				l.readChar() // Move past the *
-				l.readChar() // Move past the /
+				l.readChar() // move past the *
+				l.readChar() // move past the /
 				break
 			}
-			// If end of input is reached without finding */, break to avoid infinite loop
+			// if end of input is reached without finding */, break to avoid infinite loop
 			if l.ch == '\x00' {
 				break
 			}
@@ -373,7 +373,7 @@ func (l *Lexer) skipComment() {
 		}
 	}
 
-	// Skip any whitespace after the comment
+	// skip any whitespace after the comment
 	l.skipWhitespace()
 }
 
@@ -386,19 +386,19 @@ func (l *Lexer) peekChar() byte {
 }
 
 func (l *Lexer) readString() string {
-	startingQuote := l.ch // Capture the type of quote used to start the string
+	startingQuote := l.ch // capture the type of quote used to start the string
 	position := l.position + 1
 	for {
 		l.readChar()
 
-		// Break if we encounter the same quote used to start the string or the end of input
+		// break if we encounter the same quote used to start the string or the end of input
 		if l.ch == startingQuote || l.ch == 0 {
 			break
 		}
 
-		// Handle escape sequences
+		// handle escape sequences
 		if l.ch == '\\' && l.peekChar() == startingQuote {
-			l.readChar() // Skip the escaped quote
+			l.readChar() // skip the escaped quote
 		}
 	}
 
@@ -423,7 +423,6 @@ func (l *Lexer) peekWord() string {
 	l.position = position
 	l.readPosition = position + 1
 	l.ch = l.input[position]
-	// fmt.Printf("DEBUG: peekWord result: %s\n", word)
 	return word
 }
 
@@ -469,7 +468,7 @@ func (l *Lexer) readIpAddress(startPosition int) token.Token {
 		}
 	}
 
-	// If it's not a valid IP address, treat it as a number
+	// if it's not a valid IP address, treat it as a number
 	return token.Token{
 		Type:    token.NUMBER,
 		Literal: l.input[startPosition:l.position],
@@ -478,7 +477,7 @@ func (l *Lexer) readIpAddress(startPosition int) token.Token {
 }
 
 func (l *Lexer) isPartOfHeaderName() bool {
-	// Check if the previous token was an identifier or part of a header name
+	// check if the previous token was an identifier or part of a header name
 	return l.position > 0 && (IsLetter(l.input[l.position-1]) || l.input[l.position-1] == '-')
 }
 
