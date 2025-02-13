@@ -8,13 +8,14 @@ import (
 )
 
 type Lexer struct {
-	input        string
-	position     int      // current position in input (points to current char)
-	readPosition int      // current reading position in input (after current char)
-	ch           byte     // current char under examination
-	braceDepth   int      // current depth in block statements
-	line         int      // current line number
-	errors       []string // catch lexing errors
+	input         string
+	position      int      // current position in input (points to current char)
+	readPosition  int      // current reading position in input (after current char)
+	ch            byte     // current char under examination
+	braceDepth    int      // current depth in block statements
+	line          int      // current line number
+	errors        []string // catch lexing errors
+	inSwitchBlock bool
 }
 
 var HttpKeywords = map[string]token.TokenType{
@@ -104,8 +105,17 @@ func (l *Lexer) NextToken() token.Token {
 
 	l.skipWhitespace()
 
-	// skip single line comments
+	// check for comments
 	if l.ch == '#' || (l.ch == '/' && l.peekChar() == '/') {
+		if l.inSwitchBlock {
+			l.reportError("Comments are not allowed in switch statement")
+			l.skipComment()
+			return token.Token{
+				Type:    token.SKIP_TO_NEXT_CASE,
+				Literal: "SKIP_TO_NEXT_CASE",
+				Line:    l.line,
+			}
+		}
 		l.skipComment()
 		return l.NextToken()
 	}
@@ -491,7 +501,7 @@ func (l *Lexer) readHeaderName() token.Token {
 
 func (l *Lexer) reportError(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	formattedMsg := "   [LEXER] " + msg
+	formattedMsg := "   [Lexer] " + msg + fmt.Sprintf(", Line: %d", l.line)
 	l.errors = append(l.errors, formattedMsg)
 }
 
@@ -516,4 +526,12 @@ func (l *Lexer) readRegexPattern() string {
 		}
 	}
 	return l.input[position:l.position]
+}
+
+func (l *Lexer) EnterSwitchBlock() {
+	l.inSwitchBlock = true
+}
+
+func (l *Lexer) ExitSwitchBlock() {
+	l.inSwitchBlock = false
 }

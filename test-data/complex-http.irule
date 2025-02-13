@@ -16,7 +16,6 @@ when HTTP_REQUEST {
     switch -glob $uri_path {
         "/api*" {
             log local0. "Routing /api to internal IP 10.0.0.1"
-            # Redirect to internal IP address
             HTTP::redirect "http://10.0.0.1[HTTP::uri]"
         }
         "/healthcheck" {

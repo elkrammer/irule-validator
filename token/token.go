@@ -11,10 +11,11 @@ type Token struct {
 // predefined token types
 const (
 	// things
-	SEMICOLON = ";"
-	EOF       = "EOF"
-	NEWLINE   = "\n"
-	SPACE     = " "
+	SEMICOLON         = ";"
+	EOF               = "EOF"
+	NEWLINE           = "\n"
+	SPACE             = " "
+	SKIP_TO_NEXT_CASE = "SKIP_TO_NEXT_CASE"
 
 	// types
 	BLOCK   = "BLOCK"

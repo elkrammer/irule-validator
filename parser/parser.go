@@ -123,6 +123,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.WHEN, p.parseWhenExpression)
 	p.registerPrefix(token.SLASH, p.parseSlashExpression)
 	p.registerPrefix(token.REGEX, p.parseRegexLiteral)
+	p.registerPrefix(token.SKIP_TO_NEXT_CASE, p.skipToNextCase)
 
 	// http commands
 	p.registerPrefix(token.HTTP_HEADER, p.parseHttpCommand)
@@ -1445,6 +1446,10 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	switchStmt.IsRegex = false
 	switchStmt.IsGlob = false
 
+	// let the lexer know we are in a switch statement to check for comments as they are invalid in this context
+	p.l.EnterSwitchBlock()
+	defer p.l.ExitSwitchBlock()
+
 	// parse switch options and value
 	p.nextToken() // move past 'switch'
 
@@ -1487,6 +1492,18 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 	p.nextToken() // move past the opening brace
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+
+		// handle comments in switch statements
+		if p.curTokenIs(token.SKIP_TO_NEXT_CASE) {
+			for !p.curTokenIs(token.STRING) &&
+				!p.curTokenIs(token.DEFAULT) &&
+				!p.curTokenIs(token.RBRACE) &&
+				!p.curTokenIs(token.EOF) {
+				p.nextToken()
+			}
+			continue
+		}
+
 		if config.DebugMode {
 			fmt.Printf("DEBUG: parseSwitchStatement Switch loop - Current token: %s, Literal: %s, Line: %d\n", p.curToken.Type, p.curToken.Literal, p.lastKnownLine)
 		}
@@ -2584,4 +2601,8 @@ func (p *Parser) checkVariableUsage(arg ast.Expression, context string) {
 		// it's not an identifier at all
 		p.reportError("checkVariableUsage -expected variable reference in %s", context)
 	}
+}
+
+func (p *Parser) skipToNextCase() ast.Expression {
+	return nil
 }
