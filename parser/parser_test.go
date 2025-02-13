@@ -916,3 +916,18 @@ when HTTP_REQUEST {
 			expectedPattern, regexPattern.Value)
 	}
 }
+
+func TestSwitchStatementWithComments(t *testing.T) {
+	input := `switch $http_uri {
+        # this comment should be illegal
+        "test" { }
+    }`
+
+	l := lexer.New(input)
+	p := New(l)
+	p.ParseProgram()
+
+	if len(p.Errors()) == 0 {
+		t.Error("Expected error for comment in switch statement")
+	}
+}
