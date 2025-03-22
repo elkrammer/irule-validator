@@ -931,3 +931,47 @@ func TestSwitchStatementWithComments(t *testing.T) {
 		t.Error("Expected error for comment in switch statement")
 	}
 }
+
+func TestRegsubVariations(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "RegsubNoFlagsSimpleStrings",
+			input: `if {[regsub "pattern" "input string" "replace" varName] == 1} {}`,
+		},
+		{
+			name:  "RegsubAllFlagBracedPattern",
+			input: `if {[regsub -all {/path/+} [HTTP::uri] /newpath var] > 0} {}`,
+		},
+		{
+			name:  "RegsubNocaseSlashUriCompareZero",
+			input: `if {[regsub -nocase /test [HTTP::uri] /test new_uri] == 0 } {}`,
+		},
+		{
+		name:  "RegsubNocaseFlagMixedArgs",
+		input: `if {[regsub -nocase $varPattern "Some Input" {Replacement} otherVar] != 0} {}`,
+		 },
+		{
+			name:  "RegsubExplicitEndOfFlags",
+			input: `if {[regsub -nocase -- /pattern/ [HTTP::uri] /replace/ var] == 1} {}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New(tt.input)
+			p := New(l)
+			_ = p.ParseProgram()
+
+			errors := p.Errors()
+			if len(errors) != 0 {
+				t.Errorf("Parser encountered %d errors parsing input:\n%s", len(errors), tt.input)
+				for i, msg := range errors {
+					t.Errorf("  Error %d: %s", i+1, msg)
+				}
+			}
+		})
+	}
+}

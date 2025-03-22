@@ -79,6 +79,9 @@ func New(input string) *Lexer {
 
 // read one forward character
 func (l *Lexer) readChar() {
+	// if config.DebugMode {
+	// 	fmt.Printf(">>> readChar: BEFORE - l.ch: %q(%d), l.position: %d, l.readPosition: %d\n", l.ch, l.ch, l.position, l.readPosition)
+	// }
 	if l.readPosition >= len(l.input) {
 		l.ch = 0
 		if config.DebugMode {
@@ -86,6 +89,9 @@ func (l *Lexer) readChar() {
 		}
 	} else {
 		l.ch = l.input[l.readPosition]
+		// if config.DebugMode {
+		// 	fmt.Printf(">>> readChar: Reading l.input[%d] = %q (%d)\n", l.readPosition, l.ch, l.ch)
+		// }
 	}
 	l.position = l.readPosition
 	l.readPosition += 1
@@ -94,6 +100,9 @@ func (l *Lexer) readChar() {
 	if l.ch == '\n' {
 		l.line++
 	}
+	// if config.DebugMode {
+	// 	fmt.Printf(">>> readChar: AFTER  - l.ch: %q(%d), l.position: %d, l.readPosition: %d\n", l.ch, l.ch, l.position, l.readPosition)
+	// }
 }
 
 func newToken(tokenType token.TokenType, ch byte, line int) token.Token {
@@ -102,6 +111,10 @@ func newToken(tokenType token.TokenType, ch byte, line int) token.Token {
 
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
+
+	// if config.DebugMode {
+	// 	fmt.Printf("DEBUG LEXER: NextToken() Entry - l.ch: %q, l.position: %d, l.readPosition: %d\n", l.ch, l.position, l.readPosition)
+	// }
 
 	l.skipWhitespace()
 
@@ -235,23 +248,19 @@ func (l *Lexer) NextToken() token.Token {
 			identifier, line := l.readIdentifier()
 			return token.Token{Type: tokenType, Literal: identifier, Line: line}
 		}
-
-		identifier, line := l.readIdentifier()
-		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
+		fallthrough
 	case 'L':
 		peekedWord := l.peekWord()
 		if tokenType, isLBKeyword := LbKeywords[peekedWord]; isLBKeyword {
 			l.readIdentifier()
 			return token.Token{Type: tokenType, Literal: peekedWord, Line: l.line}
 		}
-
-		identifier, line := l.readIdentifier()
-		return token.Token{Type: token.IDENT, Literal: identifier, Line: line}
+		fallthrough
 	case 'S':
 		peekedWord := l.peekWord()
 		if tokenType, isSSLKeyword := SSLKeywords[peekedWord]; isSSLKeyword {
-			identifier, line := l.readIdentifier()
-			return token.Token{Type: tokenType, Literal: identifier, Line: line}
+			l.readIdentifier()
+			return token.Token{Type: tokenType, Literal: peekedWord, Line: l.line}
 		}
 
 		identifier, line := l.readIdentifier()
@@ -319,8 +328,9 @@ func (l *Lexer) NextToken() token.Token {
 	l.readChar()
 
 	if config.DebugMode {
-		fmt.Printf("DEBUG: Lexer produced token: Type=%s, Literal='%s', Position=%d, Line=%d\n", tok.Type, tok.Literal, l.position, l.line)
+		fmt.Printf("DEBUG: Lexer produced token: %v. State AFTER readChar() - l.ch: %q, l.position: %d, l.readPosition: %d\n", tok, l.ch, l.position, l.readPosition)
 	}
+
 	return tok
 }
 
@@ -425,14 +435,27 @@ func (l *Lexer) readVariable() string {
 }
 
 func (l *Lexer) peekWord() string {
-	position := l.position
-	for IsLetter(l.ch) || l.ch == ':' || l.ch == '_' {
-		l.readChar()
+	peekPos := l.position
+
+	if peekPos >= len(l.input) {
+		return ""
 	}
-	word := l.input[position:l.position]
-	l.position = position
-	l.readPosition = position + 1
-	l.ch = l.input[position]
+
+	startPeekPos := peekPos
+
+	for peekPos < len(l.input) {
+		ch := l.input[peekPos]
+		if !(IsLetter(ch) || IsDigit(ch) || ch == ':' || ch == '_') {
+			break
+		}
+		peekPos++
+	}
+
+	if startPeekPos == peekPos {
+		return ""
+	}
+
+	word := l.input[startPeekPos:peekPos]
 	return word
 }
 

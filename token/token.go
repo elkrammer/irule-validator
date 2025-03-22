@@ -62,6 +62,7 @@ const (
 	FOREACH = "FOREACH"
 	IN      = "IN"
 	REGEX   = "REGEX"
+	REGSUB  = "REGSUB"
 
 	// HTTP TOKENS
 	HTTP_REQUEST  = "HTTP_REQUEST"
@@ -218,6 +219,7 @@ var keywords = map[string]TokenType{
 	"in":          IN,
 	"ltm":         LTM,
 	"rule":        RULE,
+	"regsub":      REGSUB,
 
 	// F5 Event Contexts
 	"HTTP_REQUEST":        HTTP_REQUEST,

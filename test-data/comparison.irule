@@ -1,0 +1,3 @@
+if { [string length [HTTP::uri]] > 0 } {
+  log local0. "URI is not empty"
+}

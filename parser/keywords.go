@@ -27,7 +27,7 @@ var (
 		"sha256", "sha384", "sha512", "redirect", "compress", "decompress", "cookie",
 		"getfield", "findstr", "scan", "matchclass", "priority", "when", "use",
 		"client_addr", "server_addr", "ip2rd", "rd2ip", "replace", "matches_regex",
-		"exists", "whereis", "drop",
+		"exists", "whereis", "drop", "regsub",
 	}
 	validStringOperations = map[string]bool{
 		"contains":  true,
@@ -47,5 +47,9 @@ var (
 		"range":     true,
 		"index":     true,
 		"last":      true,
+	}
+	validRegsubFlags = map[string]bool{
+		"all":    true,
+		"nocase": true,
 	}
 )

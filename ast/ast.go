@@ -10,10 +10,15 @@ import (
 
 func precedence(op string) int {
 	precedences := map[string]int{
-		"*": 3,
-		"/": 3,
-		"+": 2,
-		"-": 2,
+		token.EQ:          1,
+		token.NOT_EQ:      1,
+		token.LT:          2,
+		token.GT:          2,
+		token.PLUS:        3,
+		token.MINUS:       3,
+		token.SLASH:       4,
+		token.ASTERISK:    4,
+		token.STARTS_WITH: 5,
 	}
 	if p, ok := precedences[op]; ok {
 		return p
@@ -183,22 +188,27 @@ func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(ie.Left.String())
+	if ie.Left != nil {
+		out.WriteString(ie.Left.String())
+	}
+
 	out.WriteString(" " + ie.Operator + " ")
 
-	switch right := ie.Right.(type) {
-	case *ParenthesizedExpression:
-		out.WriteString(right.String())
-	case *InfixExpression:
-		if precedence(right.Operator) < precedence(ie.Operator) {
-			out.WriteString("(")
+	if ie.Right != nil {
+		switch right := ie.Right.(type) {
+		case *ParenthesizedExpression:
 			out.WriteString(right.String())
-			out.WriteString(")")
-		} else {
-			out.WriteString(right.String())
+		case *InfixExpression:
+			if precedence(right.Operator) < precedence(ie.Operator) {
+				out.WriteString("(")
+				out.WriteString(right.String())
+				out.WriteString(")")
+			} else {
+				out.WriteString(right.String())
+			}
+		default:
+			out.WriteString(ie.Right.String())
 		}
-	default:
-		out.WriteString(ie.Right.String())
 	}
 
 	return out.String()
@@ -814,3 +824,51 @@ type RegexPattern struct {
 func (rp *RegexPattern) expressionNode()      {}
 func (rp *RegexPattern) TokenLiteral() string { return rp.Token.Literal }
 func (rp *RegexPattern) String() string       { return rp.Value }
+
+type RegsubExpression struct {
+	Token       token.Token
+	Flags       []string
+	Pattern     Expression
+	InputString Expression
+	Replacement Expression
+	ResultVar   *Identifier
+}
+
+func (re *RegsubExpression) expressionNode()      {}
+func (re *RegsubExpression) TokenLiteral() string { return re.Token.Literal }
+func (re *RegsubExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("regsub")
+	for _, flag := range re.Flags {
+		out.WriteString(" " + flag)
+	}
+	out.WriteString(" " + re.Pattern.String())
+	out.WriteString(" " + re.InputString.String())
+	out.WriteString(" " + re.Replacement.String())
+	out.WriteString(" " + re.ResultVar.String())
+	return out.String()
+}
+
+type CommandInvocation struct {
+	Token     token.Token
+	Command   string
+	Arguments []Expression
+}
+
+func (ci *CommandInvocation) expressionNode()      {}
+func (ci *CommandInvocation) TokenLiteral() string { return ci.Token.Literal }
+func (ci *CommandInvocation) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(ci.Command)
+	for _, arg := range ci.Arguments {
+		out.WriteString(" ")
+		if arg != nil {
+			out.WriteString(arg.String())
+		} else {
+			out.WriteString("<nil>")
+		}
+	}
+	out.WriteString("]")
+	return out.String()
+}

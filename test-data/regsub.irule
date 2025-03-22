@@ -1,0 +1,11 @@
+when HTTP_REQUEST {
+  switch -glob -- [string tolower [HTTP::uri]] {
+    "/testv2*" {
+      if {[regsub -nocase /test [HTTP::uri] /test new_uri] > 0 } {
+        HTTP::uri $new_uri
+      }
+      HTTP::host "test.com"
+      pool web
+    }
+  }
+}
