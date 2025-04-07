@@ -1,0 +1,11 @@
+when HTTP_REQUEST {
+    set inputString "input string"
+    set pattern "input"
+    set replacement "output"
+
+    set result [regsub $pattern $inputString $replacement newString]
+
+    if {$result > 0} {
+        log local0. "Modified String: $newString"
+    }
+}
